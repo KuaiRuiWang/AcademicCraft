@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import UserManagePage from '@/views/admin/UserManagePage.vue'
 </script>
 
 <template>
   <main>
-    主页
+    首页
   </main>
 </template>

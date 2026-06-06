@@ -1,28 +1,46 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Layout } from 'ant-design-vue'
 import GlobalHeader from './components/GlobalHeader.vue'
 import GlobalFooter from './components/GlobalFooter.vue'
 import type { MenuItem } from './components/GlobalHeader.vue'
+import { useLoginUserStore } from '@/stores/loginUser.ts'
 
 export type { MenuItem }
 
+const loginUserStore = useLoginUserStore()
+
+/** 基础菜单项（所有用户可见） */
+const baseMenuItems: MenuItem[] = [
+  { key: 'home', label: '首页', path: '/' },
+  { key: 'about', label: '关于', path: '/about' },
+]
+
+/** 管理员菜单项（仅 admin 可见） */
+const adminMenuItems: MenuItem[] = [
+  { key: 'userManage', label: '用户管理', path: '/admin/userManage' },
+]
+
+/** 根据用户角色过滤后的菜单项 */
+const filteredMenuItems = computed<MenuItem[]>(() => {
+  if (loginUserStore.loginUser.userRole === 'admin') {
+    return [...baseMenuItems, ...adminMenuItems]
+  }
+  return baseMenuItems
+})
+
 interface Props {
-  menuItems?: MenuItem[]
   title?: string
 }
 
 withDefaults(defineProps<Props>(), {
-  menuItems: () => [
-    { key: 'home', label: '首页', path: '/' },
-    { key: 'about', label: '关于', path: '/about' },
-  ],
   title: '百夜AI代码生成平台',
 })
 </script>
 
 <template>
   <Layout class="basic-layout">
-    <GlobalHeader :menu-items="menuItems" :title="title" />
+    <GlobalHeader :menu-items="filteredMenuItems" :title="title" />
     <Layout.Content class="basic-layout-content">
       <div class="content-wrapper">
         <RouterView />
