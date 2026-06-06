@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+/ai-code-fronten/node_modules
+/ai-code-fronten/.idea
+/ai-code-fronten/.vscode
+/ai-code-fronten/.codemoss
