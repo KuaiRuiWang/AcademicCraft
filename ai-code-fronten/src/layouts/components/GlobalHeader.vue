@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Menu, Button, Layout } from 'ant-design-vue'
 import type { MenuProps } from 'ant-design-vue'
-import logoImg from '@/assets/logo.svg'
+import logoImg from '@/assets/logo.png'
 
 export interface MenuItem {
   key: string
@@ -56,14 +56,14 @@ const handleLogin = () => {
     <Menu
       v-model:selectedKeys="selectedKeys"
       mode="horizontal"
-      theme="dark"
+      theme="light"
       class="header-menu"
       :items="menuItems.map((item) => ({ key: item.key, label: item.label }))"
       @click="handleMenuClick"
     />
 
     <div class="header-right">
-      <Button type="primary" ghost size="small" @click="handleLogin">
+      <Button type="primary" size="small" @click="handleLogin">
         登录
       </Button>
     </div>
@@ -76,7 +76,9 @@ const handleLogin = () => {
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  background: #001529;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .header-left {
@@ -93,9 +95,9 @@ const handleLogin = () => {
 }
 
 .site-title {
-  color: #fff;
+  color: #1677ff;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -109,11 +111,19 @@ const handleLogin = () => {
 }
 
 .header-menu :deep(.ant-menu-item) {
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(0, 0, 0, 0.65);
 }
 
 .header-menu :deep(.ant-menu-item-selected) {
-  color: #fff;
+  color: #1677ff;
+}
+
+.header-menu :deep(.ant-menu-item:hover) {
+  color: #1677ff;
+}
+
+.header-menu :deep(.ant-menu-horizontal) {
+  border-bottom: none;
 }
 
 .header-right {

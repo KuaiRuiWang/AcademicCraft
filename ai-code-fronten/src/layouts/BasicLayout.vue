@@ -41,7 +41,7 @@ withDefaults(defineProps<Props>(), {
 
 .basic-layout-content {
   flex: 1;
-  background: #f5f5f5;
+  background: #f0f5ff;
 }
 
 .content-wrapper {

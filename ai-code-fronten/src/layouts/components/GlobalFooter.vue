@@ -13,11 +13,11 @@ import { Layout } from 'ant-design-vue'
 <style scoped>
 .global-footer {
   text-align: center;
-  background: #f0f2f5;
+  background: #fff;
   padding: 16px 24px;
   color: rgba(0, 0, 0, 0.45);
   font-size: 14px;
-  border-top: 1px solid #e8e8e8;
+  border-top: 1px solid #e6f0ff;
 }
 
 .footer-content {
