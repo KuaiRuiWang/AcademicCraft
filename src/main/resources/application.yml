@@ -1,4 +1,9 @@
 spring:
+  # session 配置
+  session:
+    store-type: redis
+    # session 30 天过期
+    timeout: 2592000
   application:
     name: wkr-ai-code-mother-backend
   profiles:
@@ -9,12 +14,25 @@ spring:
     url: jdbc:mysql://${mysql.host}:${mysql.port}/${mysql.database}
     username: ${mysql.username}
     password: ${mysql.password}
+  data:
+    redis:
+      host: ${redis.host}
+      port: ${redis.port}
+      password: ${redis.password}
+      database: 1
+      ttl: 3600
+
 
 
 server:
   port: 8123
   servlet:
     context-path: /api
+    # cookie 30 天过期
+    session:
+      cookie:
+        max-age: 2592000
+
 
 # springdoc-openapi
 springdoc:
@@ -35,14 +53,14 @@ langchain4j:
       model-name: ${deepseek.model-name}
       log-requests: true
       log-responses: true
-      max-tokens: 8192
+      max-tokens: 16384
       strict-json-schema: true
       response-format: json_object
     streaming-chat-model:
       base-url: https://api.deepseek.com
       api-key: ${deepseek.api-key}
       model-name: ${deepseek.model-name}
-      max-tokens: 8192
+      max-tokens: 16384
       log-requests: true
       log-responses: true
 
