@@ -19,8 +19,9 @@ spring:
       host: ${redis.host}
       port: ${redis.port}
       password: ${redis.password}
-      database: 1
       ttl: 3600
+      database: 1
+      username: default
 
 
 

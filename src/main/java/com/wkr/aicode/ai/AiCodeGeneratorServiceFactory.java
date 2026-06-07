@@ -2,6 +2,7 @@ package com.wkr.aicode.ai;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.wkr.aicode.config.RedisChatMemoryStoreWithDb;
 import com.wkr.aicode.service.ChatHistoryService;
 import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
@@ -25,8 +26,9 @@ public class AiCodeGeneratorServiceFactory {
     @Resource
     private StreamingChatModel streamingChatModel;
 
+
     @Resource
-    private RedisChatMemoryStore redisChatMemoryStore;
+    private RedisChatMemoryStoreWithDb redisChatMemoryStoreWithDb;
 
     @Resource
     private ChatHistoryService chatHistoryService;
@@ -72,7 +74,7 @@ public class AiCodeGeneratorServiceFactory {
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory
                 .builder()
                 .id(appId)
-                .chatMemoryStore(redisChatMemoryStore)
+                .chatMemoryStore(redisChatMemoryStoreWithDb)
                 .maxMessages(20)
                 .build();
         chatHistoryService.loadChatHistoryToMemory(appId, chatMemory, 20);
