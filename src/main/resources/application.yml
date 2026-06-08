@@ -22,9 +22,6 @@ spring:
       ttl: 3600
       database: 1
       username: default
-
-
-
 server:
   port: 8123
   servlet:
@@ -33,8 +30,6 @@ server:
     session:
       cookie:
         max-age: 2592000
-
-
 # springdoc-openapi
 springdoc:
   group-configs:
@@ -64,4 +59,7 @@ langchain4j:
       max-tokens: 16384
       log-requests: true
       log-responses: true
-
+minio:
+  endpoint: ${minio.endpoint}
+  access-key: ${minio.access-key}
+  secret-key: ${minio.secret-key}
