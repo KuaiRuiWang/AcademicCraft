@@ -2,6 +2,7 @@ package com.wkr.aicode.service;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
+import com.wkr.aicode.model.dto.app.AppAddRequest;
 import com.wkr.aicode.model.dto.app.AppQueryRequest;
 import com.wkr.aicode.model.entity.App;
 import com.wkr.aicode.model.entity.User;
@@ -17,6 +18,8 @@ import java.util.List;
  * @author <a>百夜</a>
  */
 public interface AppService extends IService<App> {
+
+    Long createApp(AppAddRequest appAddRequest, User loginUser);
 
     void generateAppScreenshotAsync(Long appId, String appUrl);
 

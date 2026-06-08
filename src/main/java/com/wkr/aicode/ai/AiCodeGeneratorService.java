@@ -28,10 +28,8 @@ public interface AiCodeGeneratorService {
     @SystemMessage(fromResource = "prompt/codegen-multi-file-system-prompt.txt")
     MultiFileCodeResult generateMultiFileCode(String userMessage);
 
-
-
     /**
-     * 生成 HTML 代码
+     * 生成 HTML 代码（流式）
      *
      * @param userMessage 用户消息
      * @return 生成的代码结果
@@ -40,7 +38,7 @@ public interface AiCodeGeneratorService {
     Flux<String> generateHtmlCodeStream(String userMessage);
 
     /**
-     * 生成多文件代码
+     * 生成多文件代码（流式）
      *
      * @param userMessage 用户消息
      * @return 生成的代码结果
