@@ -3,6 +3,7 @@ package com.wkr.aicode.ai;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.wkr.aicode.ai.tool.FileWriteTool;
+import com.wkr.aicode.ai.tool.ToolManager;
 import com.wkr.aicode.config.RedisChatMemoryStoreWithDb;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
@@ -20,6 +21,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
+import java.util.List;
 
 @Configuration
 @Slf4j
@@ -83,7 +85,7 @@ public class AiCodeGeneratorServiceFactory {
                 .builder()
                 .id(appId)
                 .chatMemoryStore(redisChatMemoryStoreWithDb)
-                .maxMessages(20)
+                .maxMessages(100)
                 .build();
         chatHistoryService.loadChatHistoryToMemory(appId, chatMemory, 20);
         return AiServices.builder(AiCodeGeneratorService.class)
@@ -103,6 +105,8 @@ public class AiCodeGeneratorServiceFactory {
         return serviceCache.get(cacheKey, key -> createAiCodeGeneratorService(appId, codeGenType));
     }
 
+    @Resource
+    private ToolManager toolManager;
     /**
      * 创建新的 AI 服务实例
      */
@@ -122,7 +126,7 @@ public class AiCodeGeneratorServiceFactory {
             case VUE_PROJECT -> AiServices.builder(AiCodeGeneratorService.class)
                     .streamingChatModel(reasoningStreamingChatModel)
                     .chatMemoryProvider(memoryId -> chatMemory)
-                    .tools(new FileWriteTool())
+                    .tools(List.of(toolManager.getAllTools()))
                     .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(
                             toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()
                     ))

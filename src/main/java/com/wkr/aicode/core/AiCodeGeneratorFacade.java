@@ -166,13 +166,9 @@ public class AiCodeGeneratorFacade {
             // 流式返回完成后保存代码
             try {
                 String completeCode = codeBuilder.toString();
-                log.info("AI 返回的完整内容，长度: {} 字符", completeCode.length());
-                log.info("========== AI 原始输出开始 ==========");
                 log.info(completeCode);
-                log.info("========== AI 原始输出结束 ==========");
                 // 使用执行器解析代码
                 Object parsedResult = CodeParserExecutor.executeParser(completeCode, codeGenType);
-                log.info("解析结果: {}", parsedResult);
                 // 使用执行器保存代码
                 File savedDir = CodeFileSaverExecutor.executeSaver(parsedResult, codeGenType,appId);
                 log.info("保存成功，路径为：" + savedDir.getAbsolutePath());
