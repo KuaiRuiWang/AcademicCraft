@@ -115,6 +115,14 @@
             <version>1.6.0-rc2</version>
         </dependency>
 
+        <!-- LangGraph4j Studio -->
+        <dependency>
+            <groupId>org.bsc.langgraph4j</groupId>
+            <artifactId>langgraph4j-studio-springboot</artifactId>
+            <version>1.6.0-rc2</version>
+        </dependency>
+
+
         <!-- 流式编程响应 -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
