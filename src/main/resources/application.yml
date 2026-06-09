@@ -63,3 +63,11 @@ minio:
   endpoint: ${minio.endpoint}
   access-key: ${minio.access-key}
   secret-key: ${minio.secret-key}
+
+pexels:
+  api-key: ${pexels.api-key}
+
+aliyun:
+  dashscope :
+    api-key: ${aliyun.dashscope.api-key}
+    model-id: ${aliyun.dashscope.model-id}

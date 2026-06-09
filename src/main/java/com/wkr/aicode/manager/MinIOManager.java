@@ -42,7 +42,7 @@ public class MinIOManager {
     public String uploadFilePrivate(String key, File file) {
         try (InputStream is = new FileInputStream(file)) {
             uploadInput(PRIVATE_BUCKET,key,is);
-            return endpoint + "/" + PUBLIC_BUCKET + key;
+            return endpoint + "/" + PRIVATE_BUCKET + key;
         } catch (Exception e) {
             log.error("上传失败", e);
             return null;
