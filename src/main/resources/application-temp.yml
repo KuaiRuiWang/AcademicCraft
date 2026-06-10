@@ -1,0 +1,29 @@
+mysql:
+  host: localhost
+  port: 3306
+  username: root
+  password: xxxxxxxx
+  database: xxxxxxxx
+  url: jdbc:mysql://localhost:3306/xxxxxxxx
+
+redis:
+  host: localhost
+  port: 6379
+  password: xxxxxxxx
+
+deepseek:
+  api-key: xxxxxxxx
+  model-name: deepseek-v4-pro
+
+minio:
+  endpoint: http://localhost:9000
+  accessKey: xxxxxxxx
+  secretKey: xxxxxxxx
+
+pexels:
+  api-key: xxxxxxxx
+
+aliyun:
+  dashscope :
+    api-key: xxxxxxxx
+    model-id: qwen-image-2.0-pro-2026-04-22
