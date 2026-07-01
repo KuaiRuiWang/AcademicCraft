@@ -59,6 +59,25 @@ langchain4j:
       max-tokens: 16384
       log-requests: true
       log-responses: true
+    # AI 模型配置
+    # 推理 AI 模型配置（用于复杂的推理任务）
+    reasoning-streaming-chat-model:
+      base-url: https://api.deepseek.com
+      api-key: ${deepseek.api-key}
+      model-name: deepseek-v4-flash
+      max-tokens: 32768
+      temperature: 0.1
+      log-requests: true
+      log-responses: true
+    # 智能路由 AI 模型配置（用于简单的分类任务）
+    routing-chat-model:
+      base-url: https://api.deepseek.com
+      api-key: ${deepseek.api-key}
+      model-name: deepseek-v4-pro
+      log-requests: true
+      log-responses: true
+
+
 minio:
   endpoint: ${minio.endpoint}
   access-key: ${minio.access-key}
