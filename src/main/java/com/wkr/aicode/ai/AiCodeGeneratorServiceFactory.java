@@ -3,6 +3,7 @@ package com.wkr.aicode.ai;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.wkr.aicode.ai.guardrail.PromptSafetyInputGuardrail;
+import com.wkr.aicode.ai.guardrail.RetryOutputGuardrail;
 import com.wkr.aicode.ai.tool.FileWriteTool;
 import com.wkr.aicode.ai.tool.ToolManager;
 import com.wkr.aicode.config.RedisChatMemoryStoreWithDb;
@@ -109,6 +110,7 @@ public class AiCodeGeneratorServiceFactory {
                                 toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()
                         ))
                         .inputGuardrails(new PromptSafetyInputGuardrail()) // 添加输入内容安全检查
+                        //.outputGuardrails(new RetryOutputGuardrail()) // 添加输出内容安全检查 不能流式输出，会缓存
                         .build();
             }
             case HTML, MULTI_FILE -> {
@@ -119,6 +121,7 @@ public class AiCodeGeneratorServiceFactory {
                         .streamingChatModel(openAiStreamingChatModel)
                         .chatMemory(chatMemory)
                         .inputGuardrails(new PromptSafetyInputGuardrail()) // 添加输入内容安全检查
+                        //.outputGuardrails(new RetryOutputGuardrail()) // 添加输出内容安全检查 不能流式输出，会缓存
                         .build();
             }
             default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR,
