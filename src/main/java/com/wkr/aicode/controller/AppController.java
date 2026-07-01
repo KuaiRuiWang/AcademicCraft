@@ -19,6 +19,8 @@ import com.wkr.aicode.model.entity.App;
 import com.wkr.aicode.model.entity.User;
 import com.wkr.aicode.model.enums.CodeGenTypeEnum;
 import com.wkr.aicode.model.vo.app.AppVO;
+import com.wkr.aicode.ratelimter.annotation.RateLimit;
+import com.wkr.aicode.ratelimter.enums.RateLimitType;
 import com.wkr.aicode.service.AppService;
 import com.wkr.aicode.service.ProjectDownloadService;
 import com.wkr.aicode.service.UserService;
@@ -297,6 +299,7 @@ public class AppController {
      * 所以：如果前端用 EventSource，必须加；如果前端用 fetch 手动读流，可以不加，但加了更规范。 建议保留，显式声明意图
      */
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @RateLimit(limitType = RateLimitType.USER, rate = 5, rateInterval = 60, message = "AI 对话请求过于频繁，请稍后再试")
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
                                                        @RequestParam String message,
                                                        HttpServletRequest request) {
