@@ -78,16 +78,28 @@ langchain4j:
       log-requests: true
       log-responses: true
 
-
+# minio对象存储
 minio:
   endpoint: ${minio.endpoint}
   access-key: ${minio.access-key}
   secret-key: ${minio.secret-key}
 
+# pexels搜索API
 pexels:
   api-key: ${pexels.api-key}
 
+# 阿里云大模型
 aliyun:
   dashscope :
     api-key: ${aliyun.dashscope.api-key}
     model-id: ${aliyun.dashscope.model-id}
+
+# 监控参数
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
