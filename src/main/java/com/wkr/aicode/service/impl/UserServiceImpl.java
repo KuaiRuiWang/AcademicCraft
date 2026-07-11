@@ -7,6 +7,7 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
+import com.wkr.aicode.model.dto.user.UserProfileUpdateRequest;
 import com.wkr.aicode.model.dto.user.UserQueryRequest;
 import com.wkr.aicode.model.entity.User;
 import com.wkr.aicode.mapper.UserMapper;
@@ -179,6 +180,31 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
             return new ArrayList<>();
         }
         return userList.stream().map(this::getUserVO).collect(Collectors.toList());
+    }
+
+    @Override
+    public UserVO updateProfile(HttpServletRequest request, UserProfileUpdateRequest updateRequest) {
+        if (updateRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
+        }
+        // 获取当前登录用户（只有自己可以更新自己）
+        User currentUser = getLoginUser(request);
+        // 只更新允许修改的字段
+        if (updateRequest.getUserName() != null) {
+            currentUser.setUserName(updateRequest.getUserName());
+        }
+        if (updateRequest.getUserAvatar() != null) {
+            currentUser.setUserAvatar(updateRequest.getUserAvatar());
+        }
+        if (updateRequest.getUserProfile() != null) {
+            currentUser.setUserProfile(updateRequest.getUserProfile());
+        }
+        // 更新到数据库
+        boolean result = updateById(currentUser);
+        if (!result) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "更新个人信息失败");
+        }
+        return getUserVO(currentUser);
     }
 
     @Override

@@ -2,6 +2,7 @@ package com.wkr.aicode.service;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
+import com.wkr.aicode.model.dto.user.UserProfileUpdateRequest;
 import com.wkr.aicode.model.dto.user.UserQueryRequest;
 import com.wkr.aicode.model.entity.User;
 import com.wkr.aicode.model.vo.user.LoginUserVO;
@@ -72,5 +73,14 @@ public interface UserService extends IService<User> {
      * @return
      */
     boolean userLogout(HttpServletRequest request);
+
+    /**
+     * 更新用户个人信息（仅可更新自己）
+     *
+     * @param request        HTTP请求（用于获取当前登录用户）
+     * @param updateRequest  个人信息更新请求
+     * @return 更新后的用户信息
+     */
+    UserVO updateProfile(HttpServletRequest request, UserProfileUpdateRequest updateRequest);
 
 }

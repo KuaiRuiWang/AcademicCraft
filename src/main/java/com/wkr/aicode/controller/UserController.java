@@ -58,6 +58,14 @@ public class UserController {
         return ResultUtils.success(result);
     }
 
+
+    /**
+     * 用户登录
+     *
+     * @param userLoginRequest 用户登录请求
+     * @param request          请求
+     * @return 登录结果
+     */
     @PostMapping("/login")
     public BaseResponse<LoginUserVO> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(userLoginRequest == null, ErrorCode.PARAMS_ERROR);
@@ -67,17 +75,38 @@ public class UserController {
         return ResultUtils.success(loginUserVO);
     }
 
+    /**
+     * 获取当前登录用户
+     */
     @GetMapping("/get/login")
     public BaseResponse<LoginUserVO> getLoginUser(HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         return ResultUtils.success(userService.getLoginUserVO(loginUser));
     }
 
+    /**
+     * 用户退出登入
+     */
     @PostMapping("/logout")
     public BaseResponse<Boolean> userLogout(HttpServletRequest request) {
         ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR);
         boolean result = userService.userLogout(request);
         return ResultUtils.success(result);
+    }
+
+    /**
+     * 更新用户个人信息（仅可更新自己）
+     *
+     * @param request       HTTP请求
+     * @param updateRequest 个人信息更新请求
+     * @return 更新后的用户信息
+     */
+    @PutMapping("/profile/update")
+    public BaseResponse<UserVO> updateProfile(HttpServletRequest request,
+                                               @RequestBody UserProfileUpdateRequest updateRequest) {
+        ThrowUtils.throwIf(updateRequest == null, ErrorCode.PARAMS_ERROR);
+        UserVO userVO = userService.updateProfile(request, updateRequest);
+        return ResultUtils.success(userVO);
     }
 
 
@@ -170,6 +199,8 @@ public class UserController {
         userVOPage.setRecords(userVOList);
         return ResultUtils.success(userVOPage);
     }
+
+
 
 
 }
