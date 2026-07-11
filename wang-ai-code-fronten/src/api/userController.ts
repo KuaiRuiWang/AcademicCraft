@@ -99,6 +99,21 @@ export async function userLogout(options?: { [key: string]: any }) {
   })
 }
 
+/** 此处后端没有提供注释 PUT /user/profile/update */
+export async function updateProfile(
+  body: API.UserProfileUpdateRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseUserVO>('/user/profile/update', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}
+
 /** 此处后端没有提供注释 POST /user/register */
 export async function userRegister(
   body: API.UserRegisterRequest,
