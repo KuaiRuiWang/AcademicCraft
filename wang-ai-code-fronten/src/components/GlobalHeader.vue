@@ -34,6 +34,15 @@
                     <UserOutlined />
                     个人中心
                   </a-menu-item>
+                  <a-menu-item @click="router.push('/my/projects')">
+                    <ProjectOutlined />
+                    我的项目
+                  </a-menu-item>
+                  <a-menu-item @click="router.push('/my/orders')">
+                    <OrderedListOutlined />
+                    我的订单
+                  </a-menu-item>
+                  <a-menu-divider />
                   <a-menu-item @click="doLogout">
                     <LogoutOutlined />
                     退出登录
@@ -57,7 +66,14 @@ import { useRouter } from 'vue-router'
 import { type MenuProps, message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import { userLogout } from '@/api/userController.ts'
-import { LogoutOutlined, HomeOutlined, UserOutlined } from '@ant-design/icons-vue'
+import {
+  LogoutOutlined,
+  HomeOutlined,
+  UserOutlined,
+  ShoppingOutlined,
+  ProjectOutlined,
+  OrderedListOutlined,
+} from '@ant-design/icons-vue'
 
 const loginUserStore = useLoginUserStore()
 const router = useRouter()
@@ -74,6 +90,24 @@ const originItems = [
     icon: () => h(HomeOutlined),
     label: '主页',
     title: '主页',
+  },
+  {
+    key: '/project',
+    icon: () => h(ShoppingOutlined),
+    label: '项目商城',
+    title: '项目商城',
+  },
+  {
+    key: '/my/projects',
+    icon: () => h(ProjectOutlined),
+    label: '我的项目',
+    title: '我的项目',
+  },
+  {
+    key: '/my/orders',
+    icon: () => h(OrderedListOutlined),
+    label: '我的订单',
+    title: '我的订单',
   },
   {
     key: '/admin/userManage',
@@ -93,6 +127,12 @@ const filterMenus = (menus = [] as MenuProps['items']) => {
     if (menuKey?.startsWith('/admin')) {
       const loginUser = loginUserStore.loginUser
       if (!loginUser || loginUser.userRole !== 'admin') {
+        return false
+      }
+    }
+    // 我的项目和我的订单需要登录
+    if (menuKey?.startsWith('/my/')) {
+      if (!loginUserStore.loginUser.id) {
         return false
       }
     }

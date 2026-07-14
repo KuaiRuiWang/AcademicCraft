@@ -61,6 +61,18 @@ declare namespace API {
     message?: string
   }
 
+  type BaseResponseListProjectCategory = {
+    code?: number
+    data?: ProjectCategory[]
+    message?: string
+  }
+
+  type BaseResponseListProjectReviewVO = {
+    code?: number
+    data?: ProjectReviewVO[]
+    message?: string
+  }
+
   type BaseResponseLoginUserVO = {
     code?: number
     data?: LoginUserVO
@@ -85,9 +97,33 @@ declare namespace API {
     message?: string
   }
 
+  type BaseResponsePageProjectOrderVO = {
+    code?: number
+    data?: PageProjectOrderVO
+    message?: string
+  }
+
+  type BaseResponsePageProjectVO = {
+    code?: number
+    data?: PageProjectVO
+    message?: string
+  }
+
   type BaseResponsePageUserVO = {
     code?: number
     data?: PageUserVO
+    message?: string
+  }
+
+  type BaseResponseProjectOrderVO = {
+    code?: number
+    data?: ProjectOrderVO
+    message?: string
+  }
+
+  type BaseResponseProjectVO = {
+    code?: number
+    data?: ProjectVO
     message?: string
   }
 
@@ -151,6 +187,10 @@ declare namespace API {
     appId: number
   }
 
+  type downloadProjectParams = {
+    orderId: number
+  }
+
   type executeWorkflowParams = {
     prompt: string
   }
@@ -164,6 +204,18 @@ declare namespace API {
   }
 
   type getAppVOByIdParams = {
+    id: number
+  }
+
+  type getOrderVOByIdParams = {
+    id: number
+  }
+
+  type getProjectVOByIdByAdminParams = {
+    id: number
+  }
+
+  type getProjectVOByIdParams = {
     id: number
   }
 
@@ -202,6 +254,10 @@ declare namespace API {
     lastCreateTime?: string
   }
 
+  type listReviewsParams = {
+    projectId: number
+  }
+
   type LoginUserVO = {
     id?: number
     userAccount?: string
@@ -235,6 +291,24 @@ declare namespace API {
     optimizeCountQuery?: boolean
   }
 
+  type PageProjectOrderVO = {
+    records?: ProjectOrderVO[]
+    pageNumber?: number
+    pageSize?: number
+    totalPage?: number
+    totalRow?: number
+    optimizeCountQuery?: boolean
+  }
+
+  type PageProjectVO = {
+    records?: ProjectVO[]
+    pageNumber?: number
+    pageSize?: number
+    totalPage?: number
+    totalRow?: number
+    optimizeCountQuery?: boolean
+  }
+
   type PageUserVO = {
     records?: UserVO[]
     pageNumber?: number
@@ -242,6 +316,133 @@ declare namespace API {
     totalPage?: number
     totalRow?: number
     optimizeCountQuery?: boolean
+  }
+
+  type ProjectAddRequest = {
+    name?: string
+    categoryId?: number
+    techTags?: string
+    description?: string
+    detailContent?: string
+    coverImage?: string
+    price?: number
+    sourceType?: number
+    sourceUrl?: string
+    demoUrl?: string
+    images?: ProjectImageItem[]
+  }
+
+  type ProjectCategory = {
+    id?: number
+    name?: string
+    icon?: string
+    sortOrder?: number
+    createTime?: string
+    updateTime?: string
+    isDelete?: number
+  }
+
+  type ProjectImageItem = {
+    imageUrl?: string
+    sortOrder?: number
+    type?: number
+  }
+
+  type ProjectImageVO = {
+    imageUrl?: string
+    sortOrder?: number
+    type?: number
+  }
+
+  type ProjectOrderCreateRequest = {
+    projectId?: number
+  }
+
+  type ProjectOrderVO = {
+    id?: number
+    projectId?: number
+    projectName?: string
+    projectCover?: string
+    buyerId?: number
+    sellerId?: number
+    amount?: number
+    status?: number
+    sourceType?: number
+    sourceUrl?: string
+    payTime?: string
+    createTime?: string
+  }
+
+  type ProjectQueryRequest = {
+    pageNum?: number
+    pageSize?: number
+    sortField?: string
+    sortOrder?: string
+    id?: number
+    name?: string
+    categoryId?: number
+    techTag?: string
+    status?: number
+    authorId?: number
+    minPrice?: number
+    maxPrice?: number
+  }
+
+  type ProjectReviewAddRequest = {
+    projectId?: number
+    orderId?: number
+    rating?: number
+    content?: string
+  }
+
+  type ProjectReviewVO = {
+    id?: number
+    projectId?: number
+    userId?: number
+    rating?: number
+    content?: string
+    createTime?: string
+    user?: UserVO
+  }
+
+  type ProjectUpdateRequest = {
+    id?: number
+    name?: string
+    categoryId?: number
+    techTags?: string
+    description?: string
+    detailContent?: string
+    coverImage?: string
+    price?: number
+    sourceType?: number
+    sourceUrl?: string
+    demoUrl?: string
+    status?: number
+    images?: ProjectImageItem[]
+  }
+
+  type ProjectVO = {
+    id?: number
+    name?: string
+    categoryId?: number
+    categoryName?: string
+    techTags?: string
+    description?: string
+    detailContent?: string
+    coverImage?: string
+    price?: number
+    sourceType?: number
+    sourceUrl?: string
+    demoUrl?: string
+    authorId?: number
+    status?: number
+    salesCount?: number
+    viewCount?: number
+    avgRating?: number
+    createTime?: string
+    updateTime?: string
+    author?: UserVO
+    images?: ProjectImageVO[]
   }
 
   type QualityResult = {
