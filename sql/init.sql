@@ -57,3 +57,92 @@ create table chat_history
     INDEX idx_createTime (createTime),             -- 提升基于时间的查询性能
     INDEX idx_appId_createTime (appId, createTime) -- 游标查询核心索引
 ) comment '对话历史' collate = utf8mb4_unicode_ci;
+
+-- 项目分类表（管理员维护的固定技术栈分类）
+create table project_category
+(
+    id          bigint auto_increment comment 'id' primary key,
+    name        varchar(50)                        not null comment '分类名称',
+    icon        varchar(255)                       null comment '分类图标URL',
+    sortOrder   int      default 0                 not null comment '排序权重',
+    createTime  datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    updateTime  datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    isDelete    tinyint  default 0                 not null comment '是否删除'
+) comment '项目分类' collate = utf8mb4_unicode_ci;
+
+-- 项目商品表
+create table project
+(
+    id            bigint auto_increment comment 'id' primary key,
+    name          varchar(100)                          not null comment '项目名称',
+    categoryId    bigint                                not null comment '分类ID',
+    techTags      varchar(500)                          null comment '自定义技术标签（JSON数组）',
+    description   varchar(500)                          null comment '项目简介',
+    detailContent mediumtext                            null comment '项目详情（富文本HTML）',
+    coverImage    varchar(500)                          null comment '封面图URL',
+    price         decimal(10,2) default 0.00            not null comment '价格',
+    sourceType    tinyint      default 1                not null comment '交付方式：1-ZIP下载 2-网盘链接 3-两者都有',
+    sourceUrl     varchar(500)                          null comment '源码地址',
+    demoUrl       varchar(500)                          null comment '在线演示地址',
+    authorId      bigint                                not null comment '卖家用户ID',
+    status        tinyint      default 0                not null comment '状态：0-草稿 1-已发布 2-已下架',
+    auditReason   varchar(500)                          null comment 'AI审核原因（字段保留）',
+    salesCount    int          default 0                not null comment '销量',
+    viewCount     int          default 0                not null comment '浏览量',
+    avgRating     decimal(2,1) default 0.0              not null comment '平均评分',
+    editTime      datetime     default CURRENT_TIMESTAMP not null comment '编辑时间',
+    createTime    datetime     default CURRENT_TIMESTAMP not null comment '创建时间',
+    updateTime    datetime     default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    isDelete      tinyint      default 0                not null comment '是否删除',
+    INDEX idx_categoryId (categoryId),
+    INDEX idx_authorId (authorId),
+    INDEX idx_status (status),
+    INDEX idx_name (name)
+) comment '项目商品' collate = utf8mb4_unicode_ci;
+
+-- 项目介绍图片表
+create table project_image
+(
+    id          bigint auto_increment comment 'id' primary key,
+    projectId   bigint                             not null comment '项目ID',
+    imageUrl    varchar(500)                       not null comment '图片URL',
+    sortOrder   int      default 0                 not null comment '排序',
+    type        tinyint  default 0                 not null comment '类型：0-截图预览 1-详情介绍图',
+    createTime  datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    isDelete    tinyint  default 0                 not null comment '是否删除',
+    INDEX idx_projectId (projectId)
+) comment '项目图片' collate = utf8mb4_unicode_ci;
+
+-- 购买记录表
+create table project_order
+(
+    id          bigint auto_increment comment 'id' primary key,
+    projectId   bigint                                not null comment '项目ID',
+    buyerId     bigint                                not null comment '购买者ID',
+    sellerId    bigint                                not null comment '卖家ID',
+    amount      decimal(10,2)                         not null comment '金额',
+    status      tinyint      default 0                not null comment '状态：0-待支付 1-已支付 2-已退款',
+    payTime     datetime                              null comment '支付时间',
+    createTime  datetime     default CURRENT_TIMESTAMP not null comment '创建时间',
+    updateTime  datetime     default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    isDelete    tinyint      default 0                not null comment '是否删除',
+    INDEX idx_buyerId (buyerId),
+    INDEX idx_projectId (projectId),
+    INDEX idx_sellerId (sellerId)
+) comment '购买记录' collate = utf8mb4_unicode_ci;
+
+-- 项目评价表
+create table project_review
+(
+    id          bigint auto_increment comment 'id' primary key,
+    projectId   bigint                             not null comment '项目ID',
+    userId      bigint                             not null comment '评价用户ID',
+    orderId     bigint                             not null comment '关联订单ID',
+    rating      tinyint                            not null comment '评分：1-5',
+    content     text                               null comment '评价内容',
+    createTime  datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    isDelete    tinyint  default 0                 not null comment '是否删除',
+    INDEX idx_projectId (projectId),
+    INDEX idx_userId (userId),
+    UNIQUE KEY uk_orderId (orderId)
+) comment '项目评价' collate = utf8mb4_unicode_ci;
