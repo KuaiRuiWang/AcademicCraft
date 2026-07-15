@@ -14,6 +14,7 @@
       </div>
       <a-menu
         v-model:selectedKeys="selectedKeys"
+        v-model:openKeys="openKeys"
         theme="dark"
         mode="inline"
         :items="adminMenuItems"
@@ -58,6 +59,9 @@ import {
   TeamOutlined,
   AppstoreOutlined,
   MessageOutlined,
+  ProjectOutlined,
+  FolderOutlined,
+  UnorderedListOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
 } from '@ant-design/icons-vue'
@@ -66,12 +70,19 @@ const router = useRouter()
 const route = useRoute()
 const collapsed = ref(false)
 const selectedKeys = ref<string[]>([route.path])
+const openKeys = ref<string[]>(['project-group'])
 
-// 监听路由变化更新选中菜单
+// 监听路由变化更新选中菜单和展开的子菜单
 watch(
   () => route.path,
   (path) => {
     selectedKeys.value = [path]
+    // 如果当前路由属于项目管理子菜单，保持 project-group 展开
+    if (path.startsWith('/admin/project') || path.startsWith('/admin/category')) {
+      if (!openKeys.value.includes('project-group')) {
+        openKeys.value = [...openKeys.value, 'project-group']
+      }
+    }
   }
 )
 
@@ -91,6 +102,23 @@ const adminMenuItems: MenuProps['items'] = [
     key: '/admin/chatManage',
     icon: () => h(MessageOutlined),
     label: '对话管理',
+  },
+  {
+    key: 'project-group',
+    icon: () => h(ProjectOutlined),
+    label: '项目管理',
+    children: [
+      {
+        key: '/admin/projectManage',
+        icon: () => h(UnorderedListOutlined),
+        label: '项目列表',
+      },
+      {
+        key: '/admin/categoryManage',
+        icon: () => h(FolderOutlined),
+        label: '分类管理',
+      },
+    ],
   },
 ]
 

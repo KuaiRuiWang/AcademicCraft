@@ -283,8 +283,9 @@ const loadCategories = async () => {
 const loadProject = async () => {
   if (!isEdit.value) return
   try {
-    const id = Number(route.params.id)
-    const res = await getProjectVoById({ id })
+    // 不使用 Number()，避免 JS 大数精度丢失。后端已配置 Long → String 序列化
+    const id = route.params.id as string
+    const res = await getProjectVoById({ id: id as unknown as number })
     if (res.data.code === 0 && res.data.data) {
       const p = res.data.data
       form.name = p.name || ''
@@ -335,7 +336,9 @@ const beforeCoverUpload: UploadProps['beforeUpload'] = (file) => {
 const customCoverUpload: UploadProps['customRequest'] = async (options) => {
   const { file, onSuccess, onError } = options as any
   try {
-    const res = await upload(file as File)
+    const formData = new FormData()
+    formData.append('file', file as File)
+    const res = await upload(formData)
     if (res.data.code === 0 && res.data.data) {
       form.coverImage = res.data.data
       message.success('封面上传成功')
@@ -364,7 +367,9 @@ const beforeImageUpload: UploadProps['beforeUpload'] = (file) => {
 const customImageUpload: UploadProps['customRequest'] = async (options) => {
   const { file, onSuccess, onError } = options as any
   try {
-    const res = await upload(file as File)
+    const formData = new FormData()
+    formData.append('file', file as File)
+    const res = await upload(formData)
     if (res.data.code === 0 && res.data.data) {
       form.images = [...(form.images || []), { imageUrl: res.data.data, sortOrder: (form.images?.length || 0) + 1, type: 0 }]
       message.success('截图上上传成功')
@@ -389,7 +394,9 @@ const beforeSourceUpload: UploadProps['beforeUpload'] = () => {
 const customSourceUpload: UploadProps['customRequest'] = async (options) => {
   const { file, onSuccess, onError } = options as any
   try {
-    const res = await upload(file as File)
+    const formData = new FormData()
+    formData.append('file', file as File)
+    const res = await upload(formData)
     if (res.data.code === 0 && res.data.data) {
       form.sourceUrl = res.data.data
       message.success('源码上传成功')
@@ -422,7 +429,7 @@ const handleSubmit = async () => {
     let res
     if (isEdit.value) {
       res = await updateProject({
-        id: Number(route.params.id),
+        id: route.params.id as unknown as number,
         name: form.name?.trim(),
         categoryId: form.categoryId,
         techTags: form.techTags?.trim(),

@@ -2,7 +2,7 @@
 /* eslint-disable */
 import request from '@/request'
 
-/** 此处后端没有提供注释 POST /projectReview/add */
+/** 发表项目评价 购买者对已购项目发表1-5星评价，需提供有效订单ID，同一订单只能评价一次 POST /projectReview/add */
 export async function addReview(
   body: API.ProjectReviewAddRequest,
   options?: { [key: string]: any }
@@ -17,7 +17,7 @@ export async function addReview(
   })
 }
 
-/** 此处后端没有提供注释 GET /projectReview/list/vo */
+/** 查看项目评价列表 公开接口，获取指定项目的所有评价，按创建时间倒序排列 GET /projectReview/list/vo */
 export async function listReviews(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.listReviewsParams,

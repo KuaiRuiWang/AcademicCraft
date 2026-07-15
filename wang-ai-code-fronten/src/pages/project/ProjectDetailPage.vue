@@ -264,8 +264,9 @@ const renderedContent = computed(() => {
 const loadProject = async () => {
   loading.value = true
   try {
-    const id = Number(route.params.id)
-    const res = await getProjectVoById({ id })
+    // 不使用 Number()，避免 JS 大数精度丢失。后端已配置 Long → String 序列化
+    const id = route.params.id as string
+    const res = await getProjectVoById({ id: id as unknown as number })
     if (res.data.code === 0 && res.data.data) {
       project.value = res.data.data
       reviewForm.projectId = id
@@ -281,8 +282,8 @@ const loadProject = async () => {
 // 加载评价
 const loadReviews = async () => {
   try {
-    const id = Number(route.params.id)
-    const res = await listReviews({ projectId: id })
+    const id = route.params.id as string
+    const res = await listReviews({ projectId: id as unknown as number })
     if (res.data.code === 0 && res.data.data) {
       reviews.value = res.data.data
       // 查找我的评价

@@ -285,7 +285,9 @@ const customUpload: UploadProps['customRequest'] = async (options) => {
     reader.readAsDataURL(file as File)
 
     // 上传服务端
-    const res = await upload(file as File)
+    const formData = new FormData()
+    formData.append('file', file as File)
+    const res = await upload(formData)
     if (res.data.code === 0 && res.data.data) {
       formState.userAvatar = res.data.data
       message.success('头像上传成功')

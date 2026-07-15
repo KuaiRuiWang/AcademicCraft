@@ -8,6 +8,8 @@ import AppManagePage from '@/pages/admin/AppManagePage.vue'
 import AppChatPage from '@/pages/app/AppChatPage.vue'
 import AppEditPage from '@/pages/app/AppEditPage.vue'
 import ChatManagePage from '@/pages/admin/ChatManagePage.vue'
+import ProjectManagePage from '@/pages/admin/ProjectManagePage.vue'
+import CategoryManagePage from '@/pages/admin/CategoryManagePage.vue'
 import ProjectMarketPage from '@/pages/project/ProjectMarketPage.vue'
 import ProjectDetailPage from '@/pages/project/ProjectDetailPage.vue'
 import ProjectEditPage from '@/pages/project/ProjectEditPage.vue'
@@ -53,6 +55,18 @@ const router = createRouter({
       path: '/admin/chatManage',
       name: '对话管理',
       component: ChatManagePage,
+      meta: { layout: 'admin' },
+    },
+    {
+      path: '/admin/projectManage',
+      name: '项目管理',
+      component: ProjectManagePage,
+      meta: { layout: 'admin' },
+    },
+    {
+      path: '/admin/categoryManage',
+      name: '分类管理',
+      component: CategoryManagePage,
       meta: { layout: 'admin' },
     },
     {

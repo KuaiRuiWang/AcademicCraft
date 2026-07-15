@@ -6,9 +6,6 @@ import request from '@/request'
 export async function upload(body: {}, options?: { [key: string]: any }) {
   return request<API.BaseResponseString>('/common/upload', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
     data: body,
     ...(options || {}),
   })
