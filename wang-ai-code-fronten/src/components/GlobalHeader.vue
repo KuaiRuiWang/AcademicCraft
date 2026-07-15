@@ -22,7 +22,17 @@
       <!-- 右侧：用户操作区域 -->
       <a-col>
         <div class="user-login-status">
-          <div v-if="loginUserStore.loginUser.id">
+          <div v-if="loginUserStore.loginUser.id" class="user-actions">
+            <a-button
+              v-if="loginUserStore.loginUser.userRole === 'admin'"
+              type="primary"
+              size="small"
+              class="admin-switch-btn"
+              @click="router.push('/admin/userManage')"
+            >
+              <template #icon><DashboardOutlined /></template>
+              管理端
+            </a-button>
             <a-dropdown>
               <a-space class="user-avatar-area" @click.stop="goToProfile">
                 <a-avatar :src="loginUserStore.loginUser.userAvatar" />
@@ -73,6 +83,7 @@ import {
   ShoppingOutlined,
   ProjectOutlined,
   OrderedListOutlined,
+  DashboardOutlined,
 } from '@ant-design/icons-vue'
 
 const loginUserStore = useLoginUserStore()
@@ -108,16 +119,6 @@ const originItems = [
     icon: () => h(OrderedListOutlined),
     label: '我的订单',
     title: '我的订单',
-  },
-  {
-    key: '/admin/userManage',
-    label: '用户管理',
-    title: '用户管理',
-  },
-  {
-    key: '/admin/appManage',
-    label: '应用管理',
-    title: '应用管理',
   },
 ]
 // 过滤菜单项
@@ -209,5 +210,15 @@ const doLogout = async () => {
 
 .user-avatar-area:hover {
   background-color: #f0f0f0;
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-switch-btn {
+  font-size: 13px;
 }
 </style>

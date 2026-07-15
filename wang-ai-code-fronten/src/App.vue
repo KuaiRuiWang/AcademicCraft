@@ -1,9 +1,18 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import BasicLayout from '@/layouts/BasicLayout.vue'
+import AdminLayout from '@/layouts/AdminLayout.vue'
+
+const route = useRoute()
+
+// 根据路由 meta 判断使用哪个布局
+const isAdminRoute = computed(() => route.meta?.layout === 'admin')
 </script>
 
 <template>
-  <BasicLayout />
+  <AdminLayout v-if="isAdminRoute" />
+  <BasicLayout v-else />
 </template>
 
 <style>

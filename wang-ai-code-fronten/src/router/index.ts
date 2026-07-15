@@ -41,16 +41,19 @@ const router = createRouter({
       path: '/admin/userManage',
       name: '用户管理',
       component: UserManagePage,
+      meta: { layout: 'admin' },
     },
     {
       path: '/admin/appManage',
       name: '应用管理',
       component: AppManagePage,
+      meta: { layout: 'admin' },
     },
     {
       path: '/admin/chatManage',
       name: '对话管理',
       component: ChatManagePage,
+      meta: { layout: 'admin' },
     },
     {
       path: '/app/chat/:id',
