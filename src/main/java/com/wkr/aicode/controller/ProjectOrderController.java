@@ -12,11 +12,12 @@ import com.wkr.aicode.model.dto.projectorder.ProjectOrderCreateRequest;
 import com.wkr.aicode.model.entity.Project;
 import com.wkr.aicode.model.entity.ProjectOrder;
 import com.wkr.aicode.model.entity.User;
-import com.wkr.aicode.model.enums.SourceTypeEnum;
 import com.wkr.aicode.model.vo.projectorder.ProjectOrderVO;
 import com.wkr.aicode.service.ProjectOrderService;
 import com.wkr.aicode.service.ProjectService;
 import com.wkr.aicode.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -29,6 +30,7 @@ import java.util.List;
  *
  * @author <a>百夜</a>
  */
+@Tag(name = "projectOrderController", description = "项目下单、查看订单、下载源码接口")
 @RestController
 @RequestMapping("/projectOrder")
 public class ProjectOrderController {
@@ -45,6 +47,7 @@ public class ProjectOrderController {
     /**
      * 创建订单（购买项目）
      */
+    @Operation(summary = "购买项目", description = "登录用户购买指定项目，不能购买自己的项目，同一项目不可重复购买。免费项目直接完成，付费项目待支付接入")
     @PostMapping("/create")
     public BaseResponse<Long> createOrder(@RequestBody ProjectOrderCreateRequest createRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(createRequest == null || createRequest.getProjectId() == null,
@@ -57,6 +60,7 @@ public class ProjectOrderController {
     /**
      * 我的购买记录
      */
+    @Operation(summary = "我的购买记录", description = "登录用户查看自己的所有购买订单")
     @PostMapping("/my/list/page/vo")
     public BaseResponse<Page<ProjectOrderVO>> listMyOrders(HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
@@ -73,13 +77,13 @@ public class ProjectOrderController {
     /**
      * 获取订单详情（含源码地址）
      */
+    @Operation(summary = "获取订单详情", description = "买家查看自己的订单详情，包含项目源码下载地址，仅买家本人可查看")
     @GetMapping("/get/vo")
-    public BaseResponse<ProjectOrderVO> getOrderVOById(long id, HttpServletRequest request) {
+    public BaseResponse<ProjectOrderVO> getOrderVOById(@RequestParam long id, HttpServletRequest request) {
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
         ProjectOrder order = projectOrderService.getById(id);
         ThrowUtils.throwIf(order == null, ErrorCode.NOT_FOUND_ERROR, "订单不存在");
-        // 仅买家可查看
         if (!order.getBuyerId().equals(loginUser.getId())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
@@ -89,6 +93,7 @@ public class ProjectOrderController {
     /**
      * 下载已购项目源码
      */
+    @Operation(summary = "下载已购项目源码", description = "买家下载已支付订单对应的项目源码，根据交付方式重定向到下载地址")
     @GetMapping("/download/{orderId}")
     public void downloadProject(@PathVariable Long orderId,
                                 HttpServletRequest request,
@@ -96,7 +101,6 @@ public class ProjectOrderController {
         ThrowUtils.throwIf(orderId == null || orderId <= 0, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
 
-        // 查询订单
         ProjectOrder order = projectOrderService.getById(orderId);
         ThrowUtils.throwIf(order == null, ErrorCode.NOT_FOUND_ERROR, "订单不存在");
         ThrowUtils.throwIf(!order.getBuyerId().equals(loginUser.getId()),
@@ -104,14 +108,12 @@ public class ProjectOrderController {
         ThrowUtils.throwIf(order.getStatus() != 1,
                 ErrorCode.OPERATION_ERROR, "订单未支付，无法下载");
 
-        // 查询项目
         Project project = projectService.getById(order.getProjectId());
         ThrowUtils.throwIf(project == null, ErrorCode.NOT_FOUND_ERROR, "项目不存在");
 
         String sourceUrl = project.getSourceUrl();
         ThrowUtils.throwIf(StrUtil.isBlank(sourceUrl), ErrorCode.NOT_FOUND_ERROR, "暂无源码下载地址");
 
-        // 统一重定向到源码下载地址（ZIP 文件可存 MinIO、网盘链接直接跳转）
         try {
             response.sendRedirect(sourceUrl);
         } catch (Exception e) {
