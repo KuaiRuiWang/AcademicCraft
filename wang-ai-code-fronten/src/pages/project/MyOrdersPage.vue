@@ -167,7 +167,7 @@ onMounted(() => {
 <style scoped>
 #myOrdersPage {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: var(--color-bg);
 }
 
 .container {

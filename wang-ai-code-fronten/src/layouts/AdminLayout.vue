@@ -134,7 +134,7 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
 <style scoped>
 .admin-layout {
   min-height: 100vh;
-  background: #f0f2f5;
+  background: var(--color-bg);
 }
 
 .admin-logo {
@@ -145,33 +145,41 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
   height: 64px;
   line-height: 64px;
   padding: 0 16px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   overflow: hidden;
   white-space: nowrap;
 }
 
 .admin-logo img {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
+  border-radius: 8px;
+  object-fit: cover;
 }
 
 .admin-logo-title {
   font-size: 16px;
   font-weight: 600;
   color: #fff;
+  letter-spacing: -0.01em;
 }
 
 .admin-header {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   padding: 0 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid var(--color-border);
   z-index: 9;
   height: 64px;
   line-height: 64px;
+  position: sticky;
+  top: 0;
 }
 
 .admin-header-left {
@@ -183,18 +191,18 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
 .trigger {
   font-size: 18px;
   cursor: pointer;
-  transition: color 0.3s;
-  color: #595959;
+  transition: color 0.25s var(--ease-out-expo);
+  color: var(--color-text-secondary);
 }
 
 .trigger:hover {
-  color: #1890ff;
+  color: var(--color-primary);
 }
 
 .admin-header-title {
   font-size: 16px;
-  font-weight: 500;
-  color: #262626;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .admin-header-right {
@@ -208,15 +216,16 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
 }
 
 .admin-content-wrapper {
-  background: #fff;
+  background: var(--color-surface);
   padding: 24px;
-  border-radius: 4px;
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
   min-height: calc(100vh - 64px - 96px);
 }
 
 /* 覆盖 Ant Design 默认侧边栏样式 */
 :deep(.ant-layout-sider) {
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 4px 0 20px -10px rgba(22, 24, 29, 0.35);
 }
 
 :deep(.ant-layout-sider .ant-layout-sider-children) {
@@ -227,5 +236,13 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
 /* 菜单项样式微调 */
 :deep(.ant-menu-dark) {
   margin-top: 4px;
+  padding: 8px;
+}
+
+:deep(.ant-menu-dark .ant-menu-item),
+:deep(.ant-menu-dark .ant-menu-submenu-title) {
+  transition:
+    background-color 0.25s var(--ease-out-expo),
+    color 0.25s var(--ease-out-expo);
 }
 </style>

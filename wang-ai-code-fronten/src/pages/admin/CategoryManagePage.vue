@@ -369,7 +369,7 @@ const handleDelete = async (id: number | undefined) => {
 }
 
 .icon-upload-placeholder:hover {
-  border-color: #1890ff;
+  border-color: var(--color-primary);
 }
 
 .upload-hint {

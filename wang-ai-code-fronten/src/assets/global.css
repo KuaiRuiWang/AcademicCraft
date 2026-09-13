@@ -1,0 +1,148 @@
+/* ============================================================
+   全局设计系统 — 明亮高端风（Soft Structuralism）
+   ============================================================ */
+
+:root {
+  /* 字体 */
+  --font-display: 'Plus Jakarta Sans Variable', 'PingFang SC', 'Microsoft YaHei',
+    -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* 色彩（暖灰家族，单强调色深青） */
+  --color-bg: #f7f6f3;
+  --color-surface: #ffffff;
+  --color-surface-soft: #faf9f7;
+  --color-text: #1c1917;
+  --color-text-secondary: #57534e;
+  --color-text-tertiary: #78716c;
+  --color-border: #e7e5e4;
+  --color-primary: #0f766e;
+  --color-primary-strong: #115e59;
+
+  /* 柔和暖色扩散阴影（替代纯黑低透明度） */
+  --shadow-soft: 0 20px 45px -18px rgba(28, 25, 23, 0.16);
+  --shadow-card: 0 10px 30px -12px rgba(28, 25, 23, 0.14);
+  --shadow-lift: 0 28px 60px -20px rgba(28, 25, 23, 0.24);
+  --shadow-pop: 0 8px 24px -8px rgba(28, 25, 23, 0.18);
+
+  /* 动效 */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* 圆角 */
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-display);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* 数字对齐：数据类内容用等宽数字 */
+.stat-value,
+.price,
+.ant-statistic,
+.ant-pagination,
+.ant-table-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 标题：收紧字距、平衡换行 */
+h1,
+h2,
+h3,
+h4,
+.ant-typography h1,
+.ant-typography h2,
+.ant-typography h3 {
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+/* 焦点环（键盘可达性，必须） */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 文本选区 */
+::selection {
+  background: rgba(15, 118, 110, 0.16);
+}
+
+/* 细滚动条 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d6d3d1;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a29e;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* ============================================================
+   antd 全局微交互覆盖（不破坏功能，只加手感）
+   ============================================================ */
+
+/* 按钮：悬停微位移 + 按压缩放，统一缓动 */
+.ant-btn {
+  transition:
+    transform 0.25s var(--ease-out-expo),
+    box-shadow 0.25s var(--ease-out-expo),
+    color 0.25s var(--ease-out-expo),
+    background-color 0.25s var(--ease-out-expo),
+    border-color 0.25s var(--ease-out-expo);
+}
+.ant-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+.ant-btn:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+/* 卡片/容器：柔和抬升 */
+.ant-card,
+.app-card,
+.project-card {
+  transition:
+    transform 0.35s var(--ease-out-expo),
+    box-shadow 0.35s var(--ease-out-expo),
+    border-color 0.35s var(--ease-out-expo);
+}
+
+/* 链接下划线过渡 */
+a:not(.ant-btn) {
+  text-underline-offset: 3px;
+  transition: color 0.2s var(--ease-out-expo);
+}
+
+/* 尊重系统减弱动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

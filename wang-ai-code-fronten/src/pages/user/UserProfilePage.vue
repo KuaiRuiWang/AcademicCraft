@@ -35,7 +35,7 @@
                 <div class="user-display-name">
                   {{ loginUserStore.loginUser.userName ?? '未知用户' }}
                   <a-tag
-                    :color="loginUserStore.loginUser.userRole === 'admin' ? '#ff4d4f' : '#1677ff'"
+                    :color="loginUserStore.loginUser.userRole === 'admin' ? '#dc2626' : 'success'"
                     class="role-tag"
                   >
                     {{ loginUserStore.loginUser.userRole === 'admin' ? '管理员' : '用户' }}
@@ -343,7 +343,7 @@ const handleSave = async () => {
 
 /* ======== 顶部横幅卡片 ======== */
 .profile-banner {
-  background: linear-gradient(135deg, #1677ff 0%, #69b1ff 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, #14b8a6 100%);
   border-radius: 12px;
   margin-bottom: 16px;
 }
@@ -409,7 +409,7 @@ const handleSave = async () => {
 }
 
 .section-title .anticon {
-  color: #1677ff;
+  color: var(--color-primary);
   font-size: 16px;
 }
 

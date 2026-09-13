@@ -1,6 +1,6 @@
 <template>
   <a-layout-header class="header">
-    <a-row :wrap="false">
+    <a-row :wrap="false" align="middle" class="header-inner">
       <!-- 左侧：Logo和标题 -->
       <a-col flex="200px">
         <RouterLink to="/">
@@ -16,6 +16,7 @@
           v-model:selectedKeys="selectedKeys"
           mode="horizontal"
           :items="menuItems"
+          class="header-menu"
           @click="handleMenuClick"
         />
       </a-col>
@@ -33,7 +34,7 @@
               <template #icon><DashboardOutlined /></template>
               管理端
             </a-button>
-            <a-dropdown>
+            <a-dropdown placement="bottomRight">
               <a-space class="user-avatar-area" @click.stop="goToProfile">
                 <a-avatar :src="loginUserStore.loginUser.userAvatar" />
                 {{ loginUserStore.loginUser.userName ?? '无名' }}
@@ -62,7 +63,7 @@
             </a-dropdown>
           </div>
           <div v-else>
-            <a-button type="primary" href="/user/login">登录</a-button>
+            <a-button type="primary" shape="round" href="/user/login">登录</a-button>
           </div>
         </div>
       </a-col>
@@ -91,7 +92,7 @@ const router = useRouter()
 // 当前选中菜单
 const selectedKeys = ref<string[]>(['/'])
 // 监听路由变化，更新当前选中菜单
-router.afterEach((to, from, next) => {
+router.afterEach((to) => {
   selectedKeys.value = [to.path]
 })
 // 菜单配置项
@@ -176,8 +177,20 @@ const doLogout = async () => {
 
 <style scoped>
 .header {
-  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(231, 229, 228, 0.9);
   padding: 0 24px;
+  height: 68px;
+  line-height: 68px;
+}
+
+.header-inner {
+  height: 68px;
 }
 
 .header-left {
@@ -187,29 +200,60 @@ const doLogout = async () => {
 }
 
 .logo {
-  height: 48px;
-  width: 48px;
+  height: 40px;
+  width: 40px;
+  border-radius: 10px;
+  object-fit: cover;
 }
 
 .site-title {
   margin: 0;
-  font-size: 18px;
-  color: #1890ff;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
 }
 
-.ant-menu-horizontal {
+/* 水平菜单：pill 选中态，去掉 antd 默认下划线 */
+.header-menu {
+  background: transparent;
   border-bottom: none !important;
+  font-weight: 500;
+}
+
+:deep(.ant-menu-horizontal .ant-menu-item),
+:deep(.ant-menu-horizontal .ant-menu-submenu) {
+  border-radius: 999px;
+  padding-inline: 16px;
+  transition:
+    color 0.25s var(--ease-out-expo),
+    background-color 0.25s var(--ease-out-expo);
+}
+
+:deep(.ant-menu-horizontal .ant-menu-item::after),
+:deep(.ant-menu-horizontal .ant-menu-submenu::after) {
+  display: none;
+}
+
+:deep(.ant-menu-horizontal .ant-menu-item:hover) {
+  background-color: var(--color-surface-soft);
+}
+
+:deep(.ant-menu-horizontal .ant-menu-item-selected) {
+  background-color: rgba(15, 118, 110, 0.1);
+  color: var(--color-primary);
 }
 
 .user-avatar-area {
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: background-color 0.2s;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 500;
+  transition: background-color 0.25s var(--ease-out-expo);
 }
 
 .user-avatar-area:hover {
-  background-color: #f0f0f0;
+  background-color: var(--color-surface-soft);
 }
 
 .user-actions {
@@ -220,5 +264,6 @@ const doLogout = async () => {
 
 .admin-switch-btn {
   font-size: 13px;
+  border-radius: 999px;
 }
 </style>

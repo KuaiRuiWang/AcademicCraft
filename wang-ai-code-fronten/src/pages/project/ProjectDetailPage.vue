@@ -26,8 +26,8 @@
               <!-- 项目信息 -->
               <a-card class="detail-card" :bordered="false" title="项目详情">
                 <template #extra>
-                  <a-space>
-                    <a-tag v-for="tag in parseTags(project.techTags)" :key="tag" color="blue">
+                  <a-space :size="4" wrap>
+                    <a-tag v-for="tag in parseTags(project.techTags)" :key="tag" class="tech-tag">
                       {{ tag }}
                     </a-tag>
                   </a-space>
@@ -269,7 +269,7 @@ const loadProject = async () => {
     const res = await getProjectVoById({ id: id as unknown as number })
     if (res.data.code === 0 && res.data.data) {
       project.value = res.data.data
-      reviewForm.projectId = id
+      reviewForm.projectId = id as unknown as number
       loadReviews()
     }
   } catch {
@@ -369,13 +369,13 @@ onMounted(() => {
 <style scoped>
 #projectDetailPage {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: var(--color-bg);
 }
 
 .container {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 16px 16px 64px;
 }
 
 .breadcrumb {
@@ -384,12 +384,14 @@ onMounted(() => {
 
 /* 卡片通用 */
 .detail-card {
-  border-radius: 12px;
+  border-radius: 14px;
   margin-bottom: 16px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(231, 229, 228, 0.6);
 }
 
 .detail-card :deep(.ant-card-head) {
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border);
   font-weight: 600;
 }
 
@@ -409,10 +411,21 @@ onMounted(() => {
   object-fit: cover;
 }
 
+/* 技术标签 */
+.tech-tag {
+  background: rgba(15, 118, 110, 0.08);
+  color: var(--color-primary);
+  border: none;
+  border-radius: 999px;
+  font-size: 12px;
+  padding-inline: 10px;
+  line-height: 22px;
+}
+
 /* 详情内容 */
 .detail-content {
   line-height: 1.8;
-  color: #333;
+  color: var(--color-text);
   font-size: 15px;
 }
 
@@ -424,22 +437,24 @@ onMounted(() => {
 }
 
 .detail-content :deep(pre) {
-  background: #f6f8fa;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
   padding: 16px;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow-x: auto;
 }
 
 .detail-content :deep(code) {
-  background: #f0f2f5;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 13px;
 }
 
 .detail-content :deep(img) {
   max-width: 100%;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 /* 截图 */
@@ -450,14 +465,14 @@ onMounted(() => {
 }
 
 .screenshot-item {
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
 }
 
 /* 侧边栏 */
 .sidebar {
   position: sticky;
-  top: 24px;
+  top: 84px;
 }
 
 .purchase-card {
@@ -469,9 +484,10 @@ onMounted(() => {
 }
 
 .price-value {
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 700;
-  color: #ff4d4f;
+  color: var(--color-primary);
+  letter-spacing: -0.02em;
 }
 
 .info-rows {
@@ -481,7 +497,7 @@ onMounted(() => {
 .info-row {
   padding: 6px 0;
   font-size: 14px;
-  color: #666;
+  color: var(--color-text-secondary);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -503,7 +519,7 @@ onMounted(() => {
 
 .author-bio {
   font-size: 13px;
-  color: #999;
+  color: var(--color-text-tertiary);
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -513,7 +529,7 @@ onMounted(() => {
 /* 评价 */
 .review-item {
   padding: 16px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .review-item:last-child {
@@ -535,12 +551,12 @@ onMounted(() => {
 
 .review-time {
   font-size: 12px;
-  color: #bbb;
+  color: var(--color-text-tertiary);
 }
 
 .review-content {
   font-size: 14px;
-  color: #555;
+  color: var(--color-text-secondary);
   line-height: 1.6;
   margin: 0;
 }

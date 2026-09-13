@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
+import { themeConfig } from '@/config/theme'
 
 const route = useRoute()
 
@@ -11,8 +12,10 @@ const isAdminRoute = computed(() => route.meta?.layout === 'admin')
 </script>
 
 <template>
-  <AdminLayout v-if="isAdminRoute" />
-  <BasicLayout v-else />
+  <a-config-provider :theme="themeConfig">
+    <AdminLayout v-if="isAdminRoute" />
+    <BasicLayout v-else />
+  </a-config-provider>
 </template>
 
 <style>
@@ -25,8 +28,8 @@ body {
   margin: 0;
   padding: 0;
   font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
-    'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    'Plus Jakarta Sans Variable', 'PingFang SC', 'Microsoft YaHei', -apple-system,
+    BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;

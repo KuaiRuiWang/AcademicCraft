@@ -29,7 +29,7 @@
             <a-tag color="green">管理员</a-tag>
           </div>
           <div v-else>
-            <a-tag color="blue">普通用户</a-tag>
+            <a-tag color="default">普通用户</a-tag>
           </div>
         </template>
         <template v-else-if="column.dataIndex === 'createTime'">
@@ -136,7 +136,7 @@ const doDelete = async (id: string) => {
   if (!id) {
     return
   }
-  const res = await deleteUser({ id })
+  const res = await deleteUser({ id: id as unknown as number })
   if (res.data.code === 0) {
     message.success('删除成功')
     // 刷新数据

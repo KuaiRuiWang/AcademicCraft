@@ -475,7 +475,7 @@ onMounted(() => {
 <style scoped>
 #projectEditPage {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: var(--color-bg);
 }
 
 .container {
@@ -533,16 +533,18 @@ onMounted(() => {
 }
 
 .markdown-preview :deep(pre) {
-  background: #f6f8fa;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
   padding: 12px;
-  border-radius: 6px;
+  border-radius: 8px;
   overflow-x: auto;
 }
 
 .markdown-preview :deep(code) {
-  background: #f0f2f5;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
   padding: 2px 4px;
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
 .markdown-preview :deep(img) {
@@ -576,8 +578,8 @@ onMounted(() => {
 }
 
 .cover-placeholder:hover {
-  border-color: #1677ff;
-  color: #1677ff;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .cover-preview-wrapper {
@@ -667,7 +669,7 @@ onMounted(() => {
 }
 
 .screenshot-add:hover {
-  border-color: #1677ff;
-  color: #1677ff;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 </style>

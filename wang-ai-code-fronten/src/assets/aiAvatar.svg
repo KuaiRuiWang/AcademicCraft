@@ -1,0 +1,29 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#14b8a6"/>
+      <stop offset="100%" stop-color="#0f766e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.32" cy="0.24" r="0.9">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="55%" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 圆形底色：深青渐变 -->
+  <circle cx="64" cy="64" r="64" fill="url(#bg)"/>
+  <!-- 左上柔光，模拟双嵌套高光 -->
+  <circle cx="64" cy="64" r="64" fill="url(#glow)"/>
+  <!-- 发丝内环 -->
+  <circle cx="64" cy="64" r="53" fill="none" stroke="#ffffff" stroke-opacity="0.32" stroke-width="1.5"/>
+
+  <!-- 白色 AI 星芒 -->
+  <path
+    d="M 64 38 C 66.8 55.5 72.5 61.2 90 64 C 72.5 66.8 66.8 72.5 64 90 C 61.2 72.5 55.5 66.8 38 64 C 55.5 61.2 61.2 55.5 64 38 Z"
+    fill="#ffffff"
+  />
+
+  <!-- 轨道点缀 -->
+  <circle cx="88" cy="38" r="5.5" fill="#ffffff" fill-opacity="0.92"/>
+</svg>

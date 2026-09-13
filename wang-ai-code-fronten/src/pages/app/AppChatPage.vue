@@ -4,7 +4,7 @@
     <div class="header-bar">
       <div class="header-left">
         <h1 class="app-name">{{ appInfo?.appName || '网站生成器' }}</h1>
-        <a-tag v-if="appInfo?.codeGenType" color="blue" class="code-gen-type-tag">
+        <a-tag v-if="appInfo?.codeGenType" class="code-gen-type-tag">
           {{ formatCodeGenType(appInfo.codeGenType) }}
         </a-tag>
       </div>
@@ -226,7 +226,7 @@ import request from '@/request'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import AppDetailModal from '@/components/AppDetailModal.vue'
 import DeploySuccessModal from '@/components/DeploySuccessModal.vue'
-import aiAvatar from '@/assets/aiAvatar.png'
+import aiAvatar from '@/assets/aiAvatar.svg'
 import { API_BASE_URL, getStaticPreviewUrl } from '@/config/env'
 import { VisualEditor, type ElementInfo } from '@/utils/visualEditor'
 
@@ -906,13 +906,13 @@ onUnmounted(() => {
 }
 
 .user-message .message-content {
-  background: #1890ff;
+  background: var(--color-primary);
   color: white;
 }
 
 .ai-message .message-content {
-  background: #f5f5f5;
-  color: #1a1a1a;
+  background: var(--color-surface-soft);
+  color: var(--color-text);
   padding: 8px 12px;
 }
 

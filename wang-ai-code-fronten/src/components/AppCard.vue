@@ -7,17 +7,23 @@
       </div>
       <div class="app-overlay">
         <a-space>
-          <a-button type="primary" @click="handleViewChat">查看对话</a-button>
-          <a-button v-if="app.deployKey" type="default" @click="handleViewWork">查看作品</a-button>
+          <a-button type="primary" size="small" shape="round" @click="handleViewChat">查看对话</a-button>
+          <a-button
+            v-if="app.deployKey"
+            size="small"
+            shape="round"
+            class="overlay-btn"
+            @click="handleViewWork"
+          >
+            查看作品
+          </a-button>
         </a-space>
       </div>
     </div>
     <div class="app-info">
-      <div class="app-info-left">
-        <a-avatar :src="app.user?.userAvatar" :size="40">
-          {{ app.user?.userName?.charAt(0) || 'U' }}
-        </a-avatar>
-      </div>
+      <a-avatar :src="app.user?.userAvatar" :size="40">
+        {{ app.user?.userName?.charAt(0) || 'U' }}
+      </a-avatar>
       <div class="app-info-right">
         <h3 class="app-title">{{ app.appName || '未命名应用' }}</h3>
         <p class="app-author">
@@ -56,26 +62,25 @@ const handleViewWork = () => {
 
 <style scoped>
 .app-card {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--color-surface);
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(231, 229, 228, 0.6);
   transition:
-    transform 0.3s,
-    box-shadow 0.3s;
+    transform 0.35s var(--ease-out-expo),
+    box-shadow 0.35s var(--ease-out-expo);
   cursor: pointer;
 }
 
 .app-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.25);
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lift);
 }
 
 .app-preview {
   height: 180px;
-  background: #f5f5f5;
+  background: var(--color-surface-soft);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -87,29 +92,43 @@ const handleViewWork = () => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.5s var(--ease-out-expo);
+}
+
+.app-card:hover .app-preview img {
+  transform: scale(1.05);
 }
 
 .app-placeholder {
   font-size: 48px;
-  color: #d9d9d9;
+  color: #d6d3d1;
 }
 
 .app-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background: linear-gradient(to top, rgba(22, 24, 29, 0.5), rgba(22, 24, 29, 0) 60%);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.3s;
+  transition: opacity 0.3s var(--ease-out-expo);
 }
 
 .app-card:hover .app-overlay {
   opacity: 1;
+}
+
+.overlay-btn {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: transparent;
+  color: var(--color-text);
+}
+
+.overlay-btn:hover {
+  background: #ffffff;
+  color: var(--color-primary);
+  border-color: transparent;
 }
 
 .app-info {
@@ -117,10 +136,6 @@ const handleViewWork = () => {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.app-info-left {
-  flex-shrink: 0;
 }
 
 .app-info-right {
@@ -132,7 +147,7 @@ const handleViewWork = () => {
   font-size: 16px;
   font-weight: 600;
   margin: 0 0 4px;
-  color: #1a1a1a;
+  color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -140,7 +155,7 @@ const handleViewWork = () => {
 
 .app-author {
   font-size: 14px;
-  color: #666;
+  color: var(--color-text-secondary);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;

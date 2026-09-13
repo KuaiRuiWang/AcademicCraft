@@ -3,6 +3,7 @@
     <div class="container">
       <!-- 页面头部 -->
       <div class="page-header">
+        <span class="page-eyebrow">PROJECT MARKET</span>
         <h1 class="page-title">项目商城</h1>
         <p class="page-desc">发现优秀的计算机毕设项目，轻松获取源码</p>
       </div>
@@ -85,59 +86,67 @@
           </div>
 
           <!-- 加载骨架屏 -->
-          <a-spin :spinning="loading">
-            <div v-if="projects.length === 0 && !loading" class="empty-state">
-              <a-empty description="暂无项目" />
+          <div v-if="loading" class="project-grid">
+            <div v-for="i in 8" :key="i" class="project-card">
+              <div class="skel-cover"></div>
+              <div class="card-body">
+                <a-skeleton active :title="{ width: '70%' }" :paragraph="{ rows: 2 }" />
+              </div>
             </div>
+          </div>
 
-            <div v-else class="project-grid">
-              <div
-                v-for="project in projects"
-                :key="project.id"
-                class="project-card"
-                @click="goToDetail(project.id)"
-              >
-                <div class="card-cover">
-                  <img
-                    :src="project.coverImage || defaultCover"
-                    :alt="project.name"
-                    @error="(e: any) => { e.target.src = defaultCover }"
-                  />
-                  <div class="card-price">{{ project.price ? `¥${project.price}` : '免费' }}</div>
-                  <div v-if="project.salesCount" class="card-sales">
-                    <FireOutlined /> {{ project.salesCount }}
-                  </div>
+          <div v-else-if="projects.length === 0" class="empty-state">
+            <div class="empty-icon">🗂️</div>
+            <p class="empty-text">暂无项目，换个筛选条件试试</p>
+          </div>
+
+          <div v-else class="project-grid">
+            <div
+              v-for="project in projects"
+              :key="project.id"
+              class="project-card"
+              @click="goToDetail(project.id)"
+            >
+              <div class="card-cover">
+                <img
+                  :src="project.coverImage || defaultCover"
+                  :alt="project.name"
+                  @error="(e: any) => { e.target.src = defaultCover }"
+                />
+                <div class="card-price">{{ project.price ? `¥${project.price}` : '免费' }}</div>
+                <div v-if="project.salesCount" class="card-sales">
+                  <FireOutlined /> {{ project.salesCount }}
                 </div>
-                <div class="card-body">
-                  <h3 class="card-title">{{ project.name }}</h3>
-                  <p class="card-desc">{{ project.description || '暂无描述' }}</p>
-                  <div class="card-meta">
-                    <a-space :size="4">
-                      <a-tag v-for="tag in parseTags(project.techTags)" :key="tag" color="blue">
-                        {{ tag }}
-                      </a-tag>
-                    </a-space>
-                  </div>
-                  <div class="card-footer">
-                    <a-space>
-                      <a-avatar :src="project.author?.userAvatar" :size="20" />
-                      <span class="author-name">{{ project.author?.userName || '匿名' }}</span>
-                    </a-space>
-                    <a-space :size="16">
-                      <span class="stat">
-                        <StarFilled style="color: #faad14" />
-                        {{ project.avgRating ? project.avgRating.toFixed(1) : '-' }}
-                      </span>
-                      <span class="stat">
-                        <EyeOutlined />
-                        {{ project.viewCount || 0 }}
-                      </span>
-                    </a-space>
-                  </div>
+              </div>
+              <div class="card-body">
+                <h3 class="card-title">{{ project.name }}</h3>
+                <p class="card-desc">{{ project.description || '暂无描述' }}</p>
+                <div class="card-meta">
+                  <a-space :size="4" wrap>
+                    <a-tag v-for="tag in parseTags(project.techTags)" :key="tag" class="tech-tag">
+                      {{ tag }}
+                    </a-tag>
+                  </a-space>
+                </div>
+                <div class="card-footer">
+                  <a-space>
+                    <a-avatar :src="project.author?.userAvatar" :size="20" />
+                    <span class="author-name">{{ project.author?.userName || '匿名' }}</span>
+                  </a-space>
+                  <a-space :size="16">
+                    <span class="stat">
+                      <StarFilled style="color: #f59e0b" />
+                      {{ project.avgRating ? project.avgRating.toFixed(1) : '-' }}
+                    </span>
+                    <span class="stat">
+                      <EyeOutlined />
+                      {{ project.viewCount || 0 }}
+                    </span>
+                  </a-space>
                 </div>
               </div>
             </div>
-          </a-spin>
+          </div>
 
           <!-- 分页 -->
           <div v-if="total > 0" class="pagination-wrapper">
@@ -256,39 +265,52 @@ onMounted(() => {
 <style scoped>
 #projectMarketPage {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: var(--color-bg);
 }
 
 .container {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 24px 16px;
+  padding: 24px 16px 64px;
 }
 
 /* 头部 */
 .page-header {
   text-align: center;
-  padding: 32px 0 24px;
+  padding: 40px 0 32px;
+}
+
+.page-eyebrow {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  margin-bottom: 12px;
 }
 
 .page-title {
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 700;
-  color: #1a1a2e;
-  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+  margin: 0 0 10px;
 }
 
 .page-desc {
   font-size: 16px;
-  color: #8c8c8c;
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
 /* 筛选卡片 */
 .filter-card {
-  border-radius: 12px;
+  border-radius: 14px;
   position: sticky;
-  top: 24px;
+  top: 84px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(231, 229, 228, 0.6);
 }
 
 .filter-section {
@@ -298,7 +320,7 @@ onMounted(() => {
 .filter-title {
   font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text);
   margin: 0 0 12px;
   display: flex;
   align-items: center;
@@ -319,7 +341,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-  color: #999;
+  color: var(--color-text-tertiary);
   margin-top: 4px;
 }
 
@@ -328,7 +350,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 /* 项目网格 */
@@ -339,31 +361,34 @@ onMounted(() => {
 }
 
 .project-card {
-  background: #fff;
-  border-radius: 12px;
+  background: var(--color-surface);
+  border-radius: 14px;
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(231, 229, 228, 0.6);
+  box-shadow: var(--shadow-card);
+  transition:
+    transform 0.35s var(--ease-out-expo),
+    box-shadow 0.35s var(--ease-out-expo);
 }
 
 .project-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lift);
 }
 
 .card-cover {
   position: relative;
   height: 160px;
   overflow: hidden;
-  background: #f0f2f5;
+  background: var(--color-surface-soft);
 }
 
 .card-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s;
+  transition: transform 0.5s var(--ease-out-expo);
 }
 
 .project-card:hover .card-cover img {
@@ -374,22 +399,24 @@ onMounted(() => {
   position: absolute;
   top: 12px;
   right: 12px;
-  background: linear-gradient(135deg, #ff4d4f, #ff7875);
+  background: var(--color-primary);
   color: #fff;
   padding: 4px 12px;
-  border-radius: 16px;
-  font-size: 14px;
+  border-radius: 999px;
+  font-size: 13px;
   font-weight: 600;
+  box-shadow: 0 6px 16px -6px rgba(15, 118, 110, 0.6);
 }
 
 .card-sales {
   position: absolute;
   top: 12px;
   left: 12px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(22, 24, 29, 0.55);
+  backdrop-filter: blur(6px);
   color: #fff;
-  padding: 2px 8px;
-  border-radius: 12px;
+  padding: 2px 10px;
+  border-radius: 999px;
   font-size: 12px;
 }
 
@@ -400,7 +427,7 @@ onMounted(() => {
 .card-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--color-text);
   margin: 0 0 8px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -409,7 +436,7 @@ onMounted(() => {
 
 .card-desc {
   font-size: 13px;
-  color: #8c8c8c;
+  color: var(--color-text-secondary);
   margin: 0 0 10px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -424,32 +451,76 @@ onMounted(() => {
   min-height: 24px;
 }
 
+.tech-tag {
+  background: rgba(15, 118, 110, 0.08);
+  color: var(--color-primary);
+  border: none;
+  border-radius: 999px;
+  font-size: 12px;
+  padding-inline: 10px;
+  line-height: 22px;
+}
+
 .card-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--color-border);
   font-size: 13px;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .author-name {
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .stat {
   font-size: 13px;
-  color: #999;
+  color: var(--color-text-tertiary);
   display: flex;
   align-items: center;
   gap: 2px;
 }
 
+/* 骨架屏 */
+.skel-cover {
+  height: 160px;
+  background: linear-gradient(90deg, #f0efed 25%, #f7f6f3 37%, #f0efed 63%);
+  background-size: 400% 100%;
+  animation: skel 1.4s ease infinite;
+}
+
+@keyframes skel {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
 /* 空状态 */
 .empty-state {
-  padding: 80px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 72px 24px;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: 14px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 40px;
+}
+
+.empty-text {
+  margin: 0;
+  color: var(--color-text-secondary);
 }
 
 /* 分页 */

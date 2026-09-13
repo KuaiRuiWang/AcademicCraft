@@ -6,6 +6,8 @@ import router from './router'
 
 import Antd from 'ant-design-vue'
 import 'ant-design-vue/dist/reset.css'
+import '@fontsource-variable/plus-jakarta-sans/wght.css'
+import '@/assets/global.css'
 
 import '@/access'
 
