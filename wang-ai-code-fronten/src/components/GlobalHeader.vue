@@ -85,6 +85,7 @@ import {
   ProjectOutlined,
   OrderedListOutlined,
   DashboardOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons-vue'
 
 const loginUserStore = useLoginUserStore()
@@ -108,6 +109,12 @@ const originItems = [
     icon: () => h(ShoppingOutlined),
     label: '项目商城',
     title: '项目商城',
+  },
+  {
+    key: '/create',
+    icon: () => h(ThunderboltOutlined),
+    label: 'AI 定制',
+    title: 'AI 定制',
   },
   {
     key: '/my/projects',

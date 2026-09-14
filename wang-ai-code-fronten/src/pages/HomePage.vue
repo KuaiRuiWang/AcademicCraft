@@ -1,130 +1,107 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
-import { useLoginUserStore } from '@/stores/loginUser'
-import { addApp, listMyAppVoByPage, listGoodAppVoByPage } from '@/api/appController'
+import {
+  FireOutlined,
+  StarFilled,
+  EyeOutlined,
+  ArrowRightOutlined,
+  CodeOutlined,
+  CloudUploadOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons-vue'
+import { listProjectVoByPage } from '@/api/projectController'
+import { listCategories } from '@/api/projectCategoryController'
+import { listGoodAppVoByPage } from '@/api/appController'
 import { getDeployUrl } from '@/config/env'
 import AppCard from '@/components/AppCard.vue'
 
 const router = useRouter()
-const loginUserStore = useLoginUserStore()
 
-// 用户提示词
-const userPrompt = ref('')
-const creating = ref(false)
-const inputShell = ref<HTMLDivElement | null>(null)
+const defaultCover =
+  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgZmlsbD0iI2YwZjJmNSIvPjx0ZXh0IHg9IjIwMCIgeT0iMTI1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjE4IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+'
 
-// 我的应用数据
-const myApps = ref<API.AppVO[]>([])
-const myAppsLoading = ref(false)
-const myAppsPage = reactive({
-  current: 1,
-  pageSize: 6,
-  total: 0,
-})
+// 热门项目
+const projectsLoading = ref(false)
+const projects = ref<API.ProjectVO[]>([])
 
-// 精选应用数据
+// 分类
+const categories = ref<API.ProjectCategory[]>([])
+
+// AI 生成案例
 const featuredApps = ref<API.AppVO[]>([])
 const featuredAppsLoading = ref(false)
-const featuredAppsPage = reactive({
-  current: 1,
-  pageSize: 6,
-  total: 0,
-})
 
-// 设置提示词
-const setPrompt = (prompt: string) => {
-  userPrompt.value = prompt
-  scrollToInput()
-}
-
-// 滚动到输入区
-const scrollToInput = () => {
-  inputShell.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-}
-
-// 创建应用
-const createApp = async () => {
-  if (!userPrompt.value.trim()) {
-    message.warning('请输入应用描述')
-    return
-  }
-
-  if (!loginUserStore.loginUser.id) {
-    message.warning('请先登录')
-    await router.push('/user/login')
-    return
-  }
-
-  creating.value = true
+// 加载热门项目（按销量）
+const loadHotProjects = async () => {
+  projectsLoading.value = true
   try {
-    const res = await addApp({
-      initPrompt: userPrompt.value.trim(),
-    })
-
-    if (res.data.code === 0 && res.data.data) {
-      message.success('应用创建成功')
-      // 跳转到对话页面，确保ID是字符串类型
-      const appId = String(res.data.data)
-      await router.push(`/app/chat/${appId}`)
-    } else {
-      message.error('创建失败：' + res.data.message)
-    }
-  } catch (error) {
-    console.error('创建应用失败：', error)
-    message.error('创建失败，请重试')
-  } finally {
-    creating.value = false
-  }
-}
-
-// 加载我的应用
-const loadMyApps = async () => {
-  if (!loginUserStore.loginUser.id) {
-    return
-  }
-
-  myAppsLoading.value = true
-  try {
-    const res = await listMyAppVoByPage({
-      pageNum: myAppsPage.current,
-      pageSize: myAppsPage.pageSize,
-      sortField: 'createTime',
+    const res = await listProjectVoByPage({
+      pageNum: 1,
+      pageSize: 6,
+      sortField: 'salesCount',
       sortOrder: 'desc',
     })
-
     if (res.data.code === 0 && res.data.data) {
-      myApps.value = res.data.data.records || []
-      myAppsPage.total = res.data.data.totalRow || 0
+      projects.value = res.data.data.records || []
     }
   } catch (error) {
-    console.error('加载我的应用失败：', error)
+    console.error('加载热门项目失败：', error)
   } finally {
-    myAppsLoading.value = false
+    projectsLoading.value = false
   }
 }
 
-// 加载精选应用
+// 加载分类
+const loadCategories = async () => {
+  try {
+    const res = await listCategories()
+    if (res.data.code === 0 && res.data.data) {
+      categories.value = res.data.data
+    }
+  } catch (error) {
+    console.error('加载分类失败：', error)
+  }
+}
+
+// 加载 AI 生成案例
 const loadFeaturedApps = async () => {
   featuredAppsLoading.value = true
   try {
     const res = await listGoodAppVoByPage({
-      pageNum: featuredAppsPage.current,
-      pageSize: featuredAppsPage.pageSize,
+      pageNum: 1,
+      pageSize: 3,
       sortField: 'createTime',
       sortOrder: 'desc',
     })
-
     if (res.data.code === 0 && res.data.data) {
       featuredApps.value = res.data.data.records || []
-      featuredAppsPage.total = res.data.data.totalRow || 0
     }
   } catch (error) {
-    console.error('加载精选应用失败：', error)
+    console.error('加载 AI 案例失败：', error)
   } finally {
     featuredAppsLoading.value = false
   }
+}
+
+// 解析 techTags 字符串
+const parseTags = (tags?: string): string[] => {
+  if (!tags) return []
+  return tags.split(',').filter(Boolean).map(t => t.trim())
+}
+
+// 跳转商城（可带分类）
+const goToMarket = (categoryId?: number) => {
+  if (categoryId) {
+    router.push({ path: '/project', query: { categoryId } })
+  } else {
+    router.push('/project')
+  }
+}
+
+// 跳转项目详情
+const goToProjectDetail = (id?: number) => {
+  if (id) router.push(`/project/${id}`)
 }
 
 // 查看对话
@@ -137,14 +114,14 @@ const viewChat = (appId: string | number | undefined) => {
 // 查看作品
 const viewWork = (app: API.AppVO) => {
   if (app.deployKey) {
-    const url = getDeployUrl(app.deployKey)
+    const url = getDeployUrl(app.deployKey, app.codeGenType)
     window.open(url, '_blank')
   }
 }
 
-// 页面加载时获取数据
 onMounted(() => {
-  loadMyApps()
+  loadHotProjects()
+  loadCategories()
   loadFeaturedApps()
 
   // 鼠标跟随光效（单色，柔和）
@@ -172,116 +149,144 @@ onMounted(() => {
     <div class="container">
       <!-- 主视觉 -->
       <div class="hero-section">
-        <span class="hero-eyebrow">百夜毕设帮</span>
-        <h1 class="hero-title">不写一行代码，<br /><span class="accent">生成</span>计算机毕设</h1>
-        <p class="hero-description">描述你的想法，一句话生成可部署的网站应用</p>
+        <span class="hero-eyebrow">百夜毕设帮 · 计算机毕设一站式平台</span>
+        <h1 class="hero-title">选一份成品项目，<br />或让 <span class="accent">AI 为你定制</span></h1>
+        <p class="hero-description">
+          精选优质毕设项目源码，购买即交付、可部署上线；没有找到合适的，用 AI 从零生成
+        </p>
+        <div class="hero-actions">
+          <a-button type="primary" size="large" shape="round" @click="goToMarket()">
+            逛项目商城
+          </a-button>
+          <a-button size="large" shape="round" class="ghost-btn" @click="router.push('/create')">
+            AI 定制生成
+            <ArrowRightOutlined />
+          </a-button>
+        </div>
       </div>
 
-      <!-- 用户提示词输入 -->
-      <div ref="inputShell" class="input-shell">
-        <a-textarea
-          v-model:value="userPrompt"
-          placeholder="帮我创建一个个人博客网站…"
-          :rows="3"
-          :maxlength="1000"
-          class="prompt-input"
-        />
-        <a-button
-          type="primary"
-          size="large"
-          class="submit-btn"
-          :loading="creating"
-          aria-label="创建应用"
-          @click="createApp"
-        >
-          <span class="btn-arrow">↑</span>
-        </a-button>
+      <!-- 分类快捷入口 -->
+      <div v-if="categories.length" class="category-bar">
+        <span class="category-label">热门分类</span>
+        <div class="category-chips">
+          <a-button
+            v-for="cat in categories"
+            :key="cat.id"
+            class="category-chip"
+            @click="goToMarket(cat.id)"
+          >
+            {{ cat.name }}
+          </a-button>
+        </div>
       </div>
 
-      <!-- 快捷示例 -->
-      <div class="quick-actions">
-        <a-button
-          class="quick-pill"
-          @click="
-            setPrompt(
-              '创建一个现代化的个人博客网站，包含文章列表、详情页、分类标签、搜索功能、评论系统和个人简介页面。采用简洁的设计风格，支持响应式布局，文章支持Markdown格式，首页展示最新文章和热门推荐。',
-            )
-          "
-        >
-          个人博客网站
-        </a-button>
-        <a-button
-          class="quick-pill"
-          @click="
-            setPrompt(
-              '设计一个专业的企业官网，包含公司介绍、产品服务展示、新闻资讯、联系我们等页面。采用商务风格的设计，包含轮播图、产品展示卡片、团队介绍、客户案例展示，支持多语言切换和在线客服功能。',
-            )
-          "
-        >
-          企业官网
-        </a-button>
-        <a-button
-          class="quick-pill"
-          @click="
-            setPrompt(
-              '构建一个功能完整的在线商城，包含商品展示、购物车、用户注册登录、订单管理、支付结算等功能。设计现代化的商品卡片布局，支持商品搜索筛选、用户评价、优惠券系统和会员积分功能。',
-            )
-          "
-        >
-          在线商城
-        </a-button>
-        <a-button
-          class="quick-pill"
-          @click="
-            setPrompt(
-              '制作一个精美的作品展示网站，适合设计师、摄影师、艺术家等创作者。包含作品画廊、项目详情页、个人简历、联系方式等模块。采用瀑布流或网格布局展示作品，支持图片放大预览和作品分类筛选。',
-            )
-          "
-        >
-          作品展示网站
-        </a-button>
-      </div>
+      <!-- 热门项目 -->
+      <div class="section">
+        <div class="section-header">
+          <h2 class="section-title">热门项目</h2>
+          <a class="section-more" @click="goToMarket()">
+            查看全部 <ArrowRightOutlined />
+          </a>
+        </div>
 
-      <!-- 我的作品 -->
-      <div v-if="loginUserStore.loginUser.id" class="section">
-        <h2 class="section-title">我的作品</h2>
-        <div v-if="myAppsLoading" class="app-grid">
-          <div v-for="i in 3" :key="i" class="skeleton-card">
-            <div class="skel-media"></div>
-            <div class="skel-body">
-              <a-skeleton active :title="{ width: '60%' }" :paragraph="{ rows: 1 }" />
+        <div v-if="projectsLoading" class="project-grid">
+          <div v-for="i in 6" :key="i" class="project-card">
+            <div class="skel-cover"></div>
+            <div class="card-body">
+              <a-skeleton active :title="{ width: '70%' }" :paragraph="{ rows: 2 }" />
             </div>
           </div>
         </div>
-        <div v-else-if="myApps.length" class="app-grid">
-          <AppCard
-            v-for="app in myApps"
-            :key="app.id"
-            :app="app"
-            @view-chat="viewChat"
-            @view-work="viewWork"
-          />
+
+        <div v-else-if="projects.length" class="project-grid">
+          <div
+            v-for="project in projects"
+            :key="project.id"
+            class="project-card"
+            @click="goToProjectDetail(project.id)"
+          >
+            <div class="card-cover">
+              <img
+                :src="project.coverImage || defaultCover"
+                :alt="project.name"
+                @error="(e: any) => { e.target.src = defaultCover }"
+              />
+              <div class="card-price">{{ project.price ? `¥${project.price}` : '免费' }}</div>
+              <div v-if="project.salesCount" class="card-sales">
+                <FireOutlined /> {{ project.salesCount }}
+              </div>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">{{ project.name }}</h3>
+              <p class="card-desc">{{ project.description || '暂无描述' }}</p>
+              <div class="card-meta">
+                <a-space :size="4" wrap>
+                  <a-tag v-for="tag in parseTags(project.techTags).slice(0, 3)" :key="tag" class="tech-tag">
+                    {{ tag }}
+                  </a-tag>
+                </a-space>
+              </div>
+              <div class="card-footer">
+                <a-space>
+                  <a-avatar :src="project.author?.userAvatar" :size="20" />
+                  <span class="author-name">{{ project.author?.userName || '匿名' }}</span>
+                </a-space>
+                <a-space :size="16">
+                  <span class="stat">
+                    <StarFilled style="color: #f59e0b" />
+                    {{ project.avgRating ? project.avgRating.toFixed(1) : '-' }}
+                  </span>
+                  <span class="stat">
+                    <EyeOutlined />
+                    {{ project.viewCount || 0 }}
+                  </span>
+                </a-space>
+              </div>
+            </div>
+          </div>
         </div>
+
         <div v-else class="empty-state">
-          <div class="empty-icon">🎨</div>
-          <p class="empty-text">还没有作品，描述一个想法开始吧</p>
-          <a-button type="primary" shape="round" @click="scrollToInput">创建第一个应用</a-button>
-        </div>
-        <div v-if="myAppsPage.total > myAppsPage.pageSize" class="pagination-wrapper">
-          <a-pagination
-            v-model:current="myAppsPage.current"
-            v-model:page-size="myAppsPage.pageSize"
-            :total="myAppsPage.total"
-            :show-size-changer="false"
-            :show-total="(total: number) => `共 ${total} 个应用`"
-            @change="loadMyApps"
-          />
+          <div class="empty-icon">🗂️</div>
+          <p class="empty-text">项目整理中，先用 AI 定制一个试试</p>
+          <a-button type="primary" shape="round" @click="router.push('/create')">
+            AI 定制生成
+          </a-button>
         </div>
       </div>
 
-      <!-- 精选案例 -->
+      <!-- 平台优势 -->
       <div class="section">
-        <h2 class="section-title">精选案例</h2>
+        <div class="section-header">
+          <h2 class="section-title">为什么选择我们</h2>
+        </div>
+        <div class="value-grid">
+          <div class="value-card">
+            <div class="value-icon"><CodeOutlined /></div>
+            <h3 class="value-title">源码完整交付</h3>
+            <p class="value-desc">完整源码 + 数据库脚本 + 说明文档，买断可二次开发</p>
+          </div>
+          <div class="value-card">
+            <div class="value-icon"><CloudUploadOutlined /></div>
+            <h3 class="value-title">支持部署上线</h3>
+            <p class="value-desc">云端一键部署，域名直接访问，答辩演示随时可用</p>
+          </div>
+          <div class="value-card">
+            <div class="value-icon"><ThunderboltOutlined /></div>
+            <h3 class="value-title">AI 定制生成</h3>
+            <p class="value-desc">描述需求自动生成前后端与数据库，支持全栈项目</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI 生成案例 -->
+      <div v-if="featuredAppsLoading || featuredApps.length" class="section">
+        <div class="section-header">
+          <h2 class="section-title">AI 生成案例</h2>
+          <a class="section-more" @click="router.push('/create')">
+            我也要定制 <ArrowRightOutlined />
+          </a>
+        </div>
         <div v-if="featuredAppsLoading" class="app-grid">
           <div v-for="i in 3" :key="i" class="skeleton-card">
             <div class="skel-media"></div>
@@ -290,7 +295,7 @@ onMounted(() => {
             </div>
           </div>
         </div>
-        <div v-else-if="featuredApps.length" class="app-grid">
+        <div v-else class="app-grid">
           <AppCard
             v-for="app in featuredApps"
             :key="app.id"
@@ -300,20 +305,17 @@ onMounted(() => {
             @view-work="viewWork"
           />
         </div>
-        <div v-else class="empty-state">
-          <div class="empty-icon">✨</div>
-          <p class="empty-text">精选案例整理中，敬请期待</p>
+      </div>
+
+      <!-- 底部引导 -->
+      <div class="cta-band">
+        <div class="cta-text">
+          <h3>没找到心仪的项目？</h3>
+          <p>描述你的需求，让 AI 从零生成一个专属项目</p>
         </div>
-        <div v-if="featuredAppsPage.total > featuredAppsPage.pageSize" class="pagination-wrapper">
-          <a-pagination
-            v-model:current="featuredAppsPage.current"
-            v-model:page-size="featuredAppsPage.pageSize"
-            :total="featuredAppsPage.total"
-            :show-size-changer="false"
-            :show-total="(total: number) => `共 ${total} 个案例`"
-            @change="loadFeaturedApps"
-          />
-        </div>
+        <a-button type="primary" size="large" shape="round" @click="router.push('/create')">
+          开始 AI 定制
+        </a-button>
       </div>
     </div>
   </div>
@@ -369,7 +371,7 @@ onMounted(() => {
 /* 主视觉 */
 .hero-section {
   text-align: center;
-  padding: 88px 0 48px;
+  padding: 84px 0 40px;
   color: var(--color-text);
   position: relative;
 }
@@ -387,7 +389,7 @@ onMounted(() => {
 }
 
 .hero-title {
-  font-size: 56px;
+  font-size: 52px;
   font-weight: 700;
   margin: 0 0 20px;
   line-height: 1.12;
@@ -402,91 +404,64 @@ onMounted(() => {
 .hero-description {
   font-size: 18px;
   margin: 0 auto;
-  max-width: 560px;
+  max-width: 600px;
   color: var(--color-text-secondary);
 }
 
-/* 输入区：双嵌套结构（外壳 + 内芯） */
-.input-shell {
-  max-width: 760px;
-  margin: 40px auto 24px;
-  background: rgba(231, 229, 228, 0.6);
-  padding: 8px;
-  border-radius: 20px;
-  border: 1px solid rgba(231, 229, 228, 0.9);
-  position: relative;
+.hero-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 36px;
 }
 
-.prompt-input {
+.ghost-btn {
   background: var(--color-surface);
-  border: none;
-  border-radius: 14px;
-  font-size: 16px;
-  padding: 16px 64px 16px 16px;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
 }
 
-.prompt-input:focus {
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8);
+.ghost-btn:hover {
+  color: var(--color-primary);
+  border-color: rgba(15, 118, 110, 0.4);
 }
 
-.submit-btn {
-  position: absolute;
-  right: 20px;
-  bottom: 20px;
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  padding: 0;
+/* 分类快捷入口 */
+.category-bar {
   display: flex;
   align-items: center;
+  gap: 16px;
   justify-content: center;
-  transition:
-    transform 0.3s var(--ease-spring),
-    box-shadow 0.3s var(--ease-out-expo);
-}
-
-.submit-btn:not(:disabled):hover {
-  transform: translateY(-2px) scale(1.04);
-}
-
-.submit-btn:not(:disabled):active {
-  transform: scale(0.94);
-}
-
-.btn-arrow {
-  font-size: 18px;
-  line-height: 1;
-}
-
-/* 快捷示例 */
-.quick-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  margin-bottom: 72px;
+  margin: 16px 0 64px;
   flex-wrap: wrap;
 }
 
-.quick-pill {
+.category-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+}
+
+.category-chips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.category-chip {
   border-radius: 999px;
-  padding: 6px 20px;
+  padding: 4px 18px;
   height: auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
   font-weight: 500;
-  transition:
-    transform 0.3s var(--ease-out-expo),
-    box-shadow 0.3s var(--ease-out-expo),
-    color 0.3s var(--ease-out-expo),
-    border-color 0.3s var(--ease-out-expo);
 }
 
-.quick-pill:hover {
+.category-chip:hover {
   color: var(--color-primary);
   border-color: rgba(15, 118, 110, 0.4);
-  transform: translateY(-2px);
   box-shadow: var(--shadow-pop);
 }
 
@@ -495,23 +470,215 @@ onMounted(() => {
   margin-bottom: 72px;
 }
 
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
 .section-title {
   font-size: 28px;
   font-weight: 700;
-  margin-bottom: 28px;
+  margin: 0;
   color: var(--color-text);
   letter-spacing: -0.02em;
 }
 
-/* 网格 */
+.section-more {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.25s var(--ease-out-expo);
+}
+
+.section-more:hover {
+  color: var(--color-primary);
+}
+
+/* 项目网格 */
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.project-card {
+  background: var(--color-surface);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(231, 229, 228, 0.6);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card);
+}
+
+.card-cover {
+  position: relative;
+  aspect-ratio: 5 / 3;
+  overflow: hidden;
+  background: #f0f2f5;
+}
+
+.card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s var(--ease-out-expo);
+}
+
+.project-card:hover .card-cover img {
+  transform: scale(1.04);
+}
+
+.card-price {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--color-primary-strong);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.card-sales {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(28, 25, 23, 0.6);
+  color: #fff;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-desc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 0 0 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 38px;
+}
+
+.card-meta {
+  margin-bottom: 12px;
+}
+
+.tech-tag {
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.card-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.author-name {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.stat {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 平台优势 */
+.value-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.value-card {
+  background: var(--color-surface);
+  border: 1px solid rgba(231, 229, 228, 0.6);
+  border-radius: 16px;
+  padding: 28px 24px;
+  transition:
+    transform 0.35s var(--ease-out-expo),
+    box-shadow 0.35s var(--ease-out-expo);
+}
+
+.value-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card);
+}
+
+.value-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(15, 118, 110, 0.1);
+  color: var(--color-primary);
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.value-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--color-text);
+}
+
+.value-desc {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* AI 案例网格 */
 .app-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 24px;
-  margin-bottom: 32px;
 }
 
-/* 骨架卡片 */
 .skeleton-card {
   background: var(--color-surface);
   border-radius: 16px;
@@ -519,11 +686,17 @@ onMounted(() => {
   border: 1px solid rgba(231, 229, 228, 0.6);
 }
 
-.skel-media {
+.skel-media,
+.skel-cover {
   height: 180px;
   background: linear-gradient(90deg, #f0efed 25%, #f7f6f3 37%, #f0efed 63%);
   background-size: 400% 100%;
   animation: skel 1.4s ease infinite;
+}
+
+.skel-cover {
+  aspect-ratio: 5 / 3;
+  height: auto;
 }
 
 .skel-body {
@@ -561,11 +734,30 @@ onMounted(() => {
   color: var(--color-text-secondary);
 }
 
-/* 分页 */
-.pagination-wrapper {
+/* 底部引导 */
+.cta-band {
   display: flex;
-  justify-content: center;
-  margin-top: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 40px 48px;
+  border-radius: 20px;
+  background: linear-gradient(120deg, rgba(15, 118, 110, 0.12), rgba(15, 118, 110, 0.04));
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  flex-wrap: wrap;
+}
+
+.cta-text h3 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--color-text);
+}
+
+.cta-text p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-secondary);
 }
 
 /* 响应式设计 */
@@ -575,27 +767,29 @@ onMounted(() => {
   }
 
   .hero-title {
-    font-size: 34px;
+    font-size: 32px;
   }
 
   .hero-description {
     font-size: 16px;
   }
 
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .category-bar {
+    margin-bottom: 48px;
+  }
+
+  .project-grid,
   .app-grid {
     grid-template-columns: 1fr;
   }
 
-  .quick-actions {
-    justify-content: flex-start;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding-bottom: 4px;
-    margin-bottom: 48px;
-  }
-
-  .quick-pill {
-    flex-shrink: 0;
+  .cta-band {
+    padding: 28px 24px;
   }
 }
 </style>

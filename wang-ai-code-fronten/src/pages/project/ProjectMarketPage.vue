@@ -166,8 +166,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   SearchOutlined,
   AppstoreOutlined,
@@ -181,6 +181,7 @@ import { listCategories } from '@/api/projectCategoryController'
 import { message } from 'ant-design-vue'
 
 const router = useRouter()
+const route = useRoute()
 
 const defaultCover = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgZmlsbD0iI2YwZjJmNSIvPjx0ZXh0IHg9IjIwMCIgeT0iMTI1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjE4IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+'
 
@@ -256,7 +257,24 @@ const parseTags = (tags?: string): string[] => {
   return tags.split(',').filter(Boolean).map(t => t.trim())
 }
 
+// 从路由 query 同步分类筛选（主页分类卡片跳转带入）
+// 分类 id 是雪花 Long，字符串传递避免精度丢失，同时与单选组 value 类型一致
+const applyRouteCategory = () => {
+  const raw = route.query.categoryId
+  query.categoryId = typeof raw === 'string' && raw !== '' ? (raw as unknown as number) : undefined
+}
+
+// 已在商城页时，query 变化（顶部导航回商城/切换分类）重新加载
+watch(
+  () => route.query.categoryId,
+  () => {
+    applyRouteCategory()
+    handleSearch()
+  },
+)
+
 onMounted(() => {
+  applyRouteCategory()
   loadCategories()
   loadProjects()
 })
