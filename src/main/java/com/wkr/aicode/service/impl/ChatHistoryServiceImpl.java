@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -35,6 +36,11 @@ import java.util.List;
 @Service
 @Slf4j
 public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatHistory>  implements ChatHistoryService{
+
+    /**
+     * 单条消息最大字节数（UTF-8）：留出余量兜底，避免超出列容量导致写库失败
+     */
+    private static final int MAX_MESSAGE_BYTES = 1_000_000;
 
     @Resource
     @Lazy
@@ -51,11 +57,30 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
         ThrowUtils.throwIf(messageTypeEnum == null, ErrorCode.PARAMS_ERROR, "不支持的消息类型: " + messageType);
         ChatHistory chatHistory = ChatHistory.builder()
                 .appId(appId)
-                .message(message)
+                .message(truncateIfTooLong(appId, messageType, message))
                 .messageType(messageType)
                 .userId(userId)
                 .build();
         return this.save(chatHistory);
+    }
+
+    /**
+     * 超长消息按字节截断，保证写库不失败（写库失败会让整个 SSE 流中断、done 事件不送达）。
+     * 截断点回退到 UTF-8 字符边界，避免产生乱码。
+     */
+    String truncateIfTooLong(Long appId, String messageType, String message) {
+        byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length <= MAX_MESSAGE_BYTES) {
+            return message;
+        }
+        int end = MAX_MESSAGE_BYTES;
+        // UTF-8 续接字节形如 10xxxxxx，回退到前一个字符起始字节
+        while (end > 0 && (bytes[end] & 0xC0) == 0x80) {
+            end--;
+        }
+        log.warn("对话消息超长已截断，appId={}，messageType={}，原始 {} 字节 -> {} 字节",
+                appId, messageType, bytes.length, end);
+        return new String(bytes, 0, end, StandardCharsets.UTF_8);
     }
 
     @Override
