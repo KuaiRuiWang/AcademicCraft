@@ -18,4 +18,25 @@ public interface ContainerDeployService {
      * @return 应用访问地址 /apps/{deployKey}/
      */
     String deploy(App app, String deployKey);
+
+    /**
+     * 停止应用容器（docker compose down，保留数据卷；同步移除反代配置）
+     *
+     * @param app 应用（需已校验归属，且已部署）
+     */
+    void stop(App app);
+
+    /**
+     * 重启应用容器（docker compose up -d，复用镜像与数据卷，健康检查通过后恢复反代配置）
+     *
+     * @param app 应用（需已校验归属，且已部署）
+     */
+    void restart(App app);
+
+    /**
+     * 删除应用容器：容器 + 数据卷 + 应用镜像 + 反代配置 + 宿主端口全部清理（deployKey 保留，重新部署复用同一访问地址）
+     *
+     * @param app 应用（需已校验归属，且已部署）
+     */
+    void remove(App app);
 }

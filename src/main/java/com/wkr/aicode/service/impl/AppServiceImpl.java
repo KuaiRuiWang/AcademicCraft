@@ -11,6 +11,7 @@ import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.wkr.aicode.ai.AiCodeGenTypeRoutingService;
 import com.wkr.aicode.ai.AiCodeGenTypeRoutingServiceFactory;
 import com.wkr.aicode.constant.AppConstant;
+import com.wkr.aicode.constant.UserConstant;
 import com.wkr.aicode.core.AiCodeGeneratorFacade;
 import com.wkr.aicode.core.builder.VueProjectBuilder;
 import com.wkr.aicode.core.handler.StreamHandlerExecutor;
@@ -33,6 +34,7 @@ import com.wkr.aicode.service.ChatHistoryService;
 import com.wkr.aicode.service.ContainerDeployService;
 import com.wkr.aicode.service.ScreenshotService;
 import com.wkr.aicode.service.UserService;
+import com.wkr.aicode.utils.NodeCodeSecurityScanner;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -256,6 +258,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         String codeGenType = app.getCodeGenType();
         CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
         if (codeGenTypeEnum == CodeGenTypeEnum.FULLSTACK_VUE_NODEJS) {
+            // 部署前置拦截：静态扫描后端源码，命中高危模式拒绝部署（安全设计第 2 层）
+            NodeCodeSecurityScanner.assertSafe(
+                    new File(AppConstant.fullstackProjectDir(appId), "backend/src"));
             String appDeployUrl = containerDeployService.deploy(app, deployKey);
             generateAppScreenshotAsync(appId, appDeployUrl);
             return appDeployUrl;
@@ -298,6 +303,37 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 11. 异步生成截图并更新应用封面
         generateAppScreenshotAsync(appId, appDeployUrl);
         return appDeployUrl;
+    }
+
+    @Override
+    public void stopAppContainer(Long appId, User loginUser) {
+        containerDeployService.stop(getAuthorizedFullstackApp(appId, loginUser));
+    }
+
+    @Override
+    public void restartAppContainer(Long appId, User loginUser) {
+        containerDeployService.restart(getAuthorizedFullstackApp(appId, loginUser));
+    }
+
+    @Override
+    public void deleteAppContainer(Long appId, User loginUser) {
+        containerDeployService.remove(getAuthorizedFullstackApp(appId, loginUser));
+    }
+
+    /**
+     * 容器生命周期操作前置校验：应用存在、为全栈类型、当前用户为属主或管理员
+     */
+    private App getAuthorizedFullstackApp(Long appId, User loginUser) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
+        App app = this.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        boolean isOwner = app.getUserId().equals(loginUser.getId());
+        boolean isAdmin = UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole());
+        ThrowUtils.throwIf(!isOwner && !isAdmin, ErrorCode.NO_AUTH_ERROR, "无权限操作该应用容器");
+        ThrowUtils.throwIf(CodeGenTypeEnum.getEnumByValue(app.getCodeGenType()) != CodeGenTypeEnum.FULLSTACK_VUE_NODEJS,
+                ErrorCode.OPERATION_ERROR, "仅全栈应用支持容器管理");
+        return app;
     }
 
 

@@ -4,8 +4,10 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.RuntimeUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
+import com.mybatisflex.core.update.UpdateChain;
 import com.wkr.aicode.constant.AppConstant;
 import com.wkr.aicode.core.builder.FullstackProjectBuilder;
 import com.wkr.aicode.exception.BusinessException;
@@ -39,9 +41,14 @@ public class ContainerDeployServiceImpl implements ContainerDeployService {
     private static final String DOCKERFILE_TEMPLATE = "deploy/Dockerfile.template";
     private static final String COMPOSE_TEMPLATE = "deploy/docker-compose.yml.template";
     private static final String APP_HEALTH_PATH = "/api/health";
+    private static final String STATUS_RUNNING = "running";
+    private static final String STATUS_STOPPED = "stopped";
+    private static final String STATUS_FAILED = "failed";
+    private static final String STATUS_DELETED = "deleted";
     private static final int HEALTH_TIMEOUT_SECONDS = 60;
     private static final int COMPOSE_UP_TIMEOUT_SECONDS = 900;
     private static final int COMPOSE_DOWN_TIMEOUT_SECONDS = 120;
+    private static final int IMAGE_REMOVE_TIMEOUT_SECONDS = 60;
 
     @Resource
     private PortManager portManager;
@@ -105,6 +112,72 @@ public class ContainerDeployServiceImpl implements ContainerDeployService {
         return appDeployUrl;
     }
 
+    @Override
+    public void stop(App app) {
+        String projectName = requireDeployedProjectName(app);
+        File projectDir = new File(AppConstant.fullstackProjectDir(app.getId()));
+        ThrowUtils.throwIf(!composeDown(projectDir, projectName),
+                ErrorCode.OPERATION_ERROR, "停止容器失败，请查看服务端日志");
+        nginxConfigService.removeConfig(app.getDeployKey());
+        updateContainerStatus(app.getId(), STATUS_STOPPED);
+        log.info("应用容器已停止，appId={}，工程={}（数据卷保留）", app.getId(), projectName);
+    }
+
+    @Override
+    public void restart(App app) {
+        String projectName = requireDeployedProjectName(app);
+        Integer port = app.getNodePort();
+        ThrowUtils.throwIf(port == null, ErrorCode.OPERATION_ERROR, "应用缺少端口分配记录，请重新部署");
+        File projectDir = new File(AppConstant.fullstackProjectDir(app.getId()));
+        ThrowUtils.throwIf(!composeUp(projectDir, projectName),
+                ErrorCode.OPERATION_ERROR, "重启容器失败，请查看服务端日志");
+        if (!waitForHealthy(port, HEALTH_TIMEOUT_SECONDS)) {
+            updateContainerStatus(app.getId(), STATUS_FAILED);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "重启后健康检查未通过，请查看容器日志");
+        }
+        nginxConfigService.applyConfig(app.getDeployKey(), port);
+        updateContainerStatus(app.getId(), STATUS_RUNNING);
+        log.info("应用容器已重启，appId={}，工程={}，端口={}", app.getId(), projectName, port);
+    }
+
+    @Override
+    public void remove(App app) {
+        String projectName = requireDeployedProjectName(app);
+        File projectDir = new File(AppConstant.fullstackProjectDir(app.getId()));
+        // 1. 停容器并删除数据卷
+        ThrowUtils.throwIf(!composeDown(projectDir, projectName, true),
+                ErrorCode.OPERATION_ERROR, "删除容器或数据卷失败，请查看服务端日志");
+        // 2. 清理应用镜像（mysql 为共享基础镜像，不清理；镜像已不存在时命令失败可忽略）
+        executeCommand(projectDir, new String[]{"docker", "rmi", projectName + "-app"},
+                IMAGE_REMOVE_TIMEOUT_SECONDS);
+        // 3. 清理反代配置并释放宿主端口
+        nginxConfigService.removeConfig(app.getDeployKey());
+        portManager.releasePort(app.getId());
+        // 4. 更新应用记录（deployKey 保留，重新部署复用同一访问地址）
+        UpdateChain.of(appMapper)
+                .set("containerStatus", STATUS_DELETED)
+                .set("containerName", null)
+                .where("id = ?", app.getId())
+                .update();
+        log.info("应用容器已删除，appId={}，工程={}（容器/卷/镜像/反代/端口已清理）", app.getId(), projectName);
+    }
+
+    /**
+     * 生命周期操作前置校验：应用必须已部署过，返回 compose 工程名
+     */
+    private String requireDeployedProjectName(App app) {
+        ThrowUtils.throwIf(StrUtil.isBlank(app.getDeployKey()) || StrUtil.isBlank(app.getContainerName()),
+                ErrorCode.OPERATION_ERROR, "应用尚未部署，无容器可操作");
+        return app.getContainerName();
+    }
+
+    private void updateContainerStatus(Long appId, String status) {
+        App update = new App();
+        update.setId(appId);
+        update.setContainerStatus(status);
+        appMapper.update(update);
+    }
+
     private void writeDockerfile(File projectDir) {
         FileUtil.writeUtf8String(renderTemplate(DOCKERFILE_TEMPLATE), new File(projectDir, "Dockerfile"));
     }
@@ -148,13 +221,19 @@ public class ContainerDeployServiceImpl implements ContainerDeployService {
                 COMPOSE_UP_TIMEOUT_SECONDS);
     }
 
-    private void composeDown(File projectDir, String projectName) {
-        boolean down = executeCommand(projectDir,
-                new String[]{"docker", "compose", "-p", projectName, "down"},
-                COMPOSE_DOWN_TIMEOUT_SECONDS);
+    private boolean composeDown(File projectDir, String projectName) {
+        return composeDown(projectDir, projectName, false);
+    }
+
+    private boolean composeDown(File projectDir, String projectName, boolean removeVolumes) {
+        String[] command = removeVolumes
+                ? new String[]{"docker", "compose", "-p", projectName, "down", "-v"}
+                : new String[]{"docker", "compose", "-p", projectName, "down"};
+        boolean down = executeCommand(projectDir, command, COMPOSE_DOWN_TIMEOUT_SECONDS);
         if (!down) {
-            log.error("容器回滚失败，请手动清理 compose 工程: {}", projectName);
+            log.error("容器停止失败，请手动清理 compose 工程: {}", projectName);
         }
+        return down;
     }
 
     /**
@@ -196,7 +275,7 @@ public class ContainerDeployServiceImpl implements ContainerDeployService {
         App update = new App();
         update.setId(appId);
         update.setContainerName(projectName);
-        update.setContainerStatus(success ? "running" : "failed");
+        update.setContainerStatus(success ? STATUS_RUNNING : STATUS_FAILED);
         if (success) {
             update.setDeployKey(deployKey);
             update.setDeployedTime(LocalDateTime.now());

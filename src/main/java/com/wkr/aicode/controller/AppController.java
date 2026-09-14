@@ -348,6 +348,61 @@ public class AppController {
         return ResultUtils.success(deployUrl);
     }
 
+    /**
+     * 停止应用容器（保留数据卷，仅全栈应用属主/管理员）
+     *
+     * @param appDeployRequest 容器操作请求（appId）
+     * @param request          请求
+     * @return 操作结果
+     */
+    @PostMapping("/container/stop")
+    public BaseResponse<Boolean> stopAppContainer(@RequestBody AppDeployRequest appDeployRequest,
+                                                  HttpServletRequest request) {
+        Long appId = validateContainerRequest(appDeployRequest);
+        User loginUser = userService.getLoginUser(request);
+        appService.stopAppContainer(appId, loginUser);
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 重启应用容器（复用镜像与数据卷，仅全栈应用属主/管理员）
+     *
+     * @param appDeployRequest 容器操作请求（appId）
+     * @param request          请求
+     * @return 操作结果
+     */
+    @PostMapping("/container/restart")
+    public BaseResponse<Boolean> restartAppContainer(@RequestBody AppDeployRequest appDeployRequest,
+                                                     HttpServletRequest request) {
+        Long appId = validateContainerRequest(appDeployRequest);
+        User loginUser = userService.getLoginUser(request);
+        appService.restartAppContainer(appId, loginUser);
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 删除应用容器：容器/数据卷/镜像/反代配置/端口全部清理（仅全栈应用属主/管理员）
+     *
+     * @param appDeployRequest 容器操作请求（appId）
+     * @param request          请求
+     * @return 操作结果
+     */
+    @PostMapping("/container/delete")
+    public BaseResponse<Boolean> deleteAppContainer(@RequestBody AppDeployRequest appDeployRequest,
+                                                    HttpServletRequest request) {
+        Long appId = validateContainerRequest(appDeployRequest);
+        User loginUser = userService.getLoginUser(request);
+        appService.deleteAppContainer(appId, loginUser);
+        return ResultUtils.success(true);
+    }
+
+    private Long validateContainerRequest(AppDeployRequest appDeployRequest) {
+        ThrowUtils.throwIf(appDeployRequest == null || appDeployRequest.getAppId() == null
+                        || appDeployRequest.getAppId() <= 0,
+                ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        return appDeployRequest.getAppId();
+    }
+
     @Resource
     private ProjectDownloadService projectDownloadService;
 

@@ -33,4 +33,19 @@ public interface AppService extends IService<App> {
 
     String deployApp(Long appId, User loginUser);
 
+    /**
+     * 停止应用容器（docker compose down，保留数据卷）
+     */
+    void stopAppContainer(Long appId, User loginUser);
+
+    /**
+     * 重启应用容器（docker compose up -d，复用镜像与数据卷）
+     */
+    void restartAppContainer(Long appId, User loginUser);
+
+    /**
+     * 删除应用容器：容器/数据卷/镜像/反代配置/端口全部清理
+     */
+    void deleteAppContainer(Long appId, User loginUser);
+
 }
