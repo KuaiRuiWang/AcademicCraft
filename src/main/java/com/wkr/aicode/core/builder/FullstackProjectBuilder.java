@@ -1,12 +1,16 @@
 package com.wkr.aicode.core.builder;
 
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.util.RuntimeUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -17,6 +21,12 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Component
 public class FullstackProjectBuilder {
+
+    /**
+     * 与 ContainerDeployServiceImpl.DOCKERFILE_TEMPLATE 指向同一份模板，
+     * 改动任一处都必须同步，否则预构建的镜像层无法被部署阶段复用。
+     */
+    private static final String DOCKERFILE_TEMPLATE = "deploy/Dockerfile.template";
 
     @Resource
     private VueProjectBuilder vueProjectBuilder;
@@ -61,16 +71,38 @@ public class FullstackProjectBuilder {
     /**
      * 预构建运行镜像（不启动容器），部署阶段由 compose 重建或复用缓存
      *
+     * Dockerfile 是平台模板注入的：前后端 Agent 都被明确要求不得生成它
+     * （见 prompt/codegen-nodejs-backend-system-prompt.txt 第 7 条），
+     * 部署阶段才由 ContainerDeployServiceImpl 落盘。
+     * 所以预构建必须先按同一模板渲染出 Dockerfile，否则必然以「Dockerfile 不存在」失败。
+     * 与部署共用同一模板与构建上下文（compose 的 build: .），镜像层缓存才能真正复用。
+     *
      * @param projectDir 项目根目录（Dockerfile 所在目录，即构建上下文）
      * @param imageTag   镜像名（不含 :latest）
      */
     public boolean buildImage(File projectDir, String imageTag) {
-        File dockerfile = new File(projectDir, "Dockerfile");
-        if (!dockerfile.isFile()) {
-            log.error("Dockerfile 不存在: {}", dockerfile.getAbsolutePath());
+        if (!writeDockerfile(projectDir)) {
             return false;
         }
         return executeCommand(projectDir, new String[]{"docker", "build", "-t", imageTag + ":latest", "."}, 600);
+    }
+
+    /**
+     * 按平台模板渲染 Dockerfile 到项目根目录。
+     *
+     * 模板为静态内容、无占位符，无需变量替换；部署阶段会以同一模板覆盖写入，两者结果一致。
+     */
+    private boolean writeDockerfile(File projectDir) {
+        try (InputStream inputStream = new ClassPathResource(DOCKERFILE_TEMPLATE).getInputStream()) {
+            String content = IoUtil.read(inputStream, StandardCharsets.UTF_8);
+            File dockerfile = new File(projectDir, "Dockerfile");
+            FileUtil.writeUtf8String(content, dockerfile);
+            log.info("已按平台模板写入 Dockerfile: {}", dockerfile.getAbsolutePath());
+            return true;
+        } catch (Exception e) {
+            log.error("渲染 Dockerfile 模板失败: {}", DOCKERFILE_TEMPLATE, e);
+            return false;
+        }
     }
 
     /**

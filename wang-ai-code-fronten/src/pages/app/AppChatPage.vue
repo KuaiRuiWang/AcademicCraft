@@ -227,7 +227,7 @@ import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import AppDetailModal from '@/components/AppDetailModal.vue'
 import DeploySuccessModal from '@/components/DeploySuccessModal.vue'
 import aiAvatar from '@/assets/aiAvatar.svg'
-import { API_BASE_URL, getStaticPreviewUrl, toRelativeDeployUrl } from '@/config/env'
+import { API_BASE_URL, getDeployUrl, getStaticPreviewUrl, toRelativeDeployUrl } from '@/config/env'
 import { VisualEditor, type ElementInfo } from '@/utils/visualEditor'
 
 import {
@@ -637,8 +637,13 @@ const handleError = (error: unknown, aiMessageIndex: number) => {
 const updatePreview = () => {
   if (appId.value) {
     const codeGenType = appInfo.value?.codeGenType || CodeGenTypeEnum.HTML
-    const newPreviewUrl = getStaticPreviewUrl(codeGenType, appId.value)
-    previewUrl.value = newPreviewUrl
+    const deployKey = appInfo.value?.deployKey
+    // 全栈应用带 Node.js 后端，静态产物预览里页面内 ./api 请求没有后端可服务，
+    // 已部署过则直接预览部署地址（/apps/{deployKey}/），未部署回退到静态产物
+    previewUrl.value =
+        deployKey && codeGenType === CodeGenTypeEnum.FULLSTACK_VUE_NODEJS
+            ? getDeployUrl(deployKey, codeGenType)
+            : getStaticPreviewUrl(codeGenType, appId.value)
     previewReady.value = true
   }
 }
@@ -707,6 +712,9 @@ const deployApp = async () => {
       deployUrl.value = toRelativeDeployUrl(res.data.data)
       deployModalVisible.value = true
       message.success('部署成功')
+      // 重新拉取应用信息以拿到 deployKey，让全栈应用预览切换到部署地址
+      await fetchAppInfo()
+      updatePreview()
     } else {
       message.error('部署失败：' + res.data.message)
     }

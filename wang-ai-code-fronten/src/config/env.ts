@@ -31,6 +31,11 @@ export const toRelativeDeployUrl = (url: string) => {
 
 // 获取静态资源预览URL
 export const getStaticPreviewUrl = (codeGenType: string, appId: string) => {
+  // 全栈应用产物根目录是 fullstack_project_{appId}（见后端 AppConstant），
+  // 前端入口在构建产物 backend/public/index.html，根目录没有 index.html
+  if (codeGenType === CodeGenTypeEnum.FULLSTACK_VUE_NODEJS) {
+    return `${STATIC_BASE_URL}/fullstack_project_${appId}/backend/public/index.html`
+  }
   const baseUrl = `${STATIC_BASE_URL}/${codeGenType}_${appId}/`
   // 如果是 Vue 项目，浏览地址需要添加 dist 后缀
   if (codeGenType === CodeGenTypeEnum.VUE_PROJECT) {
