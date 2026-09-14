@@ -55,5 +55,25 @@ public interface AiCodeGeneratorService {
     @SystemMessage(fromResource = "prompt/codegen-vue-project-system-prompt.txt")
     TokenStream generateVueProjectCodeStream(@MemoryId long appId, @UserMessage String userMessage);
 
+    /**
+     * 生成全栈项目的 Vue3 前端代码（流式）
+     *
+     * @param appId       应用 ID
+     * @param userMessage 用户消息（需求描述 + API 契约）
+     * @return 生成过程的流式响应
+     */
+    @SystemMessage(fromResource = "prompt/codegen-fullstack-frontend-system-prompt.txt")
+    TokenStream generateFullstackFrontendCodeStream(@MemoryId long appId, @UserMessage String userMessage);
+
+    /**
+     * 生成全栈项目的 Node.js 后端代码（流式）
+     *
+     * @param appId       应用 ID
+     * @param userMessage 用户消息（需求描述 + API 契约）
+     * @return 生成过程的流式响应
+     */
+    @SystemMessage(fromResource = "prompt/codegen-nodejs-backend-system-prompt.txt")
+    TokenStream generateNodeBackendCodeStream(@MemoryId long appId, @UserMessage String userMessage);
+
 }
 

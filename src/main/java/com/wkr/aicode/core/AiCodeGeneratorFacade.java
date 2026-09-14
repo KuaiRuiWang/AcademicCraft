@@ -14,6 +14,8 @@ import com.wkr.aicode.core.parser.CodeParserExecutor;
 import com.wkr.aicode.core.saver.CodeFileSaverExecutor;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
+import com.wkr.aicode.langGrapgh4J.FullstackCodeGenWorkflow;
+import com.wkr.aicode.model.enums.AgentRoleEnum;
 import com.wkr.aicode.model.enums.CodeGenTypeEnum;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.service.TokenStream;
@@ -79,6 +81,10 @@ public class AiCodeGeneratorFacade {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "生成类型为空");
         }
+        // 全栈模式由工作流内部按角色创建 Agent 服务，不走单类型服务工厂
+        if (CodeGenTypeEnum.FULLSTACK_VUE_NODEJS == codeGenTypeEnum) {
+            return new FullstackCodeGenWorkflow().executeWorkflowWithFlux(userMessage, appId);
+        }
         // 根据 appId 获取对应的 AI 服务实例
         AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId, codeGenTypeEnum);
         return switch (codeGenTypeEnum) {
@@ -100,6 +106,45 @@ public class AiCodeGeneratorFacade {
             }
         };
     }
+
+    /**
+     * 生成全栈项目中指定 Agent 的代码（流式）
+     * 仅负责生成与流式推送，构建与部署由后续节点处理
+     *
+     * @param appId       应用 ID
+     * @param agentRole   Agent 角色（前端 / 后端）
+     * @param userMessage 用户消息（需求描述 + API 契约）
+     * @return Flux<String> 流式响应
+     */
+    public Flux<String> generateFullstackAgentCodeStream(Long appId, AgentRoleEnum agentRole, String userMessage) {
+        AiCodeGeneratorService agentService = aiCodeGeneratorServiceFactory.getFullstackAgentService(appId, agentRole);
+        TokenStream tokenStream = switch (agentRole) {
+            case FRONTEND -> agentService.generateFullstackFrontendCodeStream(appId, userMessage);
+            case BACKEND -> agentService.generateNodeBackendCodeStream(appId, userMessage);
+            case ARCHITECT -> throw new BusinessException(ErrorCode.PARAMS_ERROR, "架构师不通过代码生成服务产出");
+        };
+        return processAgentTokenStream(tokenStream, agentRole);
+    }
+
+    /**
+     * 将全栈 Agent 的 TokenStream 转换为 Flux<String>，并传递工具调用信息
+     * 每条消息都标注产出它的 Agent 角色，供前端按角色分栏展示
+     */
+    private Flux<String> processAgentTokenStream(TokenStream tokenStream, AgentRoleEnum agentRole) {
+        String role = agentRole.getValue();
+        return Flux.create(sink -> {
+            tokenStream.onPartialResponse((String partialResponse) ->
+                            sink.next(JSONUtil.toJsonStr(new AiResponseMessage(partialResponse, role))))
+                    .onPartialToolExecutionRequest((index, toolExecutionRequest) ->
+                            sink.next(JSONUtil.toJsonStr(new ToolRequestMessage(toolExecutionRequest, role))))
+                    .onToolExecuted((ToolExecution toolExecution) ->
+                            sink.next(JSONUtil.toJsonStr(new ToolExecutedMessage(toolExecution, role))))
+                    .onCompleteResponse((ChatResponse response) -> sink.complete())
+                    .onError(sink::error)
+                    .start();
+        });
+    }
+
 
     /**
      * 将 TokenStream 转换为 Flux<String>，并传递工具调用信息

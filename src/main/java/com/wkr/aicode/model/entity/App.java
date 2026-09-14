@@ -71,6 +71,30 @@ public class App implements Serializable {
     private LocalDateTime deployedTime;
 
     /**
+     * 是否同步生成 Node.js 后端（0-否 1-是）
+     */
+    @Column("generateBackend")
+    private Integer generateBackend;
+
+    /**
+     * 全栈应用部署宿主端口
+     */
+    @Column("nodePort")
+    private Integer nodePort;
+
+    /**
+     * 全栈应用 Docker 容器名
+     */
+    @Column("containerName")
+    private String containerName;
+
+    /**
+     * 容器状态：running/stopped/failed
+     */
+    @Column("containerStatus")
+    private String containerStatus;
+
+    /**
      * 优先级
      */
     private Integer priority;

@@ -12,5 +12,10 @@ public class AppAddRequest implements Serializable {
      */
     private String initPrompt;
 
+    /**
+     * 是否同步生成 Node.js 后端（全栈项目）
+     */
+    private Boolean generateBackend;
+
     private static final long serialVersionUID = 1L;
 }

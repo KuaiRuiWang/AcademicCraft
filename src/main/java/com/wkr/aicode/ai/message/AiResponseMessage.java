@@ -18,4 +18,9 @@ public class AiResponseMessage extends StreamMessage {
         super(StreamMessageTypeEnum.AI_RESPONSE.getValue());
         this.data = data;
     }
+
+    public AiResponseMessage(String data, String agentRole) {
+        this(data);
+        setAgentRole(agentRole);
+    }
 }

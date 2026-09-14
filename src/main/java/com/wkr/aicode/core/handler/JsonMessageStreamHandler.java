@@ -10,6 +10,7 @@ import com.wkr.aicode.ai.tool.ToolManager;
 import com.wkr.aicode.constant.AppConstant;
 import com.wkr.aicode.core.builder.VueProjectBuilder;
 import com.wkr.aicode.model.entity.User;
+import com.wkr.aicode.model.enums.AgentRoleEnum;
 import com.wkr.aicode.model.enums.ChatHistoryMessageTypeEnum;
 import com.wkr.aicode.service.ChatHistoryService;
 import jakarta.annotation.Resource;
@@ -19,6 +20,7 @@ import reactor.core.publisher.Flux;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * JSON 消息流处理器
@@ -48,10 +50,12 @@ public class JsonMessageStreamHandler {
         StringBuilder chatHistoryStringBuilder = new StringBuilder();
         // 用于跟踪已经见过的工具ID，判断是否是第一次调用
         Set<String> seenToolIds = new HashSet<>();
+        // 记录上一条消息的 Agent 角色，用于在角色切换处插入标签（全栈双 Agent 模式）
+        AtomicReference<String> lastAgentRole = new AtomicReference<>();
         return originFlux
                 .map(chunk -> {
                     // 解析每个 JSON 消息块
-                    return handleJsonMessageChunk(chunk, chatHistoryStringBuilder, seenToolIds);
+                    return handleJsonMessageChunk(chunk, chatHistoryStringBuilder, seenToolIds, lastAgentRole);
                 })
                 .filter(StrUtil::isNotEmpty) // 过滤空字串
                 .doOnComplete(() -> {
@@ -74,17 +78,19 @@ public class JsonMessageStreamHandler {
     @Resource
     private ToolManager toolManager;
 
-    private String handleJsonMessageChunk(String chunk, StringBuilder chatHistoryStringBuilder, Set<String> seenToolIds) {
+    private String handleJsonMessageChunk(String chunk, StringBuilder chatHistoryStringBuilder,
+                                          Set<String> seenToolIds, AtomicReference<String> lastAgentRole) {
         // 解析 JSON
         StreamMessage streamMessage = JSONUtil.toBean(chunk, StreamMessage.class);
         StreamMessageTypeEnum typeEnum = StreamMessageTypeEnum.getEnumByValue(streamMessage.getType());
+        String agentRole = streamMessage.getAgentRole();
         switch (typeEnum) {
             case AI_RESPONSE -> {
                 AiResponseMessage aiMessage = JSONUtil.toBean(chunk, AiResponseMessage.class);
-                String data = aiMessage.getData();
+                String output = prependRoleHeading(lastAgentRole, agentRole, aiMessage.getData());
                 // 直接拼接响应
-                chatHistoryStringBuilder.append(data);
-                return data;
+                chatHistoryStringBuilder.append(output);
+                return output;
             }
             case TOOL_REQUEST -> {
                 ToolRequestMessage toolRequestMessage = JSONUtil.toBean(chunk, ToolRequestMessage.class);
@@ -97,7 +103,7 @@ public class JsonMessageStreamHandler {
                     // 根据工具名称获取工具实例
                     BaseTool tool = toolManager.getTool(toolName);
                     // 返回格式化的工具调用信息
-                    return tool.generateToolRequestResponse();
+                    return prependRoleHeading(lastAgentRole, agentRole, tool.generateToolRequestResponse());
                 } else {
                     // 不是第一次调用这个工具，直接返回空
                     return "";
@@ -111,7 +117,7 @@ public class JsonMessageStreamHandler {
                 BaseTool tool = toolManager.getTool(toolName);
                 String result = tool.generateToolExecutedResult(jsonObject);
                 // 输出前端和要持久化的内容
-                String output = String.format("\n\n%s\n\n", result);
+                String output = prependRoleHeading(lastAgentRole, agentRole, String.format("\n\n%s\n\n", result));
                 chatHistoryStringBuilder.append(output);
                 return output;
             }
@@ -120,5 +126,19 @@ public class JsonMessageStreamHandler {
                 return "";
             }
         }
+    }
+
+    /**
+     * 全栈双 Agent 模式下，在角色切换处插入 Markdown 标题作为来源标签
+     * 非全栈模式（无 agentRole）与同一角色连续输出时不产生任何额外内容
+     */
+    static String prependRoleHeading(AtomicReference<String> lastAgentRole, String agentRole, String payload) {
+        if (StrUtil.isEmpty(payload) || agentRole == null || agentRole.equals(lastAgentRole.get())) {
+            return payload;
+        }
+        lastAgentRole.set(agentRole);
+        AgentRoleEnum role = AgentRoleEnum.getEnumByValue(agentRole);
+        String label = role != null ? role.getText() : agentRole;
+        return String.format("\n\n### %s\n\n", label) + payload;
     }
 }

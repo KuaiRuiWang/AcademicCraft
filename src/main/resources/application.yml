@@ -103,3 +103,11 @@ management:
   endpoint:
     health:
       show-details: always
+
+# 全栈应用容器部署：动态 Nginx 配置目录与 openresty 容器名（生产默认值）
+app:
+  nginx:
+    conf-dir: /baiye/1panel/www/sites/ai-code/proxy/apps
+    container-name: 1Panel-openresty-D1L0
+    # nginx 容器访问应用端口的地址：生产 openresty 为 host 网络用 127.0.0.1；本地 bridge 网络验证用 host.docker.internal
+    upstream-host: 127.0.0.1

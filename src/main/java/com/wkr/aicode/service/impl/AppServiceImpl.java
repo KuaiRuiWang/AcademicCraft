@@ -30,6 +30,7 @@ import com.wkr.aicode.monitor.MonitorContext;
 import com.wkr.aicode.monitor.MonitorContextHolder;
 import com.wkr.aicode.service.AppService;
 import com.wkr.aicode.service.ChatHistoryService;
+import com.wkr.aicode.service.ContainerDeployService;
 import com.wkr.aicode.service.ScreenshotService;
 import com.wkr.aicode.service.UserService;
 import jakarta.annotation.Resource;
@@ -71,12 +72,18 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 参数校验
         String initPrompt = appAddRequest.getInitPrompt();
         ThrowUtils.throwIf(StrUtil.isBlank(initPrompt), ErrorCode.PARAMS_ERROR, "初始化 prompt 不能为空");
-        // 使用 AI 智能选择代码生成类型（多例模式）
-        AiCodeGenTypeRoutingService routingService = aiCodeGenTypeRoutingServiceFactory.createAiCodeGenTypeRoutingService();
-        CodeGenTypeEnum selectedCodeGenType = routingService.routeCodeGenType(initPrompt);
+        // 勾选生成后端时直接指定全栈类型（跳过 AI 路由），否则使用 AI 智能选择代码生成类型（多例模式）
+        CodeGenTypeEnum selectedCodeGenType;
+        if (Boolean.TRUE.equals(appAddRequest.getGenerateBackend())) {
+            selectedCodeGenType = CodeGenTypeEnum.FULLSTACK_VUE_NODEJS;
+        } else {
+            AiCodeGenTypeRoutingService routingService = aiCodeGenTypeRoutingServiceFactory.createAiCodeGenTypeRoutingService();
+            selectedCodeGenType = routingService.routeCodeGenType(initPrompt);
+        }
         // 构造入库对象
         App app = new App();
         BeanUtil.copyProperties(appAddRequest, app);
+        app.setGenerateBackend(Boolean.TRUE.equals(appAddRequest.getGenerateBackend()) ? 1 : 0);
         app.setUserId(loginUser.getId());
         // 应用名称暂时为 initPrompt 前 12 位
         app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
@@ -224,6 +231,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     @Resource
     private VueProjectBuilder vueProjectBuilder;
 
+    @Resource
+    private ContainerDeployService containerDeployService;
+
     @Override
     public String deployApp(Long appId, User loginUser) {
         // 1. 参数校验
@@ -242,17 +252,22 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         if (StrUtil.isBlank(deployKey)) {
             deployKey = RandomUtil.randomString(6);
         }
-        // 5. 获取代码生成类型，构建源目录路径
+        // 5. 获取代码生成类型；全栈类型走容器化部署（compose + 独立 MySQL 容器），不复制静态目录
         String codeGenType = app.getCodeGenType();
+        CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
+        if (codeGenTypeEnum == CodeGenTypeEnum.FULLSTACK_VUE_NODEJS) {
+            String appDeployUrl = containerDeployService.deploy(app, deployKey);
+            generateAppScreenshotAsync(appId, appDeployUrl);
+            return appDeployUrl;
+        }
+        // 6. 构建源目录路径并检查是否存在
         String sourceDirName = codeGenType + "_" + appId;
         String sourceDirPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
-        // 6. 检查源目录是否存在
         File sourceDir = new File(sourceDirPath);
         if (!sourceDir.exists() || !sourceDir.isDirectory()) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用代码不存在，请先生成代码");
         }
         // Vue项目需要构建
-        CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
         if (codeGenTypeEnum == CodeGenTypeEnum.VUE_PROJECT) {
             // Vue 项目需要构建
             boolean buildSuccess = vueProjectBuilder.buildProject(sourceDirPath);

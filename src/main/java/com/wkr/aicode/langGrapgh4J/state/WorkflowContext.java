@@ -1,5 +1,6 @@
 package com.wkr.aicode.langGrapgh4J.state;
 
+import com.wkr.aicode.ai.model.ApiContract;
 import com.wkr.aicode.langGrapgh4J.model.ImageCollectionPlan;
 import com.wkr.aicode.langGrapgh4J.model.ImageResource;
 import com.wkr.aicode.langGrapgh4J.model.QualityResult;
@@ -84,6 +85,46 @@ public class WorkflowContext implements Serializable {
      * 质量检查结果
      */
     private QualityResult qualityResult;
+
+    /**
+     * 前后端共用的 API 契约（全栈工作流）
+     */
+    private ApiContract apiContract;
+
+    /**
+     * 全栈项目产物根目录（全栈工作流）
+     */
+    private String fullstackProjectDir;
+
+    /**
+     * 前端产物目录（全栈工作流）
+     */
+    private String frontendDir;
+
+    /**
+     * 后端产物目录（全栈工作流）
+     */
+    private String backendDir;
+
+    /**
+     * 契约一致性校验结果（全栈工作流）
+     */
+    private QualityResult contractCheckResult;
+
+    /**
+     * 契约校验已执行轮次（全栈工作流）：第 1 轮为初次校验，之后每轮为修复后的复检
+     */
+    private int contractCheckRound;
+
+    /**
+     * 前端待修复问题（契约校验产出，由前端 Agent 下一轮消费）
+     */
+    private List<String> frontendFixHints;
+
+    /**
+     * 后端待修复问题（契约校验产出，由后端 Agent 下一轮消费）
+     */
+    private List<String> backendFixHints;
 
     @Serial
     private static final long serialVersionUID = 1L;

@@ -28,4 +28,9 @@ public class ToolExecutedMessage extends StreamMessage {
         this.arguments = toolExecution.request().arguments();
         this.result = toolExecution.result();
     }
+
+    public ToolExecutedMessage(ToolExecution toolExecution, String agentRole) {
+        this(toolExecution);
+        setAgentRole(agentRole);
+    }
 }

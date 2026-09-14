@@ -3,12 +3,13 @@ package com.wkr.aicode.ai;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.wkr.aicode.ai.guardrail.PromptSafetyInputGuardrail;
-import com.wkr.aicode.ai.guardrail.RetryOutputGuardrail;
-import com.wkr.aicode.ai.tool.FileWriteTool;
 import com.wkr.aicode.ai.tool.ToolManager;
+import com.wkr.aicode.ai.tool.ToolSetFactory;
 import com.wkr.aicode.config.RedisChatMemoryStoreWithDb;
+import com.wkr.aicode.constant.AppConstant;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
+import com.wkr.aicode.model.enums.AgentRoleEnum;
 import com.wkr.aicode.model.enums.CodeGenTypeEnum;
 import com.wkr.aicode.service.ChatHistoryService;
 import com.wkr.aicode.utils.SpringContextUtil;
@@ -84,6 +85,10 @@ public class AiCodeGeneratorServiceFactory {
 
     @Resource
     private ToolManager toolManager;
+
+    @Resource
+    private ToolSetFactory toolSetFactory;
+
     /**
      * 创建新的 AI 服务实例
      */
@@ -135,6 +140,43 @@ public class AiCodeGeneratorServiceFactory {
      */
     private String buildCacheKey(long appId, CodeGenTypeEnum codeGenType) {
         return appId + "_" + codeGenType.getValue();
+    }
+
+    /**
+     * 获取全栈项目指定 Agent 的 AI 服务（带缓存）
+     * 缓存键含角色，保证前端、后端 Agent 的记忆与工具集相互隔离
+     */
+    public AiCodeGeneratorService getFullstackAgentService(long appId, AgentRoleEnum agentRole) {
+        String cacheKey = appId + "_" + CodeGenTypeEnum.FULLSTACK_VUE_NODEJS.getValue() + "_" + agentRole.getValue();
+        return serviceCache.get(cacheKey, key -> createFullstackAgentService(appId, agentRole));
+    }
+
+    /**
+     * 创建全栈项目 Agent 的 AI 服务实例
+     */
+    private AiCodeGeneratorService createFullstackAgentService(long appId, AgentRoleEnum agentRole) {
+        // 每个 Agent 独立的工作区工具集：产物根目录 + 角色绑定，防止并行写冲突与越权
+        String projectDir = AppConstant.fullstackProjectDir(appId);
+        List<Object> tools = toolSetFactory.createFullstackTools(projectDir, agentRole);
+        // 每个 Agent 独立的对话记忆，避免长对话交叉污染
+        MessageWindowChatMemory chatMemory = MessageWindowChatMemory
+                .builder()
+                .id(appId + "_" + agentRole.getValue())
+                .chatMemoryStore(redisChatMemoryStoreWithDb)
+                .maxMessages(20)
+                .build();
+        // 使用多例模式的 StreamingChatModel 解决并发问题
+        StreamingChatModel reasoningStreamingChatModel = SpringContextUtil.getBean("reasoningStreamingChatModelPrototype", StreamingChatModel.class);
+        return AiServices.builder(AiCodeGeneratorService.class)
+                .streamingChatModel(reasoningStreamingChatModel)
+                .chatMemoryProvider(memoryId -> chatMemory)
+                .tools(tools.toArray())
+                .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(
+                        toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()
+                ))
+                // Agent 消息 = 用户需求 + API 契约 JSON + 修复提示，长度上限需放宽（用户输入已在架构师处校验）
+                .inputGuardrails(new PromptSafetyInputGuardrail(20000))
+                .build();
     }
 
 

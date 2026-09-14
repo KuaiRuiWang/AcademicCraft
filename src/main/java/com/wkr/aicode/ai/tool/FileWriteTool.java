@@ -2,7 +2,6 @@ package com.wkr.aicode.ai.tool;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.json.JSONObject;
-import com.wkr.aicode.constant.AppConstant;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
@@ -12,7 +11,6 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 
 /**
@@ -32,12 +30,12 @@ public class FileWriteTool extends BaseTool {
             @ToolMemoryId Long appId
     ) {
         try {
-            Path path = Paths.get(relativeFilePath);
-            if (!path.isAbsolute()) {
-                // 相对路径处理，创建基于 appId 的项目目录
-                String projectDirName = "vue_project_" + appId;
-                Path projectRoot = Paths.get(AppConstant.CODE_OUTPUT_ROOT_DIR, projectDirName);
-                path = projectRoot.resolve(relativeFilePath);
+            AgentWorkspace workspace = resolveWorkspace(appId);
+            Path path = workspace.resolveForWrite(relativeFilePath);
+            if (path == null) {
+                String deniedMessage = workspace.getWriteDeniedMessage(relativeFilePath);
+                log.warn("拒绝越权写入，appId={}, 路径={}", appId, relativeFilePath);
+                return deniedMessage;
             }
             // 创建父目录（如果不存在）
             Path parentDir = path.getParent();
