@@ -1,0 +1,11 @@
+FROM node:18-alpine
+RUN addgroup -g 1001 appuser && adduser -D -u 1001 -G appuser appuser
+WORKDIR /app
+COPY --chown=appuser:appuser backend/package*.json ./
+# 生成的后端无 package-lock.json，不能用 npm ci
+RUN npm install --omit=dev --no-audit --no-fund
+COPY --chown=appuser:appuser backend/ .
+RUN mkdir -p /app/logs && chown -R appuser:appuser /app/logs
+USER appuser
+EXPOSE 3000
+CMD ["node", "src/app.js"]
