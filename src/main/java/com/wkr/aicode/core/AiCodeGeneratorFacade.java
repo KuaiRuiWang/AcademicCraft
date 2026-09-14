@@ -15,6 +15,7 @@ import com.wkr.aicode.core.saver.CodeFileSaverExecutor;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
 import com.wkr.aicode.langGrapgh4J.FullstackCodeGenWorkflow;
+import com.wkr.aicode.langGrapgh4J.FullstackModifyWorkflow;
 import com.wkr.aicode.model.enums.AgentRoleEnum;
 import com.wkr.aicode.model.enums.CodeGenTypeEnum;
 import dev.langchain4j.model.chat.response.ChatResponse;
@@ -83,6 +84,10 @@ public class AiCodeGeneratorFacade {
         }
         // 全栈模式由工作流内部按角色创建 Agent 服务，不走单类型服务工厂
         if (CodeGenTypeEnum.FULLSTACK_VUE_NODEJS == codeGenTypeEnum) {
+            // 已有完整产物（frontend/ + backend/ + api-contract.json）视为修改需求，走修改工作流（T-17）
+            if (isGeneratedFullstackProject(AppConstant.fullstackProjectDir(appId))) {
+                return new FullstackModifyWorkflow().executeWorkflowWithFlux(userMessage, appId);
+            }
             return new FullstackCodeGenWorkflow().executeWorkflowWithFlux(userMessage, appId);
         }
         // 根据 appId 获取对应的 AI 服务实例
@@ -105,6 +110,17 @@ public class AiCodeGeneratorFacade {
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, errorMessage);
             }
         };
+    }
+
+    /**
+     * 判断全栈项目是否已生成完整产物（前端目录 + 后端目录 + API 契约文件齐全）
+     *
+     * @param projectDir 全栈项目产物根目录
+     */
+    static boolean isGeneratedFullstackProject(String projectDir) {
+        return new File(projectDir, "frontend").isDirectory()
+                && new File(projectDir, "backend").isDirectory()
+                && new File(projectDir, ApiContractDesignFacade.CONTRACT_FILE_NAME).isFile();
     }
 
     /**

@@ -27,7 +27,9 @@ public class FrontendAgentNode {
         return node_async(state -> {
             WorkflowContext context = WorkflowContext.getContext(state);
             Long appId = context.getAppId();
-            log.info("执行节点: 前端 Agent 代码生成，appId={}", appId);
+            String action = context.isModifyMode() ? "修改" : "生成";
+            context.setCurrentStep("前端代码" + action);
+            log.info("执行节点: 前端 Agent 代码{}，appId={}", action, appId);
             String userMessage = buildUserMessage(context);
             AiCodeGeneratorFacade codeGeneratorFacade = SpringContextUtil.getBean(AiCodeGeneratorFacade.class);
             long startTime = System.currentTimeMillis();
@@ -35,15 +37,15 @@ public class FrontendAgentNode {
             codeGeneratorFacade.generateFullstackAgentCodeStream(appId, AgentRoleEnum.FRONTEND, userMessage)
                     .doOnNext(pipe::emit)
                     .blockLast(Duration.ofMinutes(10));
-            log.info("前端 Agent 代码生成完成，耗时 {} ms，产物目录: {}",
-                    System.currentTimeMillis() - startTime, context.getFrontendDir());
-            pipe.emitAiResponse("\n前端代码生成完成\n\n");
+            log.info("前端 Agent 代码{}完成，耗时 {} ms，产物目录: {}",
+                    action, System.currentTimeMillis() - startTime, context.getFrontendDir());
+            pipe.emitAiResponse("\n前端代码" + action + "完成\n\n");
             return WorkflowContext.saveContext(context);
         });
     }
 
     /**
-     * 构造前端 Agent 的用户消息：需求描述 + API 契约 + 路径约束
+     * 构造前端 Agent 的用户消息：需求描述 + API 契约 + 路径约束（修改模式下改为增量修改指令）
      */
     private static String buildUserMessage(WorkflowContext context) {
         StringBuilder userMessage = new StringBuilder(context.getOriginalPrompt());
@@ -53,8 +55,15 @@ public class FrontendAgentNode {
                     .append(JSONUtil.toJsonPrettyStr(contract))
                     .append("\n```\n");
         }
-        userMessage.append("\n请严格按契约的接口清单与数据模型实现前端页面，所有文件路径以 frontend/ 开头，")
-                .append("接口调用一律使用相对路径 ./api/xxx。");
+        if (context.isModifyMode()) {
+            userMessage.append("\n这是一次针对已有项目的增量修改，不是重新生成。")
+                    .append("请先用【文件读取工具】查看 frontend/ 下的相关文件确认现状，")
+                    .append("再用【文件修改工具】做最小化改动，不要重写无关文件，不要触碰 backend/ 目录。")
+                    .append("所有文件路径以 frontend/ 开头，接口调用一律使用相对路径 ./api/xxx。");
+        } else {
+            userMessage.append("\n请严格按契约的接口清单与数据模型实现前端页面，所有文件路径以 frontend/ 开头，")
+                    .append("接口调用一律使用相对路径 ./api/xxx。");
+        }
         appendFixHints(userMessage, context.getFrontendFixHints());
         return userMessage.toString();
     }

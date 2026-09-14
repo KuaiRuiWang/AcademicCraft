@@ -5,6 +5,7 @@ import com.wkr.aicode.langGrapgh4J.model.ImageCollectionPlan;
 import com.wkr.aicode.langGrapgh4J.model.ImageResource;
 import com.wkr.aicode.langGrapgh4J.model.QualityResult;
 import com.wkr.aicode.model.enums.CodeGenTypeEnum;
+import com.wkr.aicode.model.enums.ModifyScopeEnum;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -125,6 +126,16 @@ public class WorkflowContext implements Serializable {
      * 后端待修复问题（契约校验产出，由后端 Agent 下一轮消费）
      */
     private List<String> backendFixHints;
+
+    /**
+     * 修改对话的意图范围（T-17 修改工作流），由轻量模型分类
+     */
+    private ModifyScopeEnum modifyScope;
+
+    /**
+     * 是否为修改模式（T-17 修改工作流）：Agent 节点据此构造修改指令而非重新生成
+     */
+    private boolean modifyMode;
 
     @Serial
     private static final long serialVersionUID = 1L;

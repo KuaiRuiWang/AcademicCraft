@@ -27,23 +27,25 @@ public class BackendAgentNode {
         return node_async(state -> {
             WorkflowContext context = WorkflowContext.getContext(state);
             Long appId = context.getAppId();
-            log.info("执行节点: 后端 Agent 代码生成，appId={}", appId);
+            String action = context.isModifyMode() ? "修改" : "生成";
+            context.setCurrentStep("后端代码" + action);
+            log.info("执行节点: 后端 Agent 代码{}，appId={}", action, appId);
             String userMessage = buildUserMessage(context);
             AiCodeGeneratorFacade codeGeneratorFacade = SpringContextUtil.getBean(AiCodeGeneratorFacade.class);
             long startTime = System.currentTimeMillis();
-            // 同步等待流式输出完成，边产出边推送给前端（与前端 Agent 并行执行）
+            // 同步等待流式输出完成，边产出边推送给前端（生成模式下与前端 Agent 并行执行）
             codeGeneratorFacade.generateFullstackAgentCodeStream(appId, AgentRoleEnum.BACKEND, userMessage)
                     .doOnNext(pipe::emit)
                     .blockLast(Duration.ofMinutes(10));
-            log.info("后端 Agent 代码生成完成，耗时 {} ms，产物目录: {}",
-                    System.currentTimeMillis() - startTime, context.getBackendDir());
-            pipe.emitAiResponse("\n后端代码生成完成\n\n");
+            log.info("后端 Agent 代码{}完成，耗时 {} ms，产物目录: {}",
+                    action, System.currentTimeMillis() - startTime, context.getBackendDir());
+            pipe.emitAiResponse("\n后端代码" + action + "完成\n\n");
             return WorkflowContext.saveContext(context);
         });
     }
 
     /**
-     * 构造后端 Agent 的用户消息：需求描述 + API 契约 + 路径与运行约束
+     * 构造后端 Agent 的用户消息：需求描述 + API 契约 + 路径与运行约束（修改模式下改为增量修改指令）
      */
     private static String buildUserMessage(WorkflowContext context) {
         StringBuilder userMessage = new StringBuilder(context.getOriginalPrompt());
@@ -53,8 +55,16 @@ public class BackendAgentNode {
                     .append(JSONUtil.toJsonPrettyStr(contract))
                     .append("\n```\n");
         }
-        userMessage.append("\n请严格按契约实现全部接口（包含 GET /api/health），所有文件路径以 backend/ 开头，")
-                .append("数据库表结构必须与契约的数据模型一致，服务监听 0.0.0.0:3000。");
+        if (context.isModifyMode()) {
+            userMessage.append("\n这是一次针对已有项目的增量修改，不是重新生成。")
+                    .append("请先用【文件读取工具】查看 backend/ 下的相关文件确认现状，")
+                    .append("再用【文件修改工具】做最小化改动，不要重写无关文件，不要触碰 frontend/ 目录。")
+                    .append("如涉及数据模型变化，同步更新 src/db/init.js 的建表与种子数据。")
+                    .append("所有文件路径以 backend/ 开头，服务监听 0.0.0.0:3000。");
+        } else {
+            userMessage.append("\n请严格按契约实现全部接口（包含 GET /api/health），所有文件路径以 backend/ 开头，")
+                    .append("数据库表结构必须与契约的数据模型一致，服务监听 0.0.0.0:3000。");
+        }
         appendFixHints(userMessage, context.getBackendFixHints());
         return userMessage.toString();
     }
