@@ -2,39 +2,33 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  FireOutlined,
-  StarFilled,
-  EyeOutlined,
   ArrowRightOutlined,
   CodeOutlined,
   CloudUploadOutlined,
   ThunderboltOutlined,
+  ShoppingOutlined,
+  InboxOutlined,
+  ReloadOutlined,
+  DisconnectOutlined,
 } from '@ant-design/icons-vue'
 import { listProjectVoByPage } from '@/api/projectController'
 import { listCategories } from '@/api/projectCategoryController'
 import { listGoodAppVoByPage } from '@/api/appController'
 import { getDeployUrl } from '@/config/env'
 import AppCard from '@/components/AppCard.vue'
+import ProjectCard from '@/components/ProjectCard.vue'
 
 const router = useRouter()
-
-const defaultCover =
-  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgZmlsbD0iI2YwZjJmNSIvPjx0ZXh0IHg9IjIwMCIgeT0iMTI1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjE4IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+'
-
-// 热门项目
 const projectsLoading = ref(false)
+const projectsError = ref(false)
 const projects = ref<API.ProjectVO[]>([])
-
-// 分类
 const categories = ref<API.ProjectCategory[]>([])
-
-// AI 生成案例
 const featuredApps = ref<API.AppVO[]>([])
 const featuredAppsLoading = ref(false)
 
-// 加载热门项目（按销量）
 const loadHotProjects = async () => {
   projectsLoading.value = true
+  projectsError.value = false
   try {
     const res = await listProjectVoByPage({
       pageNum: 1,
@@ -44,27 +38,25 @@ const loadHotProjects = async () => {
     })
     if (res.data.code === 0 && res.data.data) {
       projects.value = res.data.data.records || []
+    } else {
+      projectsError.value = true
     }
-  } catch (error) {
-    console.error('加载热门项目失败：', error)
+  } catch {
+    projectsError.value = true
   } finally {
     projectsLoading.value = false
   }
 }
 
-// 加载分类
 const loadCategories = async () => {
   try {
     const res = await listCategories()
-    if (res.data.code === 0 && res.data.data) {
-      categories.value = res.data.data
-    }
-  } catch (error) {
-    console.error('加载分类失败：', error)
+    if (res.data.code === 0 && res.data.data) categories.value = res.data.data
+  } catch {
+    // 分类不可用时保留商城入口。
   }
 }
 
-// 加载 AI 生成案例
 const loadFeaturedApps = async () => {
   featuredAppsLoading.value = true
   try {
@@ -74,222 +66,164 @@ const loadFeaturedApps = async () => {
       sortField: 'createTime',
       sortOrder: 'desc',
     })
-    if (res.data.code === 0 && res.data.data) {
-      featuredApps.value = res.data.data.records || []
-    }
-  } catch (error) {
-    console.error('加载 AI 案例失败：', error)
+    if (res.data.code === 0 && res.data.data) featuredApps.value = res.data.data.records || []
+  } catch {
+    // 案例不可用时不展示该区块。
   } finally {
     featuredAppsLoading.value = false
   }
 }
 
-// 解析 techTags 字符串
-const parseTags = (tags?: string): string[] => {
-  if (!tags) return []
-  return tags.split(',').filter(Boolean).map(t => t.trim())
-}
-
-// 跳转商城（可带分类）
-const goToMarket = (categoryId?: number) => {
-  if (categoryId) {
-    router.push({ path: '/project', query: { categoryId } })
-  } else {
-    router.push('/project')
-  }
-}
-
-// 跳转项目详情
-const goToProjectDetail = (id?: number) => {
-  if (id) router.push(`/project/${id}`)
-}
-
-// 查看对话
 const viewChat = (appId: string | number | undefined) => {
-  if (appId) {
-    router.push(`/app/chat/${appId}?view=1`)
-  }
+  if (appId) router.push(`/app/chat/${appId}?view=1`)
 }
-
-// 查看作品
 const viewWork = (app: API.AppVO) => {
-  if (app.deployKey) {
-    const url = getDeployUrl(app.deployKey, app.codeGenType)
-    window.open(url, '_blank')
-  }
+  if (app.deployKey)
+    window.open(getDeployUrl(app.deployKey, app.codeGenType), '_blank', 'noopener,noreferrer')
 }
-
 onMounted(() => {
   loadHotProjects()
   loadCategories()
   loadFeaturedApps()
-
-  // 鼠标跟随光效（单色，柔和）
-  const handleMouseMove = (e: MouseEvent) => {
-    const { clientX, clientY } = e
-    const { innerWidth, innerHeight } = window
-    const x = (clientX / innerWidth) * 100
-    const y = (clientY / innerHeight) * 100
-
-    document.documentElement.style.setProperty('--mouse-x', `${x}%`)
-    document.documentElement.style.setProperty('--mouse-y', `${y}%`)
-  }
-
-  document.addEventListener('mousemove', handleMouseMove)
-
-  // 清理事件监听器
-  return () => {
-    document.removeEventListener('mousemove', handleMouseMove)
-  }
 })
 </script>
 
 <template>
   <div id="homePage">
     <div class="container">
-      <!-- 主视觉 -->
-      <div class="hero-section">
-        <span class="hero-eyebrow">百夜毕设帮 · 计算机毕设一站式平台</span>
-        <h1 class="hero-title">选一份成品项目，<br />或让 <span class="accent">AI 为你定制</span></h1>
-        <p class="hero-description">
-          精选优质毕设项目源码，购买即交付、可部署上线；没有找到合适的，用 AI 从零生成
-        </p>
-        <div class="hero-actions">
-          <a-button type="primary" size="large" shape="round" @click="goToMarket()">
-            逛项目商城
-          </a-button>
-          <a-button size="large" shape="round" class="ghost-btn" @click="router.push('/create')">
-            AI 定制生成
-            <ArrowRightOutlined />
-          </a-button>
+      <section class="hero-section" aria-labelledby="home-title">
+        <div class="hero-copy">
+          <h1 id="home-title" class="hero-title">
+            选一份成品项目，<br />或让 <span class="accent">AI 为你定制</span>
+          </h1>
+          <p class="hero-description">
+            精选优质毕设项目源码，购买即交付、可部署上线；没有找到合适的，用 AI 从零生成
+          </p>
+          <div class="hero-actions">
+            <RouterLink to="/project" class="hero-link primary-link"
+              >逛项目商城 <ArrowRightOutlined aria-hidden="true"
+            /></RouterLink>
+            <RouterLink to="/create" class="hero-link secondary-link"
+              ><ThunderboltOutlined aria-hidden="true" /> AI 定制生成</RouterLink
+            >
+          </div>
+          <p class="hero-note">
+            <CodeOutlined aria-hidden="true" /> 百夜毕设帮 · 计算机毕设一站式平台
+          </p>
         </div>
-      </div>
+        <aside class="start-panel" aria-label="项目获取方式">
+          <CodeOutlined class="panel-mark" aria-hidden="true" />
+          <h2>一个想法，两种开始。</h2>
+          <RouterLink to="/project" class="path-option">
+            <ShoppingOutlined class="path-icon" aria-hidden="true" />
+            <span><strong>选一份成品项目</strong><small>精选优质毕设项目源码</small></span>
+            <ArrowRightOutlined aria-hidden="true" />
+          </RouterLink>
+          <RouterLink to="/create" class="path-option">
+            <ThunderboltOutlined class="path-icon" aria-hidden="true" />
+            <span><strong>让 AI 为你定制</strong><small>描述你的需求，从零生成项目</small></span>
+            <ArrowRightOutlined aria-hidden="true" />
+          </RouterLink>
+          <div class="panel-stack"><span>Vue</span><span>Node.js</span><span>MySQL</span></div>
+        </aside>
+      </section>
 
-      <!-- 分类快捷入口 -->
-      <div v-if="categories.length" class="category-bar">
+      <nav v-if="categories.length" class="category-bar" aria-label="热门分类">
         <span class="category-label">热门分类</span>
         <div class="category-chips">
-          <a-button
+          <RouterLink
             v-for="cat in categories"
             :key="cat.id"
+            :to="{ path: '/project', query: { categoryId: cat.id } }"
             class="category-chip"
-            @click="goToMarket(cat.id)"
+            >{{ cat.name }}</RouterLink
           >
-            {{ cat.name }}
-          </a-button>
         </div>
-      </div>
+      </nav>
 
-      <!-- 热门项目 -->
-      <div class="section">
+      <section class="section" aria-labelledby="projects-title">
         <div class="section-header">
-          <h2 class="section-title">热门项目</h2>
-          <a class="section-more" @click="goToMarket()">
-            查看全部 <ArrowRightOutlined />
-          </a>
+          <div>
+            <h2 id="projects-title" class="section-title">热门项目</h2>
+            <p class="section-desc">精选优质毕设项目源码，找到适合你的起点</p>
+          </div>
+          <RouterLink to="/project" class="section-more"
+            >查看全部 <ArrowRightOutlined aria-hidden="true"
+          /></RouterLink>
         </div>
-
-        <div v-if="projectsLoading" class="project-grid">
-          <div v-for="i in 6" :key="i" class="project-card">
+        <div
+          v-if="projectsLoading"
+          class="project-grid"
+          aria-label="正在加载热门项目"
+          aria-busy="true"
+        >
+          <div v-for="i in 6" :key="i" class="skeleton-card">
             <div class="skel-cover"></div>
-            <div class="card-body">
+            <div class="skel-body">
               <a-skeleton active :title="{ width: '70%' }" :paragraph="{ rows: 2 }" />
             </div>
           </div>
         </div>
-
-        <div v-else-if="projects.length" class="project-grid">
-          <div
-            v-for="project in projects"
-            :key="project.id"
-            class="project-card"
-            @click="goToProjectDetail(project.id)"
+        <div v-else-if="projectsError" class="empty-state" role="status">
+          <DisconnectOutlined class="empty-icon" aria-hidden="true" />
+          <h3>项目暂时无法加载</h3>
+          <p>请检查网络后重试，也可以先用 AI 定制一个项目。</p>
+          <a-button @click="loadHotProjects"
+            ><ReloadOutlined aria-hidden="true" /> 重新加载</a-button
           >
-            <div class="card-cover">
-              <img
-                :src="project.coverImage || defaultCover"
-                :alt="project.name"
-                @error="(e: any) => { e.target.src = defaultCover }"
-              />
-              <div class="card-price">{{ project.price ? `¥${project.price}` : '免费' }}</div>
-              <div v-if="project.salesCount" class="card-sales">
-                <FireOutlined /> {{ project.salesCount }}
-              </div>
-            </div>
-            <div class="card-body">
-              <h3 class="card-title">{{ project.name }}</h3>
-              <p class="card-desc">{{ project.description || '暂无描述' }}</p>
-              <div class="card-meta">
-                <a-space :size="4" wrap>
-                  <a-tag v-for="tag in parseTags(project.techTags).slice(0, 3)" :key="tag" class="tech-tag">
-                    {{ tag }}
-                  </a-tag>
-                </a-space>
-              </div>
-              <div class="card-footer">
-                <a-space>
-                  <a-avatar :src="project.author?.userAvatar" :size="20" />
-                  <span class="author-name">{{ project.author?.userName || '匿名' }}</span>
-                </a-space>
-                <a-space :size="16">
-                  <span class="stat">
-                    <StarFilled style="color: #f59e0b" />
-                    {{ project.avgRating ? project.avgRating.toFixed(1) : '-' }}
-                  </span>
-                  <span class="stat">
-                    <EyeOutlined />
-                    {{ project.viewCount || 0 }}
-                  </span>
-                </a-space>
-              </div>
-            </div>
-          </div>
         </div>
-
+        <div v-else-if="projects.length" class="project-grid">
+          <ProjectCard v-for="project in projects" :key="project.id" :project="project" />
+        </div>
         <div v-else class="empty-state">
-          <div class="empty-icon">🗂️</div>
-          <p class="empty-text">项目整理中，先用 AI 定制一个试试</p>
-          <a-button type="primary" shape="round" @click="router.push('/create')">
-            AI 定制生成
-          </a-button>
+          <InboxOutlined class="empty-icon" aria-hidden="true" />
+          <h3>项目整理中</h3>
+          <p>先用 AI 定制一个试试，让想法成为你的第一个项目。</p>
+          <a-button type="primary" @click="router.push('/create')">AI 定制生成</a-button>
         </div>
-      </div>
+      </section>
 
-      <!-- 平台优势 -->
-      <div class="section">
-        <div class="section-header">
-          <h2 class="section-title">为什么选择我们</h2>
-        </div>
+      <section class="section value-section" aria-labelledby="values-title">
+        <h2 id="values-title" class="section-title">为什么选择我们</h2>
         <div class="value-grid">
-          <div class="value-card">
-            <div class="value-icon"><CodeOutlined /></div>
-            <h3 class="value-title">源码完整交付</h3>
-            <p class="value-desc">完整源码 + 数据库脚本 + 说明文档，买断可二次开发</p>
+          <div class="value-item">
+            <CodeOutlined class="value-icon" aria-hidden="true" />
+            <div>
+              <h3>源码完整交付</h3>
+              <p>完整源码 + 数据库脚本 + 说明文档，买断可二次开发</p>
+            </div>
           </div>
-          <div class="value-card">
-            <div class="value-icon"><CloudUploadOutlined /></div>
-            <h3 class="value-title">支持部署上线</h3>
-            <p class="value-desc">云端一键部署，域名直接访问，答辩演示随时可用</p>
+          <div class="value-item">
+            <CloudUploadOutlined class="value-icon" aria-hidden="true" />
+            <div>
+              <h3>支持部署上线</h3>
+              <p>云端一键部署，域名直接访问，答辩演示随时可用</p>
+            </div>
           </div>
-          <div class="value-card">
-            <div class="value-icon"><ThunderboltOutlined /></div>
-            <h3 class="value-title">AI 定制生成</h3>
-            <p class="value-desc">描述需求自动生成前后端与数据库，支持全栈项目</p>
+          <div class="value-item">
+            <ThunderboltOutlined class="value-icon" aria-hidden="true" />
+            <div>
+              <h3>AI 定制生成</h3>
+              <p>描述需求自动生成前后端与数据库，支持全栈项目</p>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- AI 生成案例 -->
-      <div v-if="featuredAppsLoading || featuredApps.length" class="section">
+      <section
+        v-if="featuredAppsLoading || featuredApps.length"
+        class="section"
+        aria-labelledby="apps-title"
+      >
         <div class="section-header">
-          <h2 class="section-title">AI 生成案例</h2>
-          <a class="section-more" @click="router.push('/create')">
-            我也要定制 <ArrowRightOutlined />
-          </a>
+          <h2 id="apps-title" class="section-title">AI 生成案例</h2>
+          <RouterLink to="/create" class="section-more"
+            >我也要定制 <ArrowRightOutlined aria-hidden="true"
+          /></RouterLink>
         </div>
-        <div v-if="featuredAppsLoading" class="app-grid">
+        <div v-if="featuredAppsLoading" class="app-grid" aria-busy="true">
           <div v-for="i in 3" :key="i" class="skeleton-card">
-            <div class="skel-media"></div>
+            <div class="skel-cover"></div>
             <div class="skel-body">
               <a-skeleton active :title="{ width: '60%' }" :paragraph="{ rows: 1 }" />
             </div>
@@ -305,491 +239,405 @@ onMounted(() => {
             @view-work="viewWork"
           />
         </div>
-      </div>
+      </section>
 
-      <!-- 底部引导 -->
-      <div class="cta-band">
-        <div class="cta-text">
-          <h3>没找到心仪的项目？</h3>
+      <section class="cta-band">
+        <div>
+          <h2>没找到心仪的项目？</h2>
           <p>描述你的需求，让 AI 从零生成一个专属项目</p>
         </div>
-        <a-button type="primary" size="large" shape="round" @click="router.push('/create')">
-          开始 AI 定制
-        </a-button>
-      </div>
+        <RouterLink to="/create" class="hero-link cta-link"
+          >开始 AI 定制 <ArrowRightOutlined aria-hidden="true"
+        /></RouterLink>
+      </section>
     </div>
   </div>
 </template>
 
 <style scoped>
 #homePage {
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  min-height: 100vh;
   background: var(--color-bg);
-  position: relative;
-  overflow: hidden;
 }
-
-/* 顶部柔和的单色光晕 */
-#homePage::before {
-  content: '';
-  position: absolute;
-  top: -180px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 900px;
-  height: 480px;
-  background: radial-gradient(ellipse at center, rgba(15, 118, 110, 0.12) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-/* 鼠标跟随单色光效 */
-#homePage::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    700px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    rgba(15, 118, 110, 0.07) 0%,
-    transparent 70%
-  );
-  pointer-events: none;
-}
-
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px 20px 60px;
-  position: relative;
-  z-index: 2;
-  width: 100%;
-  box-sizing: border-box;
+  max-width: calc(var(--page-width) + var(--page-gutter) * 2);
+  margin-inline: auto;
+  padding: 0 var(--page-gutter) 64px;
 }
-
-/* 主视觉 */
 .hero-section {
-  text-align: center;
-  padding: 84px 0 40px;
-  color: var(--color-text);
-  position: relative;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  align-items: center;
+  gap: clamp(32px, 5vw, 80px);
+  padding-block: clamp(48px, 6vw, 88px) 64px;
 }
-
-.hero-eyebrow {
-  display: inline-block;
-  padding: 6px 16px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--color-primary);
-  background: rgba(15, 118, 110, 0.1);
-  margin-bottom: 24px;
+.hero-copy {
+  min-width: 0;
 }
-
 .hero-title {
-  font-size: 52px;
-  font-weight: 700;
-  margin: 0 0 20px;
-  line-height: 1.12;
-  letter-spacing: -0.03em;
+  font-size: clamp(2rem, 1.25rem + 2.8vw, 3.5rem);
+  font-weight: 750;
+  margin: 0 0 24px;
+  line-height: 1.25;
+  letter-spacing: -0.035em;
   color: var(--color-text);
 }
-
-.hero-title .accent {
+.accent {
   color: var(--color-primary);
 }
-
 .hero-description {
-  font-size: 18px;
-  margin: 0 auto;
-  max-width: 600px;
+  max-width: 510px;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.9;
   color: var(--color-text-secondary);
 }
-
 .hero-actions {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 32px;
+}
+.hero-link {
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  margin-top: 36px;
+  gap: 14px;
+  min-height: 48px;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
 }
-
-.ghost-btn {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+.primary-link {
+  background: var(--color-primary);
+  color: white;
+}
+.primary-link:hover {
+  background: var(--color-primary-strong);
+  color: white;
+}
+.secondary-link {
   color: var(--color-text);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
-
-.ghost-btn:hover {
+.secondary-link:hover {
+  border-color: var(--color-primary-muted);
   color: var(--color-primary);
-  border-color: rgba(15, 118, 110, 0.4);
 }
-
-/* 分类快捷入口 */
-.category-bar {
+.hero-note {
   display: flex;
   align-items: center;
-  gap: 16px;
-  justify-content: center;
-  margin: 16px 0 64px;
-  flex-wrap: wrap;
-}
-
-.category-label {
-  font-size: 13px;
-  font-weight: 600;
+  gap: 7px;
+  margin: 22px 0 0;
+  font-size: 12px;
   color: var(--color-text-tertiary);
 }
-
-.category-chips {
+.start-panel {
+  padding: 32px;
+  border-radius: 16px;
+  background: var(--color-primary-strong);
+  color: #fff;
+}
+.panel-mark {
+  display: inline-flex;
+  font-size: 30px;
+  color: #a8d5c8;
+  margin-bottom: 24px;
+}
+.start-panel h2 {
+  color: inherit;
+  font-size: 24px;
+  line-height: 1.5;
+  margin: 0 0 20px;
+  font-weight: 650;
+}
+.path-option {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 14px;
+  padding-block: 18px;
+  color: inherit;
+  border-top: 1px solid #427e75;
+}
+.path-option:hover {
+  color: #d5eee5;
+}
+.path-option > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.path-option strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+}
+.path-option small {
+  display: block;
+  margin-top: 3px;
+  color: #c1ded5;
+  font-size: 12px;
+}
+.path-icon {
+  font-size: 22px;
+  color: #c1ded5;
+}
+.panel-stack {
+  display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  gap: 20px;
+  border-top: 1px solid #427e75;
+  padding-top: 18px;
+  font-size: 11px;
+  color: #c1ded5;
 }
-
-.category-chip {
-  border-radius: 999px;
-  padding: 4px 18px;
-  height: auto;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
-.category-chip:hover {
-  color: var(--color-primary);
-  border-color: rgba(15, 118, 110, 0.4);
-  box-shadow: var(--shadow-pop);
-}
-
-/* 区块 */
-.section {
-  margin-bottom: 72px;
-}
-
-.section-header {
+.category-bar {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 28px;
+  gap: 24px;
+  margin-bottom: 56px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--color-border);
 }
-
+.category-label {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+.category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.category-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 14px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  border-radius: 6px;
+}
+.category-chip:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+.section {
+  margin-bottom: 64px;
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
 .section-title {
-  font-size: 28px;
-  font-weight: 700;
   margin: 0;
+  font-size: clamp(1.375rem, 1rem + 1vw, 1.75rem);
+  line-height: 1.5;
+  font-weight: 700;
   color: var(--color-text);
-  letter-spacing: -0.02em;
 }
-
+.section-desc {
+  margin: 6px 0 0;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
 .section-more {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  transition: color 0.25s var(--ease-out-expo);
-}
-
-.section-more:hover {
+  min-height: 44px;
+  gap: 10px;
   color: var(--color-primary);
-}
-
-/* 项目网格 */
-.project-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 24px;
-}
-
-.project-card {
-  background: var(--color-surface);
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid rgba(231, 229, 228, 0.6);
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-}
-
-.project-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-card);
-}
-
-.card-cover {
-  position: relative;
-  aspect-ratio: 5 / 3;
-  overflow: hidden;
-  background: #f0f2f5;
-}
-
-.card-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s var(--ease-out-expo);
-}
-
-.project-card:hover .card-cover img {
-  transform: scale(1.04);
-}
-
-.card-price {
-  position: absolute;
-  left: 12px;
-  top: 12px;
-  padding: 3px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--color-primary-strong);
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.card-sales {
-  position: absolute;
-  right: 12px;
-  top: 12px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: rgba(28, 25, 23, 0.6);
-  color: #fff;
-  font-size: 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.card-body {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.card-title {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0 0 6px;
-  color: var(--color-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.card-desc {
   font-size: 13px;
-  color: var(--color-text-secondary);
-  margin: 0 0 12px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 38px;
+  font-weight: 600;
+  flex-shrink: 0;
 }
-
-.card-meta {
-  margin-bottom: 12px;
-}
-
-.tech-tag {
-  border-radius: 999px;
-  font-size: 12px;
-}
-
-.card-footer {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.author-name {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-
-.stat {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* 平台优势 */
-.value-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 24px;
-}
-
-.value-card {
-  background: var(--color-surface);
-  border: 1px solid rgba(231, 229, 228, 0.6);
-  border-radius: 16px;
-  padding: 28px 24px;
-  transition:
-    transform 0.35s var(--ease-out-expo),
-    box-shadow 0.35s var(--ease-out-expo);
-}
-
-.value-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-card);
-}
-
-.value-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: rgba(15, 118, 110, 0.1);
-  color: var(--color-primary);
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-}
-
-.value-title {
-  font-size: 17px;
-  font-weight: 700;
-  margin: 0 0 8px;
-  color: var(--color-text);
-}
-
-.value-desc {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  margin: 0;
-  line-height: 1.6;
-}
-
-/* AI 案例网格 */
+.project-grid,
 .app-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
 }
-
+.value-section {
+  padding-block: 36px;
+  border-block: 1px solid var(--color-border);
+}
+.value-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 36px;
+  margin-top: 28px;
+}
+.value-item {
+  display: flex;
+  gap: 16px;
+}
+.value-icon {
+  color: var(--color-primary);
+  font-size: 26px;
+  margin-top: 3px;
+}
+.value-item h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+.value-item p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.8;
+}
 .skeleton-card {
-  background: var(--color-surface);
-  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid rgba(231, 229, 228, 0.6);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
 }
-
-.skel-media,
 .skel-cover {
-  height: 180px;
-  background: linear-gradient(90deg, #f0efed 25%, #f7f6f3 37%, #f0efed 63%);
-  background-size: 400% 100%;
-  animation: skel 1.4s ease infinite;
+  aspect-ratio: 16 / 10;
+  background: var(--color-primary-soft);
 }
-
-.skel-cover {
-  aspect-ratio: 5 / 3;
-  height: auto;
-}
-
 .skel-body {
-  padding: 16px;
+  padding: 20px;
 }
-
-@keyframes skel {
-  0% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0 50%;
-  }
-}
-
-/* 空状态 */
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 56px 24px;
-  background: var(--color-surface);
+  padding: 44px 24px;
   border: 1px dashed var(--color-border);
-  border-radius: 16px;
+  border-radius: 12px;
+  background: var(--color-surface);
   text-align: center;
 }
-
 .empty-icon {
-  font-size: 40px;
+  font-size: 32px;
+  color: var(--color-primary);
+  margin-bottom: 16px;
 }
-
-.empty-text {
-  margin: 0 0 4px;
+.empty-state h3 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.6;
+}
+.empty-state p {
+  margin: 8px 0 20px;
   color: var(--color-text-secondary);
+  font-size: 13px;
 }
-
-/* 底部引导 */
 .cta-band {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 40px 48px;
-  border-radius: 20px;
-  background: linear-gradient(120deg, rgba(15, 118, 110, 0.12), rgba(15, 118, 110, 0.04));
-  border: 1px solid rgba(15, 118, 110, 0.18);
   flex-wrap: wrap;
+  gap: 24px;
+  padding: 36px 40px;
+  border-radius: 14px;
+  background: var(--color-primary-soft);
 }
-
-.cta-text h3 {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 0 0 6px;
-  color: var(--color-text);
+.cta-band h2 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  color: var(--color-primary-strong);
 }
-
-.cta-text p {
+.cta-band p {
   margin: 0;
   font-size: 14px;
-  color: var(--color-text-secondary);
+  color: var(--color-primary-strong);
 }
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .hero-section {
-    padding: 56px 0 32px;
-  }
-
-  .hero-title {
-    font-size: 32px;
-  }
-
-  .hero-description {
-    font-size: 16px;
-  }
-
-  .hero-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .category-bar {
-    margin-bottom: 48px;
-  }
-
+.cta-link {
+  background: var(--color-primary);
+  color: white;
+}
+.cta-link:hover {
+  background: var(--color-primary-strong);
+  color: white;
+}
+@media (max-width: 1000px) {
   .project-grid,
   .app-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
+  .start-panel {
+    padding: 24px;
+  }
+  .hero-section {
+    gap: 32px;
+  }
+}
+@media (max-width: 700px) {
+  .hero-section {
+    grid-template-columns: 1fr;
+    padding-block: 40px;
+    gap: 32px;
+  }
+  .hero-title {
+    font-size: clamp(2rem, 1rem + 4.5vw, 2.75rem);
+  }
+  .hero-description {
+    font-size: 14px;
+  }
+  .hero-actions {
+    margin-top: 24px;
+  }
+  .hero-link {
+    padding-inline: 18px;
+    gap: 8px;
+  }
+  .start-panel {
+    padding: 24px;
+  }
+  .panel-mark {
+    display: none;
+  }
+  .start-panel h2 {
+    font-size: 21px;
+    margin-bottom: 12px;
+  }
+  .category-bar {
+    gap: 8px;
+    flex-direction: column;
+    margin-bottom: 36px;
+  }
+  .category-chips {
+    gap: 0;
+  }
+  .category-chip {
+    padding-inline: 10px;
+  }
+  .section {
+    margin-bottom: 40px;
+  }
+  .section-header {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .section-desc {
+    max-width: 220px;
+  }
+  .value-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
   .cta-band {
     padding: 28px 24px;
+  }
+  .cta-band h2 {
+    font-size: 22px;
+    line-height: 1.5;
+  }
+}
+@media (max-width: 520px) {
+  .project-grid,
+  .app-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

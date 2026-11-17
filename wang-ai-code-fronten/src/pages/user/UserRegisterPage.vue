@@ -1,34 +1,50 @@
 <template>
-  <div id="userRegisterPage">
-    <div class="auth-card-outer">
-      <div class="auth-card">
+  <div class="auth-page">
+    <div class="auth-layout">
+      <aside class="auth-intro">
+        <h2 class="auth-display">选一份成品项目，<br /><span>或让 AI 为你定制。</span></h2>
+        <p>精选优质毕设项目源码，购买即交付、可部署上线；没有找到合适的，用 AI 从零生成。</p>
+        <RouterLink to="/" class="auth-back"
+          ><ArrowLeftOutlined aria-hidden="true" /> 返回首页</RouterLink
+        >
+      </aside>
+      <section class="auth-card" aria-labelledby="auth-title">
         <div class="auth-head">
-          <span class="auth-eyebrow">百夜毕设帮</span>
-          <h2 class="auth-title">创建账号</h2>
+          <h1 id="auth-title" class="auth-title">创建账号</h1>
           <p class="auth-desc">注册后即可生成应用、购买毕设项目</p>
         </div>
-        <a-form :model="formState" name="basic" autocomplete="off" @finish="handleSubmit">
-          <a-form-item name="userAccount" :rules="[{ required: true, message: '请输入账号' }]">
+        <a-form :model="formState" name="register" layout="vertical" @finish="handleSubmit">
+          <a-form-item
+            label="账号"
+            name="userAccount"
+            :rules="[{ required: true, message: '请输入账号' }]"
+          >
             <a-input
               v-model:value="formState.userAccount"
               size="large"
               placeholder="请输入账号"
+              autocomplete="username"
+              :disabled="submitting"
             />
           </a-form-item>
           <a-form-item
+            label="密码"
             name="userPassword"
             :rules="[
               { required: true, message: '请输入密码' },
-              { min: 8, message: '密码不能小于 8 位' },
+              { min: 8, message: '密码长度不能小于 8 位' },
             ]"
           >
             <a-input-password
               v-model:value="formState.userPassword"
               size="large"
-              placeholder="请输入密码"
+              placeholder="请输入至少 8 位密码"
+              autocomplete="new-password"
+              :disabled="submitting"
             />
           </a-form-item>
           <a-form-item
+            label="确认密码"
             name="checkPassword"
             :rules="[
               { required: true, message: '请确认密码' },
@@ -39,31 +55,31 @@
             <a-input-password
               v-model:value="formState.checkPassword"
               size="large"
-              placeholder="请确认密码"
+              placeholder="再次输入密码"
+              autocomplete="new-password"
+              :disabled="submitting"
             />
           </a-form-item>
-          <div class="auth-tips">
-            已有账号？
-            <RouterLink to="/user/login">去登录</RouterLink>
-          </div>
-          <a-form-item :margin-bottom="0">
-            <a-button type="primary" html-type="submit" size="large" block shape="round">
-              注册
-            </a-button>
-          </a-form-item>
+          <a-form-item class="auth-submit-row"
+            ><a-button type="primary" html-type="submit" size="large" block :loading="submitting"
+              >注册 <ArrowRightOutlined aria-hidden="true" /></a-button
+          ></a-form-item>
+          <div class="auth-tips">已有账号？<RouterLink to="/user/login">去登录</RouterLink></div>
         </a-form>
-      </div>
+      </section>
     </div>
   </div>
 </template>
-
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { userRegister } from '@/api/userController.ts'
 import { message } from 'ant-design-vue'
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
+import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons-vue'
 
 const router = useRouter()
+
+const submitting = ref(false)
 
 const formState = reactive<API.UserRegisterRequest>({
   userAccount: '',
@@ -90,100 +106,25 @@ const validateCheckPassword = (rule: unknown, value: string, callback: (error?: 
  * @param values
  */
 const handleSubmit = async (values: API.UserRegisterRequest) => {
-  const res = await userRegister(values)
-  // 注册成功，跳转到登录页面
-  if (res.data.code === 0) {
-    message.success('注册成功')
-    router.push({
-      path: '/user/login',
-      replace: true,
-    })
-  } else {
-    message.error('注册失败，' + res.data.message)
+  submitting.value = true
+  try {
+    const res = await userRegister(values)
+    // 注册成功，跳转到登录页面
+    if (res.data.code === 0) {
+      message.success('注册成功')
+      router.push({
+        path: '/user/login',
+        replace: true,
+      })
+    } else {
+      message.error('注册失败，' + res.data.message)
+    }
+  } catch {
+    message.error('注册失败，请检查网络后重试')
+  } finally {
+    submitting.value = false
   }
 }
 </script>
 
-<style scoped>
-#userRegisterPage {
-  min-height: calc(100vh - 68px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 20px;
-  background: var(--color-bg);
-  position: relative;
-  overflow: hidden;
-}
-
-#userRegisterPage::before {
-  content: '';
-  position: absolute;
-  top: -160px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 720px;
-  height: 420px;
-  background: radial-gradient(ellipse at center, rgba(15, 118, 110, 0.1) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-/* 双嵌套外壳 */
-.auth-card-outer {
-  position: relative;
-  width: 100%;
-  max-width: 440px;
-  background: rgba(231, 229, 228, 0.5);
-  padding: 10px;
-  border-radius: 28px;
-  border: 1px solid var(--color-border);
-}
-
-.auth-card {
-  background: var(--color-surface);
-  border-radius: 20px;
-  padding: 40px 36px 36px;
-  box-shadow: var(--shadow-card);
-}
-
-.auth-head {
-  text-align: center;
-  margin-bottom: 32px;
-}
-
-.auth-eyebrow {
-  display: inline-block;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-primary);
-  margin-bottom: 12px;
-}
-
-.auth-title {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin: 0 0 8px;
-  color: var(--color-text);
-}
-
-.auth-desc {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: 15px;
-}
-
-.auth-tips {
-  text-align: right;
-  color: var(--color-text-tertiary);
-  font-size: 14px;
-  margin-bottom: 24px;
-}
-
-.auth-tips a {
-  color: var(--color-primary);
-  font-weight: 500;
-}
-</style>
+<style src="@/assets/auth.css"></style>

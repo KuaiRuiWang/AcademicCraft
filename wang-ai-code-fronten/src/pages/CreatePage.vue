@@ -6,6 +6,7 @@ import { useLoginUserStore } from '@/stores/loginUser'
 import { addApp, listMyAppVoByPage } from '@/api/appController'
 import { getDeployUrl } from '@/config/env'
 import AppCard from '@/components/AppCard.vue'
+import { ArrowRightOutlined, CodeOutlined, InboxOutlined } from '@ant-design/icons-vue'
 
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
@@ -124,44 +125,42 @@ onMounted(() => {
     <div class="container">
       <!-- 页面头部 -->
       <div class="hero-section">
-        <span class="hero-eyebrow">AI 定制生成</span>
         <h1 class="hero-title">描述你的需求，<span class="accent">一键生成</span>毕设项目</h1>
         <p class="hero-description">
           支持 Vue 网站与全栈应用（Node.js + MySQL），生成后可直接部署上线
         </p>
       </div>
 
-      <!-- 用户提示词输入 -->
       <div ref="inputShell" class="input-shell">
+        <label for="project-prompt" class="prompt-label"
+          ><CodeOutlined aria-hidden="true" /> 描述你的项目需求</label
+        >
         <a-textarea
+          id="project-prompt"
           v-model:value="userPrompt"
           placeholder="帮我创建一个个人博客网站…"
-          :rows="3"
+          :auto-size="{ minRows: 4, maxRows: 10 }"
           :maxlength="1000"
+          :disabled="creating"
           class="prompt-input"
         />
-        <a-button
-          type="primary"
-          size="large"
-          class="submit-btn"
-          :loading="creating"
-          aria-label="创建应用"
-          @click="createApp"
-        >
-          <span class="btn-arrow">↑</span>
-        </a-button>
+        <div class="composer-footer">
+          <span class="prompt-count">{{ userPrompt.length }} / 1000</span>
+          <a-button type="primary" size="large" :loading="creating" @click="createApp"
+            >开始生成 <ArrowRightOutlined aria-hidden="true"
+          /></a-button>
+        </div>
       </div>
-
-      <!-- 全栈项目选项 -->
       <div class="fullstack-option">
-        <a-checkbox v-model:checked="generateBackend" :disabled="creating">
-          同步生成 Node.js 后端 + MySQL（全栈项目）
-        </a-checkbox>
+        <a-checkbox v-model:checked="generateBackend" :disabled="creating"
+          >同步生成 Node.js 后端 + MySQL（全栈项目）</a-checkbox
+        >
         <span class="fullstack-hint">勾选后同时生成前后端与数据库，作为完整项目部署</span>
       </div>
 
       <!-- 快捷示例 -->
       <div class="quick-actions">
+        <span class="examples-label">试试这些想法</span>
         <a-button
           class="quick-pill"
           @click="
@@ -225,7 +224,7 @@ onMounted(() => {
           />
         </div>
         <div v-else class="empty-state">
-          <div class="empty-icon">🎨</div>
+          <InboxOutlined class="empty-icon" aria-hidden="true" />
           <p class="empty-text">还没有作品，描述一个想法开始吧</p>
           <a-button type="primary" shape="round" @click="scrollToInput">创建第一个应用</a-button>
         </div>
@@ -246,283 +245,236 @@ onMounted(() => {
 
 <style scoped>
 #createPage {
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  min-height: 100vh;
   background: var(--color-bg);
-  position: relative;
-  overflow: hidden;
 }
-
-/* 顶部柔和的单色光晕 */
-#createPage::before {
-  content: '';
-  position: absolute;
-  top: -180px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 900px;
-  height: 480px;
-  background: radial-gradient(ellipse at center, rgba(15, 118, 110, 0.12) 0%, transparent 70%);
-  pointer-events: none;
-}
-
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px 20px 60px;
-  position: relative;
-  z-index: 2;
-  width: 100%;
-  box-sizing: border-box;
+  max-width: calc(var(--page-width) + var(--page-gutter) * 2);
+  margin-inline: auto;
+  padding: 0 var(--page-gutter) 64px;
 }
-
-/* 页面头部 */
 .hero-section {
   text-align: center;
-  padding: 72px 0 40px;
-  color: var(--color-text);
-  position: relative;
+  max-width: 880px;
+  margin-inline: auto;
+  padding-block: 60px 32px;
 }
-
-.hero-eyebrow {
-  display: inline-block;
-  padding: 6px 16px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--color-primary);
-  background: rgba(15, 118, 110, 0.1);
-  margin-bottom: 24px;
-}
-
 .hero-title {
-  font-size: 44px;
-  font-weight: 700;
-  margin: 0 0 20px;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
+  margin: 0 0 16px;
+  font-size: clamp(1.875rem, 1.125rem + 2.5vw, 2.75rem);
+  line-height: 1.4;
+  font-weight: 750;
   color: var(--color-text);
 }
-
-.hero-title .accent {
+.accent {
   color: var(--color-primary);
 }
-
 .hero-description {
-  font-size: 17px;
   margin: 0 auto;
-  max-width: 560px;
+  font-size: 15px;
+  line-height: 1.8;
   color: var(--color-text-secondary);
 }
-
-/* 输入区：双嵌套结构（外壳 + 内芯） */
 .input-shell {
-  max-width: 760px;
-  margin: 32px auto 24px;
-  background: rgba(231, 229, 228, 0.6);
-  padding: 8px;
-  border-radius: 20px;
-  border: 1px solid rgba(231, 229, 228, 0.9);
-  position: relative;
-}
-
-.prompt-input {
-  background: var(--color-surface);
-  border: none;
-  border-radius: 14px;
-  font-size: 16px;
-  padding: 16px 64px 16px 16px;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8);
-}
-
-.prompt-input:focus {
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8);
-}
-
-.submit-btn {
-  position: absolute;
-  right: 20px;
-  bottom: 20px;
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    transform 0.3s var(--ease-spring),
-    box-shadow 0.3s var(--ease-out-expo);
-}
-
-.submit-btn:not(:disabled):hover {
-  transform: translateY(-2px) scale(1.04);
-}
-
-.submit-btn:not(:disabled):active {
-  transform: scale(0.94);
-}
-
-.btn-arrow {
-  font-size: 18px;
-  line-height: 1;
-}
-
-/* 全栈项目选项 */
-.fullstack-option {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  margin: -8px auto 32px;
-  max-width: 760px;
-}
-
-.fullstack-hint {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-/* 快捷示例 */
-.quick-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  margin-bottom: 72px;
-  flex-wrap: wrap;
-}
-
-.quick-pill {
-  border-radius: 999px;
-  padding: 6px 20px;
-  height: auto;
+  max-width: 820px;
+  margin: 12px auto 20px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  font-weight: 500;
-  transition:
-    transform 0.3s var(--ease-out-expo),
-    box-shadow 0.3s var(--ease-out-expo),
-    color 0.3s var(--ease-out-expo),
-    border-color 0.3s var(--ease-out-expo);
+  border-radius: 14px;
+  padding: 24px;
+  transition: border-color 0.2s;
 }
-
+.input-shell:focus-within {
+  border-color: var(--color-primary);
+}
+.prompt-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 12px;
+}
+.prompt-label :deep(svg) {
+  color: var(--color-primary);
+}
+.prompt-input {
+  border: none;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1.8;
+  resize: vertical;
+  box-shadow: none;
+}
+.prompt-input:focus {
+  box-shadow: none;
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+.composer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 20px;
+  margin-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+.prompt-count {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.fullstack-option {
+  max-width: 820px;
+  margin: 0 auto 28px;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+  padding-inline: 4px;
+}
+.fullstack-option :deep(.ant-checkbox-wrapper) {
+  min-height: 28px;
+}
+.fullstack-hint {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  padding-inline-start: 24px;
+}
+.quick-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 860px;
+  margin: 0 auto 64px;
+}
+.examples-label {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin-inline-end: 8px;
+}
+.quick-pill {
+  height: auto;
+  min-height: 40px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: transparent;
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  box-shadow: none;
+}
 .quick-pill:hover {
   color: var(--color-primary);
-  border-color: rgba(15, 118, 110, 0.4);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-pop);
+  border-color: var(--color-primary-muted);
+  background: var(--color-primary-soft);
 }
-
-/* 区块 */
 .section {
-  margin-bottom: 72px;
+  margin-top: 48px;
+  padding-top: 32px;
+  border-top: 1px solid var(--color-border);
 }
-
 .section-title {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
-  margin-bottom: 28px;
+  line-height: 1.5;
   color: var(--color-text);
-  letter-spacing: -0.02em;
+  margin: 0 0 24px;
 }
-
-/* 网格 */
 .app-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
-  margin-bottom: 32px;
 }
-
-/* 骨架卡片 */
 .skeleton-card {
-  background: var(--color-surface);
-  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid rgba(231, 229, 228, 0.6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
 }
-
 .skel-media {
-  height: 180px;
-  background: linear-gradient(90deg, #f0efed 25%, #f7f6f3 37%, #f0efed 63%);
-  background-size: 400% 100%;
-  animation: skel 1.4s ease infinite;
+  aspect-ratio: 16 / 10;
+  background: var(--color-primary-soft);
 }
-
 .skel-body {
-  padding: 16px;
+  padding: 20px;
 }
-
-@keyframes skel {
-  0% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0 50%;
-  }
-}
-
-/* 空状态 */
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 56px 24px;
+  padding: 48px 24px;
   background: var(--color-surface);
   border: 1px dashed var(--color-border);
-  border-radius: 16px;
+  border-radius: 12px;
   text-align: center;
 }
-
 .empty-icon {
-  font-size: 40px;
+  font-size: 36px;
+  color: var(--color-primary);
+  margin-bottom: 16px;
 }
-
 .empty-text {
-  margin: 0 0 4px;
+  margin: 0 0 20px;
   color: var(--color-text-secondary);
 }
-
-/* 分页 */
 .pagination-wrapper {
   display: flex;
   justify-content: center;
   margin-top: 32px;
 }
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .hero-section {
-    padding: 48px 0 28px;
+@media (max-width: 1000px) {
+  .app-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
+}
+@media (max-width: 700px) {
+  .hero-section {
+    padding-block: 36px 24px;
+    text-align: left;
+  }
   .hero-title {
     font-size: 30px;
   }
-
   .hero-description {
-    font-size: 15px;
+    font-size: 14px;
   }
-
-  .app-grid {
-    grid-template-columns: 1fr;
+  .input-shell {
+    padding: 20px;
+    margin-top: 0;
   }
-
+  .prompt-input {
+    font-size: 16px;
+  }
+  .fullstack-option :deep(.ant-checkbox-wrapper) {
+    min-height: 44px;
+    align-items: center;
+  }
+  .fullstack-hint {
+    padding-inline-start: 0;
+  }
   .quick-actions {
     justify-content: flex-start;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding-bottom: 4px;
-    margin-bottom: 48px;
+    gap: 8px;
+    margin-bottom: 24px;
   }
-
+  .examples-label {
+    flex-basis: 100%;
+    margin-bottom: 4px;
+  }
   .quick-pill {
-    flex-shrink: 0;
+    min-height: 44px;
+  }
+}
+@media (max-width: 520px) {
+  .app-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

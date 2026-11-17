@@ -1,5 +1,5 @@
 <template>
-  <div id="myProjectsPage">
+  <div id="myProjectsPage" class="workspace-page">
     <div class="container">
       <div class="page-header">
         <h1 class="page-title">我的项目</h1>
@@ -13,6 +13,7 @@
           <a-table
             :data-source="projects"
             :pagination="pagination"
+            :scroll="{ x: 1120 }"
             row-key="id"
             @change="handleTableChange"
           >
@@ -30,7 +31,9 @@
                     <a-typography-link @click="$router.push(`/project/${record.id}`)">
                       {{ record.name }}
                     </a-typography-link>
-                    <div style="font-size: 12px; color: #999">#{{ record.id }}</div>
+                    <div style="font-size: 12px; color: var(--color-text-tertiary)">
+                      #{{ record.id }}
+                    </div>
                   </div>
                 </a-space>
               </template>
@@ -44,7 +47,7 @@
 
             <a-table-column title="价格" data-index="price" :width="100" align="center">
               <template #default="{ record }">
-                <span style="color: #ff4d4f; font-weight: 600">
+                <span style="color: var(--color-primary-strong); font-weight: 600">
                   {{ record.price ? `¥${record.price}` : '免费' }}
                 </span>
               </template>
@@ -75,7 +78,11 @@
             <a-table-column title="操作" key="action" :width="180" align="center" fixed="right">
               <template #default="{ record }">
                 <a-space>
-                  <a-button type="link" size="small" @click="$router.push(`/project/${record.id}/edit`)">
+                  <a-button
+                    type="link"
+                    size="small"
+                    @click="$router.push(`/project/${record.id}/edit`)"
+                  >
                     <EditOutlined /> 编辑
                   </a-button>
                   <a-popconfirm
@@ -84,9 +91,7 @@
                     cancel-text="取消"
                     @confirm="handleDelete(record.id)"
                   >
-                    <a-button type="link" size="small" danger>
-                      <DeleteOutlined /> 删除
-                    </a-button>
+                    <a-button type="link" size="small" danger> <DeleteOutlined /> 删除 </a-button>
                   </a-popconfirm>
                 </a-space>
               </template>
@@ -111,7 +116,8 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, StarFilled } from '@ant-des
 import type { TablePaginationConfig } from 'ant-design-vue'
 import { listMyProjectVoByPage, deleteProject } from '@/api/projectController.ts'
 
-const defaultCover = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjZjBmMmY1Ii8+PHRleHQgeD0iMzAiIHk9IjIzIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjgiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIj5Ob25lPC90ZXh0Pjwvc3ZnPg=='
+const defaultCover =
+  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjZjBmMmY1Ii8+PHRleHQgeD0iMzAiIHk9IjIzIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjgiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIj5Ob25lPC90ZXh0Pjwvc3ZnPg=='
 
 const loading = ref(false)
 const projects = ref<API.ProjectVO[]>([])
@@ -169,49 +175,30 @@ onMounted(() => {
 </script>
 
 <style scoped>
-#myProjectsPage {
-  min-height: 100vh;
-  background: var(--color-bg);
+.text-muted,
+.order-id {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
 }
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px 16px;
+.project-name {
+  font-weight: 600;
+  font-size: 14px;
 }
-
-.page-header {
+.price {
+  color: var(--color-primary-strong);
+  font-weight: 650;
+}
+.pagination-wrapper {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
+  justify-content: center;
+  margin-top: 24px;
 }
-
-.page-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1a1a2e;
-  margin: 0;
-}
-
-.text-muted {
-  color: #bbb;
-}
-
-.empty-state {
-  padding: 80px 0;
-  background: #fff;
-  border-radius: 12px;
-}
-
 :deep(.ant-table) {
-  background: #fff;
+  border: 1px solid var(--color-border);
   border-radius: 12px;
-  overflow: hidden;
 }
-
 :deep(.ant-table-thead > tr > th) {
-  background: #fafafa;
+  background: var(--color-surface-soft);
   font-weight: 600;
 }
 </style>

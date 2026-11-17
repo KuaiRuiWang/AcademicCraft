@@ -13,7 +13,12 @@ router.beforeEach(async (to, from, next) => {
   let loginUser = loginUserStore.loginUser
   // 确保页面刷新，首次加载时，能够等后端返回用户信息后再校验权限
   if (firstFetchLoginUser) {
-    await loginUserStore.fetchLoginUser()
+    try {
+      await loginUserStore.fetchLoginUser()
+    } catch {
+      // 登录态接口暂不可用时允许浏览公共页面，管理端仍由下方权限检查拦截。
+      console.warn('暂时无法获取登录状态，按访客模式继续访问')
+    }
     loginUser = loginUserStore.loginUser
     firstFetchLoginUser = false
   }
