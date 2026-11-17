@@ -6,7 +6,6 @@ import UserRegisterPage from '@/pages/user/UserRegisterPage.vue'
 import UserProfilePage from '@/pages/user/UserProfilePage.vue'
 import UserManagePage from '@/pages/admin/UserManagePage.vue'
 import AppManagePage from '@/pages/admin/AppManagePage.vue'
-import AppChatPage from '@/pages/app/AppChatPage.vue'
 import AppEditPage from '@/pages/app/AppEditPage.vue'
 import ChatManagePage from '@/pages/admin/ChatManagePage.vue'
 import ProjectManagePage from '@/pages/admin/ProjectManagePage.vue'
@@ -78,7 +77,7 @@ const router = createRouter({
     {
       path: '/app/chat/:id',
       name: '应用对话',
-      component: AppChatPage,
+      component: () => import('@/pages/app/AppChatPage.vue'),
     },
     {
       path: '/app/edit/:id',

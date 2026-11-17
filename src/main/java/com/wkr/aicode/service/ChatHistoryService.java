@@ -19,6 +19,8 @@ public interface ChatHistoryService extends IService<ChatHistory> {
 
     boolean addChatMessage(Long appId, String message, String messageType, Long userId);
 
+    Long saveAgentRunSnapshot(Long historyId, Long appId, Long userId, String message, String renderData);
+
     boolean deleteByAppId(Long appId);
 
     QueryWrapper getQueryWrapper(ChatHistoryQueryRequest chatHistoryQueryRequest);

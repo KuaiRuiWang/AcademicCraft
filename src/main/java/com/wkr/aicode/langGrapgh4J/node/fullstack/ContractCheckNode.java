@@ -38,6 +38,8 @@ public class ContractCheckNode {
             int round = context.getContractCheckRound() + 1;
             context.setContractCheckRound(round);
             context.setCurrentStep("契约校验");
+            String stepName = "contract_check_" + round;
+            pipe.stepStarted(stepName, "契约校验 · 第 " + round + " 轮");
             log.info("执行节点: 契约一致性校验，appId={}，第 {} 轮", context.getAppId(), round);
             pipe.emitAiResponse("正在校验前后端与 API 契约的一致性...\n");
 
@@ -67,6 +69,11 @@ public class ContractCheckNode {
                 log.warn("契约校验未通过，第 {} 轮，后端问题 {} 项，前端问题 {} 项",
                         round, diff.backendErrors().size(), diff.frontendErrors().size());
                 pipe.emitAiResponse(formatIssues(diff, round));
+            }
+            pipe.stepFinished(stepName, "契约校验 · 第 " + round + " 轮",
+                    valid ? "success" : round > MAX_FIX_ROUNDS ? "error" : "warning");
+            if (!valid && round > MAX_FIX_ROUNDS) {
+                pipe.failRun("接口契约校验达到修复上限，请调整需求后重试");
             }
             return WorkflowContext.saveContext(context);
         });

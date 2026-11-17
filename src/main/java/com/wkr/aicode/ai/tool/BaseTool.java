@@ -1,6 +1,7 @@
 package com.wkr.aicode.ai.tool;
 
 import cn.hutool.json.JSONObject;
+import com.wkr.aicode.ai.message.ToolResult;
 import org.springframework.stereotype.Component;
 
 /**
@@ -9,6 +10,18 @@ import org.springframework.stereotype.Component;
  */
 
 public abstract class BaseTool {
+
+    protected String success(String summary, String content) {
+        return new ToolResult("success", summary, content).toJson();
+    }
+
+    protected String error(String summary) {
+        return new ToolResult("error", summary, null).toJson();
+    }
+
+    protected String unchanged(String summary) {
+        return new ToolResult("unchanged", summary, null).toJson();
+    }
 
     /**
      * 智能体工作区
@@ -61,4 +74,4 @@ public abstract class BaseTool {
      * @return 格式化的工具执行结果
      */
     public abstract String generateToolExecutedResult(JSONObject arguments);
-} 
+}

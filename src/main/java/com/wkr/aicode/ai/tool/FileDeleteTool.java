@@ -31,26 +31,26 @@ public class FileDeleteTool extends BaseTool {
             if (path == null) {
                 String deniedMessage = workspace.getWriteDeniedMessage(relativeFilePath);
                 log.warn("拒绝越权删除，appId={}, 路径={}", appId, relativeFilePath);
-                return deniedMessage;
+                return error(deniedMessage);
             }
             if (!Files.exists(path)) {
-                return "警告：文件不存在，无需删除 - " + relativeFilePath;
+                return unchanged("文件不存在，无需删除 - " + relativeFilePath);
             }
             if (!Files.isRegularFile(path)) {
-                return "错误：指定路径不是文件，无法删除 - " + relativeFilePath;
+                return error("指定路径不是文件，无法删除 - " + relativeFilePath);
             }
             // 安全检查：避免删除重要文件
             String fileName = path.getFileName().toString();
             if (isImportantFile(fileName)) {
-                return "错误：不允许删除重要文件 - " + fileName;
+                return error("不允许删除重要文件 - " + fileName);
             }
             Files.delete(path);
             log.info("成功删除文件: {}", path.toAbsolutePath());
-            return "文件删除成功: " + relativeFilePath;
+            return success("文件删除成功: " + relativeFilePath, null);
         } catch (IOException e) {
             String errorMessage = "删除文件失败: " + relativeFilePath + ", 错误: " + e.getMessage();
             log.error(errorMessage, e);
-            return errorMessage;
+            return error(errorMessage);
         }
     }
 

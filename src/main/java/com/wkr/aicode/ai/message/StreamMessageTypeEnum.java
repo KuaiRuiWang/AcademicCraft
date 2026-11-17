@@ -10,6 +10,8 @@ public enum StreamMessageTypeEnum {
 
     AI_RESPONSE("ai_response", "AI响应"),
     TOOL_REQUEST("tool_request", "工具请求"),
+    TOOL_READY("tool_ready", "工具参数已生成"),
+    WORKFLOW_EVENT("workflow_event", "工作流状态"),
     TOOL_EXECUTED("tool_executed", "工具执行结果");
 
     private final String value;

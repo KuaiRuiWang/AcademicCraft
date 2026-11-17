@@ -30,4 +30,10 @@ public class ToolRequestMessage extends StreamMessage {
         this(toolExecutionRequest);
         setAgentRole(agentRole);
     }
+
+    public static ToolRequestMessage ready(ToolExecutionRequest request, String agentRole) {
+        ToolRequestMessage message = new ToolRequestMessage(request, agentRole);
+        message.setType(StreamMessageTypeEnum.TOOL_READY.getValue());
+        return message;
+    }
 }

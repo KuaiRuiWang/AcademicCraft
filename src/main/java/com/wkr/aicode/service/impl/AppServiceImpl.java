@@ -15,6 +15,7 @@ import com.wkr.aicode.constant.UserConstant;
 import com.wkr.aicode.core.AiCodeGeneratorFacade;
 import com.wkr.aicode.core.builder.VueProjectBuilder;
 import com.wkr.aicode.core.handler.StreamHandlerExecutor;
+import com.wkr.aicode.core.handler.AgUiStreamHandler;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
 import com.wkr.aicode.exception.ThrowUtils;
@@ -193,11 +194,32 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     @Resource
     private StreamHandlerExecutor streamHandlerExecutor;
 
+    @Resource
+    private AgUiStreamHandler agUiStreamHandler;
+
     @Override
     public Flux<String> chatToGenCode(Long appId, String message, User loginUser) {
+        App app = getAppForGeneration(appId, message, loginUser);
+        CodeGenTypeEnum codeGenType = CodeGenTypeEnum.getEnumByValue(app.getCodeGenType());
+        Flux<String> codeStream = createGenerationStream(app, message, loginUser);
+        return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser, codeGenType)
+                .doFinally(signal -> MonitorContextHolder.clearContext());
+    }
+
+    @Override
+    public Flux<Map<String, Object>> chatToGenCodeEvents(Long appId, String message, String runId, User loginUser) {
+        // 请求建立前校验归属，不能信任客户端传来的线程历史或工具定义。
+        App app = getAppForGeneration(appId, message, loginUser);
+        CodeGenTypeEnum codeGenType = CodeGenTypeEnum.getEnumByValue(app.getCodeGenType());
+        return agUiStreamHandler.handle(Flux.defer(() -> createGenerationStream(app, message, loginUser)),
+                appId, loginUser, codeGenType, runId);
+    }
+
+    private App getAppForGeneration(Long appId, String message, User loginUser) {
         // 1. 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
         // 2. 查询应用信息
         App app = this.getById(appId);
         ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
@@ -211,6 +233,11 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型");
         }
+        return app;
+    }
+
+    private Flux<String> createGenerationStream(App app, String message, User loginUser) {
+        Long appId = app.getId();
         // 5. 通过校验后，添加用户消息到对话历史
         chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
         // 6. 设置监控上下文
@@ -221,13 +248,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                         .build()
         );
         // 7. 调用 AI 生成代码（流式）
-        Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
-        // 8. 收集 AI 响应内容并在完成后记录到对话历史
-        return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser, codeGenTypeEnum)
-                .doFinally(signalType -> {
-                    // 清空上下文
-                    MonitorContextHolder.clearContext();
-                });
+        return aiCodeGeneratorFacade.generateAndSaveCodeStream(message,
+                CodeGenTypeEnum.getEnumByValue(app.getCodeGenType()), appId);
     }
 
     @Resource

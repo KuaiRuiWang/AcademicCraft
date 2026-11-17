@@ -36,26 +36,26 @@ public class FileModifyTool extends BaseTool {
             if (path == null) {
                 String deniedMessage = workspace.getWriteDeniedMessage(relativeFilePath);
                 log.warn("拒绝越权修改，appId={}, 路径={}", appId, relativeFilePath);
-                return deniedMessage;
+                return error(deniedMessage);
             }
             if (!Files.exists(path) || !Files.isRegularFile(path)) {
-                return "错误：文件不存在或不是文件 - " + relativeFilePath;
+                return error("文件不存在或不是文件 - " + relativeFilePath);
             }
             String originalContent = Files.readString(path);
             if (!originalContent.contains(oldContent)) {
-                return "警告：文件中未找到要替换的内容，文件未修改 - " + relativeFilePath;
+                return error("文件中未找到要替换的内容，文件未修改 - " + relativeFilePath);
             }
             String modifiedContent = originalContent.replace(oldContent, newContent);
             if (originalContent.equals(modifiedContent)) {
-                return "信息：替换后文件内容未发生变化 - " + relativeFilePath;
+                return unchanged("替换后文件内容未发生变化 - " + relativeFilePath);
             }
             Files.writeString(path, modifiedContent, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             log.info("成功修改文件: {}", path.toAbsolutePath());
-            return "文件修改成功: " + relativeFilePath;
+            return success("文件修改成功: " + relativeFilePath, null);
         } catch (IOException e) {
             String errorMessage = "修改文件失败: " + relativeFilePath + ", 错误: " + e.getMessage();
             log.error(errorMessage, e);
-            return errorMessage;
+            return error(errorMessage);
         }
     }
     

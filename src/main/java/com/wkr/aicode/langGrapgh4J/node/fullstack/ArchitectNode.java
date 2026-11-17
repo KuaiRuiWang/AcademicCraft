@@ -21,7 +21,7 @@ import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
 public class ArchitectNode {
 
     public static AsyncNodeAction<MessagesState<String>> create(AgentStreamPipe pipe) {
-        return node_async(state -> {
+        return node_async(state -> pipe.runAgent(() -> {
             WorkflowContext context = WorkflowContext.getContext(state);
             Long appId = context.getAppId();
             log.info("执行节点: 架构师（API 契约设计），appId={}", appId);
@@ -40,6 +40,6 @@ public class ArchitectNode {
             log.info(summary.trim());
             pipe.emitAiResponse(summary);
             return WorkflowContext.saveContext(context);
-        });
+        }));
     }
 }

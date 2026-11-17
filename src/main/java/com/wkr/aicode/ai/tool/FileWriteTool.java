@@ -35,7 +35,7 @@ public class FileWriteTool extends BaseTool {
             if (path == null) {
                 String deniedMessage = workspace.getWriteDeniedMessage(relativeFilePath);
                 log.warn("拒绝越权写入，appId={}, 路径={}", appId, relativeFilePath);
-                return deniedMessage;
+                return error(deniedMessage);
             }
             // 创建父目录（如果不存在）
             Path parentDir = path.getParent();
@@ -48,11 +48,11 @@ public class FileWriteTool extends BaseTool {
                     StandardOpenOption.TRUNCATE_EXISTING);
             log.info("成功写入文件: {}", path.toAbsolutePath());
             // 注意要返回相对路径，不能让 AI 把文件绝对路径返回给用户
-            return "文件写入成功: " + relativeFilePath;
+            return success("文件写入成功: " + relativeFilePath, null);
         } catch (IOException e) {
             String errorMessage = "文件写入失败: " + relativeFilePath + ", 错误: " + e.getMessage();
             log.error(errorMessage, e);
-            return errorMessage;
+            return error(errorMessage);
         }
     }
 

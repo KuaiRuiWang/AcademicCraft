@@ -60,6 +60,19 @@ public class GlobalExceptionHandler {
         // 判断是否是SSE请求（通过Accept头或URL路径）
         String accept = request.getHeader("Accept");
         String uri = request.getRequestURI();
+        // AG-UI 在运行开始前使用 HTTP 错误响应，不能混入旧接口的 business-error 帧。
+        if (uri.endsWith("/agent/run")) {
+            if (response != null) {
+                int status = errorCode == ErrorCode.NOT_LOGIN_ERROR.getCode() ? 401
+                        : errorCode == ErrorCode.NO_AUTH_ERROR.getCode() || errorCode == ErrorCode.FORBIDDEN_ERROR.getCode() ? 403
+                        : errorCode == ErrorCode.NOT_FOUND_ERROR.getCode() ? 404
+                        : errorCode == ErrorCode.TOO_MANY_REQUEST.getCode() ? 429
+                        : errorCode == ErrorCode.PARAMS_ERROR.getCode() ? 400 : 500;
+                response.setStatus(status);
+                response.setContentType("application/json");
+            }
+            return false;
+        }
         if ((accept != null && accept.contains("text/event-stream")) ||
                 uri.contains("/chat/gen/code")) {
             try {

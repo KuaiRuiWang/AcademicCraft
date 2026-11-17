@@ -36,6 +36,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.io.File;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -327,6 +328,39 @@ public class AppController {
                                 .data("")
                                 .build()
                 ));
+    }
+
+    /**
+     * AG-UI 标准文本对话入口。
+     */
+    @PostMapping(value = "/{appId}/agent/run", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @RateLimit(limitType = RateLimitType.USER, rate = 5, rateInterval = 60, message = "AI 对话请求过于频繁，请稍后再试")
+    public Flux<ServerSentEvent<Map<String, Object>>> runAgent(@PathVariable Long appId,
+                                                              @RequestBody AgUiRunRequest input,
+                                                              HttpServletRequest request,
+                                                              HttpServletResponse response) {
+        ThrowUtils.throwIf(input == null || !("app-" + appId).equals(input.getThreadId()),
+                ErrorCode.PARAMS_ERROR, "对话线程与应用不匹配");
+        ThrowUtils.throwIf(StrUtil.isBlank(input.getRunId()) || input.getRunId().length() > 128,
+                ErrorCode.PARAMS_ERROR, "运行标识无效");
+        ThrowUtils.throwIf(input.getMessages() == null || input.getMessages().isEmpty(),
+                ErrorCode.PARAMS_ERROR, "用户消息不能为空");
+        AgUiRunRequest.RunMessage latest = input.getMessages().getLast();
+        ThrowUtils.throwIf(latest == null || !"user".equals(latest.getRole()) || StrUtil.isBlank(latest.getContent()),
+                ErrorCode.PARAMS_ERROR, "最后一条消息必须是用户输入");
+        User loginUser = userService.getLoginUser(request);
+        Flux<Map<String, Object>> events = appService.chatToGenCodeEvents(appId, latest.getContent(), input.getRunId(), loginUser);
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("X-Accel-Buffering", "no");
+        return keepAlive(events, Duration.ofSeconds(15));
+    }
+
+    static Flux<ServerSentEvent<Map<String, Object>>> keepAlive(Flux<Map<String, Object>> events, Duration interval) {
+        // 架构师设计与构建期间可能没有文本；心跳只写 SSE 注释，不重订阅或重执行生成流。
+        return events.map(event -> ServerSentEvent.<Map<String, Object>>builder().data(event).build())
+                .publish(shared -> shared.mergeWith(Flux.interval(interval)
+                        .map(tick -> ServerSentEvent.<Map<String, Object>>builder().comment("keep-alive").build())
+                        .takeUntilOther(shared.ignoreElements())));
     }
 
     /**

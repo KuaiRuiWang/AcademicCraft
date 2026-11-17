@@ -64,6 +64,22 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
         return this.save(chatHistory);
     }
 
+    @Override
+    public Long saveAgentRunSnapshot(Long historyId, Long appId, Long userId, String message, String renderData) {
+        // 正文用于模型上下文，结构化快照只用于界面恢复。
+        ChatHistory history = ChatHistory.builder()
+                .id(historyId)
+                .appId(appId)
+                .userId(userId)
+                .messageType(ChatHistoryMessageTypeEnum.AI.getValue())
+                .message(truncateIfTooLong(appId, ChatHistoryMessageTypeEnum.AI.getValue(), message))
+                .renderData(renderData)
+                .build();
+        boolean saved = historyId == null ? this.save(history) : this.updateById(history);
+        ThrowUtils.throwIf(!saved, ErrorCode.OPERATION_ERROR, "对话记录保存失败");
+        return history.getId();
+    }
+
     /**
      * 超长消息按字节截断，保证写库不失败（写库失败会让整个 SSE 流中断、done 事件不送达）。
      * 截断点回退到 UTF-8 字符边界，避免产生乱码。

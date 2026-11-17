@@ -41,33 +41,38 @@
       <!-- 左侧对话区域 -->
       <div class="chat-section">
         <!-- 消息区域 -->
-        <div class="messages-container" ref="messagesContainer">
+        <div class="messages-container" ref="messagesContainer" @scroll.passive="handleChatScroll">
           <!-- 加载更多按钮 -->
           <div v-if="hasMoreHistory" class="load-more-container">
             <a-button type="link" @click="loadMoreHistory" :loading="loadingHistory" size="small">
               加载更多历史消息
             </a-button>
           </div>
-          <div v-for="(message, index) in messages" :key="index" class="message-item" v-memo="[message.content, message.loading]">
-            <div v-if="message.type === 'user'" class="user-message">
-              <div class="message-content">{{ message.content }}</div>
+          <div v-for="chatMessage in messages" :key="chatMessage.id" class="message-item">
+            <div v-if="chatMessage.type === 'user'" class="user-message">
+              <div class="message-content">{{ chatMessage.content }}</div>
               <div class="message-avatar">
                 <a-avatar :src="loginUserStore.loginUser.userAvatar" />
               </div>
             </div>
-            <div v-else class="ai-message">
+            <div v-else class="ai-message" :class="{ 'has-agent-run': chatMessage.run }">
               <div class="message-avatar">
                 <a-avatar :src="aiAvatar" />
               </div>
-              <div class="message-content">
-                <MarkdownRenderer v-if="message.content" :content="message.content" />
-                <div v-if="message.loading" class="loading-indicator">
+              <div class="message-content" :class="{ 'structured-message': chatMessage.run }">
+                <AgentRunView v-if="chatMessage.run" :run="chatMessage.run" :fullstack="appInfo?.codeGenType === CodeGenTypeEnum.FULLSTACK_VUE_NODEJS" />
+                <MarkdownRenderer v-else-if="chatMessage.content" :content="chatMessage.content" />
+                <div v-if="chatMessage.loading && !chatMessage.run" class="loading-indicator">
                   <a-spin size="small" />
                   <span>AI 正在思考...</span>
                 </div>
               </div>
             </div>
           </div>
+        </div>
+
+        <div v-if="hasNewOutput" class="new-output-notice" aria-live="polite">
+          <a-button size="small" @click="scrollToBottom(true)">有新输出 · 回到底部</a-button>
         </div>
 
         <!-- 选中元素信息展示 -->
@@ -148,7 +153,7 @@
       <!-- 右侧网页展示区域 -->
       <div class="preview-section">
         <div class="preview-header">
-          <h3>生成后的网页展示</h3>
+          <h3>应用预览</h3>
           <div class="preview-actions">
             <a-button
                 v-if="isOwner && previewUrl"
@@ -210,7 +215,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, onUnmounted, computed } from 'vue'
+import { ref, reactive, onMounted, nextTick, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
@@ -224,6 +229,9 @@ import { CodeGenTypeEnum, formatCodeGenType } from '@/utils/codeGenTypes'
 import request from '@/request'
 
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import AgentRunView from '@/components/agent/AgentRunView.vue'
+import { createAgentRun, restoreAgentRun, type AgentRun } from '@/utils/agentRun'
+import { newRunId, useAgentRun } from '@/composables/useAgentRun'
 import AppDetailModal from '@/components/AppDetailModal.vue'
 import DeploySuccessModal from '@/components/DeploySuccessModal.vue'
 import aiAvatar from '@/assets/aiAvatar.svg'
@@ -249,16 +257,21 @@ const appId = ref<any>()
 
 // 对话相关
 interface Message {
+  id: string
   type: 'user' | 'ai'
   content: string
   loading?: boolean
   createTime?: string
+  run?: AgentRun
 }
 
 const messages = ref<Message[]>([])
 const userInput = ref('')
 const isGenerating = ref(false)
 const messagesContainer = ref<HTMLElement>()
+const followOutput = ref(true)
+const hasNewOutput = ref(false)
+const { execute: executeAgentRun } = useAgentRun()
 
 // 对话历史相关
 const loadingHistory = ref(false)
@@ -324,9 +337,11 @@ const loadChatHistory = async (isLoadMore = false) => {
         // 将对话历史转换为消息格式，并按时间正序排列（老消息在前）
         const historyMessages: Message[] = chatHistories
             .map((chat) => ({
+              id: `history-${chat.id}`,
               type: (chat.messageType === 'user' ? 'user' : 'ai') as 'user' | 'ai',
               content: chat.message || '',
               createTime: chat.createTime,
+              run: chat.messageType === 'ai' ? restoreAgentRun(chat.renderData) : undefined,
             }))
             .reverse() // 反转数组，让老消息在前
         if (isLoadMore) {
@@ -355,7 +370,12 @@ const loadChatHistory = async (isLoadMore = false) => {
 
 // 加载更多历史消息
 const loadMoreHistory = async () => {
+  const container = messagesContainer.value
+  const previousHeight = container?.scrollHeight || 0
+  const previousTop = container?.scrollTop || 0
   await loadChatHistory(true)
+  await nextTick()
+  if (container) container.scrollTop = previousTop + container.scrollHeight - previousHeight
 }
 
 // 获取应用信息
@@ -376,6 +396,7 @@ const fetchAppInfo = async () => {
 
       // 先加载对话历史
       await loadChatHistory()
+      scrollToBottom(true)
       // 如果有至少2条对话记录，展示对应的网站
       if (messages.value.length >= 2) {
         updatePreview()
@@ -405,6 +426,7 @@ const fetchAppInfo = async () => {
 const sendInitialMessage = async (prompt: string) => {
   // 添加用户消息
   messages.value.push({
+    id: newRunId(),
     type: 'user',
     content: prompt,
   })
@@ -412,13 +434,14 @@ const sendInitialMessage = async (prompt: string) => {
   // 添加AI消息占位符
   const aiMessageIndex = messages.value.length
   messages.value.push({
+    id: newRunId(),
     type: 'ai',
     content: '',
     loading: true,
   })
 
   await nextTick()
-  scrollToBottom()
+  scrollToBottom(true)
 
   // 开始生成
   isGenerating.value = true
@@ -447,6 +470,7 @@ const sendMessage = async () => {
   userInput.value = ''
   // 添加用户消息（包含元素信息）
   messages.value.push({
+    id: newRunId(),
     type: 'user',
     content: message,
   })
@@ -462,175 +486,45 @@ const sendMessage = async () => {
   // 添加AI消息占位符
   const aiMessageIndex = messages.value.length
   messages.value.push({
+    id: newRunId(),
     type: 'ai',
     content: '',
     loading: true,
   })
 
   await nextTick()
-  scrollToBottom()
+  scrollToBottom(true)
 
   // 开始生成
   isGenerating.value = true
   await generateCode(message, aiMessageIndex)
 }
 
-// 生成代码 - 使用 EventSource 处理流式响应
+// AG-UI 事件按智能体、工具调用分别更新，历史翻页不会改变本轮消息的引用。
 const generateCode = async (userMessage: string, aiMessageIndex: number) => {
-  let eventSource: EventSource | null = null
-  let streamCompleted = false
-
+  const targetMessage = messages.value[aiMessageIndex]
+  if (!targetMessage) return
+  const run = reactive(createAgentRun(newRunId()))
+  targetMessage.run = run
   try {
-    // 获取 axios 配置的 baseURL
-    const baseURL = request.defaults.baseURL || API_BASE_URL
-
-    // 构建URL参数
-    const params = new URLSearchParams({
-      appId: appId.value || '',
-      message: userMessage,
+    await executeAgentRun(String(appId.value), userMessage, run, () => {
+      targetMessage.loading = run.status === 'running'
+      if (followOutput.value) scrollToBottom()
+      else hasNewOutput.value = true
     })
-
-    const url = `${baseURL}/app/chat/gen/code?${params}`
-
-    // 创建 EventSource 连接
-    eventSource = new EventSource(url, {
-      withCredentials: true,
-    })
-
-    let fullContent = ''
-    let pendingContent = ''
-    let rafId: number | null = null
-
-    // 将缓冲的内容一次性刷新到 DOM（每帧最多执行一次）
-    const flushPending = () => {
-      rafId = null
-      if (pendingContent) {
-        fullContent += pendingContent
-        pendingContent = ''
-        messages.value[aiMessageIndex].content = fullContent
-        messages.value[aiMessageIndex].loading = false
-      }
-      // RAF 内联 scroll，让浏览器先渲染内容再滚动
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-      }
-    }
-
-    // 安排在下一帧刷新（合并同一帧内的多次 SSE chunk）
-    const scheduleFlush = () => {
-      if (rafId === null) {
-        rafId = requestAnimationFrame(flushPending)
-      }
-    }
-
-    // 强制刷新所有缓冲内容（流结束或出错时立即落盘）
-    const forceFlush = () => {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId)
-        rafId = null
-      }
-      if (pendingContent) {
-        fullContent += pendingContent
-        pendingContent = ''
-        messages.value[aiMessageIndex].content = fullContent
-        messages.value[aiMessageIndex].loading = false
-      }
-    }
-
-    // 处理接收到的消息
-    eventSource.onmessage = function (event) {
-      if (streamCompleted) return
-
-      try {
-        // 解析JSON包装的数据
-        const parsed = JSON.parse(event.data)
-        const content = parsed.d
-
-        // 拼接内容到缓冲区，延迟到下一帧再渲染
-        if (content !== undefined && content !== null) {
-          pendingContent += content
-          scheduleFlush()
-        }
-      } catch (error) {
-        console.error('解析消息失败:', error)
-        forceFlush()
-        handleError(error, aiMessageIndex)
-      }
-    }
-
-    // 处理done事件
-    eventSource.addEventListener('done', function () {
-      if (streamCompleted) return
-
-      streamCompleted = true
-      forceFlush()
-      isGenerating.value = false
-      eventSource?.close()
-
-      // 延迟更新预览，确保后端已完成处理
-      setTimeout(async () => {
-        await fetchAppInfo()
-        updatePreview()
-      }, 1000)
-    })
-
-    // 处理business-error事件（后端限流等错误）
-    eventSource.addEventListener('business-error', function (event: MessageEvent) {
-      if (streamCompleted) return
-
-      try {
-        const errorData = JSON.parse(event.data)
-        console.error('SSE业务错误事件:', errorData)
-
-        // 显示具体的错误信息
-        const errorMessage = errorData.message || '生成过程中出现错误'
-        forceFlush()
-        messages.value[aiMessageIndex].content = `❌ ${errorMessage}`
-        messages.value[aiMessageIndex].loading = false
-        message.error(errorMessage)
-
-        streamCompleted = true
-        isGenerating.value = false
-        eventSource?.close()
-      } catch (parseError) {
-        console.error('解析错误事件失败:', parseError, '原始数据:', event.data)
-        forceFlush()
-        handleError(new Error('服务器返回错误'), aiMessageIndex)
-      }
-    })
-
-    // 处理错误
-    eventSource.onerror = function () {
-      if (streamCompleted || !isGenerating.value) return
-      // 检查是否是正常的连接关闭
-      if (eventSource?.readyState === EventSource.CONNECTING) {
-        streamCompleted = true
-        forceFlush()
-        isGenerating.value = false
-        eventSource?.close()
-
-        setTimeout(async () => {
-          await fetchAppInfo()
-          updatePreview()
-        }, 1000)
-      } else {
-        forceFlush()
-        handleError(new Error('SSE连接错误'), aiMessageIndex)
-      }
+    if (run.status === 'success') {
+      // 更新应用信息与预览，保留已展开的本轮工具详情。
+      const response = await getAppVoById({ id: appId.value as unknown as number })
+      if (response.data.code === 0 && response.data.data) appInfo.value = response.data.data
+      updatePreview()
     }
   } catch (error) {
-    console.error('创建 EventSource 失败：', error)
-    handleError(error, aiMessageIndex)
+    console.warn('生成完成后读取预览信息失败：', error)
+    message.warning('代码已生成，预览信息读取失败，可刷新页面重试')
+  } finally {
+    targetMessage.loading = false
+    isGenerating.value = false
   }
-}
-
-// 错误处理函数
-const handleError = (error: unknown, aiMessageIndex: number) => {
-  console.error('生成代码失败：', error)
-  messages.value[aiMessageIndex].content = '抱歉，生成过程中出现了错误，请重试。'
-  messages.value[aiMessageIndex].loading = false
-  message.error('生成失败，请重试')
-  isGenerating.value = false
 }
 
 // 更新预览
@@ -649,12 +543,23 @@ const updatePreview = () => {
 }
 
 // 滚动到底部（使用 RAF 避免强制同步布局）
-const scrollToBottom = () => {
-  requestAnimationFrame(() => {
-    if (messagesContainer.value) {
+const scrollToBottom = (force = false) => {
+  if (force) {
+    followOutput.value = true
+    hasNewOutput.value = false
+  }
+  nextTick(() => {
+    if (messagesContainer.value && followOutput.value) {
       messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
     }
   })
+}
+
+const handleChatScroll = () => {
+  const container = messagesContainer.value
+  if (!container) return
+  followOutput.value = container.scrollHeight - container.clientHeight - container.scrollTop < 80
+  if (followOutput.value) hasNewOutput.value = false
 }
 
 // 下载代码
@@ -810,24 +715,26 @@ onMounted(() => {
   fetchAppInfo()
 
   // 监听 iframe 消息
-  window.addEventListener('message', (event) => {
-    visualEditor.handleIframeMessage(event)
-  })
+  window.addEventListener('message', handlePreviewMessage)
 })
 
 // 清理资源
 onUnmounted(() => {
-  // EventSource 会在组件卸载时自动清理
+  window.removeEventListener('message', handlePreviewMessage)
 })
+
+const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeMessage(event)
 </script>
 
 <style scoped>
 #appChatPage {
-  height: 100vh;
+  height: calc(100vh - 80px);
+  height: calc(100dvh - 80px);
+  min-height: 600px;
   display: flex;
   flex-direction: column;
   padding: 16px;
-  background: #fdfdfd;
+  background: var(--color-bg);
 }
 
 /* 顶部栏 */
@@ -836,6 +743,8 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .header-left {
@@ -858,6 +767,7 @@ onUnmounted(() => {
 .header-right {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 /* 主要内容区域 */
@@ -867,28 +777,34 @@ onUnmounted(() => {
   gap: 16px;
   padding: 8px;
   overflow: hidden;
+  min-height: 0;
 }
 
 /* 左侧对话区域 */
 .chat-section {
-  flex: 2;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
 .messages-container {
-  flex: 0.9;
+  flex: 1;
+  min-height: 0;
   padding: 16px;
   overflow-y: auto;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
+  overflow-anchor: none;
+  overscroll-behavior: contain;
 }
 
 .message-item {
-  margin-bottom: 12px;
+  margin-bottom: 24px;
 }
 
 .user-message {
@@ -924,6 +840,20 @@ onUnmounted(() => {
   padding: 8px 12px;
 }
 
+.ai-message .message-content.structured-message {
+  flex: 1;
+  min-width: 0;
+  max-width: calc(100% - 40px);
+  padding: 0;
+  background: transparent;
+}
+
+.new-output-notice {
+  padding: 8px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
 .message-avatar {
   flex-shrink: 0;
 }
@@ -945,7 +875,9 @@ onUnmounted(() => {
 /* 输入区域 */
 .input-container {
   padding: 16px;
-  background: white;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 .input-wrapper {
@@ -964,12 +896,13 @@ onUnmounted(() => {
 
 /* 右侧预览区域 */
 .preview-section {
-  flex: 3;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -1035,16 +968,25 @@ onUnmounted(() => {
   margin: 0 16px;
 }
 
+@media (max-width: 480px) {
+  .ai-message.has-agent-run .message-avatar { display: none; }
+  .ai-message .message-content.structured-message { max-width: 100%; }
+}
+
 /* 响应式设计 */
 @media (max-width: 1024px) {
+  #appChatPage { height: auto; min-height: 0; }
   .main-content {
     flex-direction: column;
+    overflow: visible;
   }
 
   .chat-section,
   .preview-section {
     flex: none;
-    height: 50vh;
+    height: 70vh;
+    height: 70dvh;
+    min-height: 480px;
   }
 }
 

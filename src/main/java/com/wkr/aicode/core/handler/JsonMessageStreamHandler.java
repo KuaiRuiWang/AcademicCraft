@@ -115,11 +115,16 @@ public class JsonMessageStreamHandler {
                 JSONObject jsonObject = JSONUtil.parseObj(toolExecutedMessage.getArguments());
                 // 根据工具名称获取工具实例并生成相应的结果格式
                 BaseTool tool = toolManager.getTool(toolName);
-                String result = tool.generateToolExecutedResult(jsonObject);
+                ToolResult executionResult = ToolResult.parse(toolExecutedMessage.getResult());
+                String result = "error".equals(executionResult.status()) || "unchanged".equals(executionResult.status())
+                        ? executionResult.summary() : tool.generateToolExecutedResult(jsonObject);
                 // 输出前端和要持久化的内容
                 String output = prependRoleHeading(lastAgentRole, agentRole, String.format("\n\n%s\n\n", result));
                 chatHistoryStringBuilder.append(output);
                 return output;
+            }
+            case TOOL_READY, WORKFLOW_EVENT -> {
+                return "";
             }
             default -> {
                 log.error("不支持的消息类型: {}", typeEnum);

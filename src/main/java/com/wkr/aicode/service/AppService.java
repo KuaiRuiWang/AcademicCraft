@@ -10,6 +10,7 @@ import com.wkr.aicode.model.vo.app.AppVO;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -30,6 +31,8 @@ public interface AppService extends IService<App> {
     List<AppVO> getAppVOList(List<App> appList);
 
     Flux<String> chatToGenCode(Long appId, String message, User loginUser);
+
+    Flux<Map<String, Object>> chatToGenCodeEvents(Long appId, String message, String runId, User loginUser);
 
     String deployApp(Long appId, User loginUser);
 

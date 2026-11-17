@@ -24,7 +24,7 @@ import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
 public class FrontendAgentNode {
 
     public static AsyncNodeAction<MessagesState<String>> create(AgentStreamPipe pipe) {
-        return node_async(state -> {
+        return node_async(state -> pipe.runAgent(() -> {
             WorkflowContext context = WorkflowContext.getContext(state);
             Long appId = context.getAppId();
             String action = context.isModifyMode() ? "修改" : "生成";
@@ -41,7 +41,7 @@ public class FrontendAgentNode {
                     action, System.currentTimeMillis() - startTime, context.getFrontendDir());
             pipe.emitAiResponse("\n前端代码" + action + "完成\n\n");
             return WorkflowContext.saveContext(context);
-        });
+        }));
     }
 
     /**

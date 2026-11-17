@@ -46,11 +46,11 @@ public class FileDirReadTool extends BaseTool {
         try {
             Path path = resolveWorkspace(appId).resolveForRead(relativeDirPath);
             if (path == null) {
-                return "错误：非法的目录路径 - " + relativeDirPath;
+                return error("非法的目录路径 - " + relativeDirPath);
             }
             File targetDir = path.toFile();
             if (!targetDir.exists() || !targetDir.isDirectory()) {
-                return "错误：目录不存在或不是目录 - " + relativeDirPath;
+                return error("目录不存在或不是目录 - " + relativeDirPath);
             }
             StringBuilder structure = new StringBuilder();
             structure.append("项目目录结构:\n");
@@ -69,13 +69,13 @@ public class FileDirReadTool extends BaseTool {
                     .forEach(file -> {
                         int depth = getRelativeDepth(targetDir, file);
                         String indent = "  ".repeat(depth);
-                        structure.append(indent).append(file.getName());
+                        structure.append(indent).append(file.getName()).append('\n');
                     });
-            return structure.toString();
+            return success("目录读取完成", structure.toString());
         } catch (Exception e) {
             String errorMessage = "读取目录结构失败: " + relativeDirPath + ", 错误: " + e.getMessage();
             log.error(errorMessage, e);
-            return errorMessage;
+            return error(errorMessage);
         }
     }
 

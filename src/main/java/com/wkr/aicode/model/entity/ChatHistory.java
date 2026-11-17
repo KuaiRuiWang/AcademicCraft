@@ -43,6 +43,12 @@ public class ChatHistory implements Serializable {
     private String message;
 
     /**
+     * AG-UI 展示快照；正文仍单独保留给模型记忆及旧客户端。
+     */
+    @Column("renderData")
+    private String renderData;
+
+    /**
      * user/ai
      */
     @Column("messageType")

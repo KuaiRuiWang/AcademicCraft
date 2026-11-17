@@ -18,7 +18,7 @@ const props = defineProps<Props>()
 
 // 配置 markdown-it 实例
 const md: MarkdownIt = new MarkdownIt({
-  html: true,
+  html: false,
   linkify: true,
   typographer: true,
   highlight: function (str: string, lang: string): string {

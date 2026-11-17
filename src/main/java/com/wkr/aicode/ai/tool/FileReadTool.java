@@ -29,16 +29,16 @@ public class FileReadTool extends BaseTool {
         try {
             Path path = resolveWorkspace(appId).resolveForRead(relativeFilePath);
             if (path == null) {
-                return "错误：非法的文件路径 - " + relativeFilePath;
+                return error("非法的文件路径 - " + relativeFilePath);
             }
             if (!Files.exists(path) || !Files.isRegularFile(path)) {
-                return "错误：文件不存在或不是文件 - " + relativeFilePath;
+                return error("文件不存在或不是文件 - " + relativeFilePath);
             }
-            return Files.readString(path);
+            return success("文件读取成功: " + relativeFilePath, Files.readString(path));
         } catch (IOException e) {
             String errorMessage = "读取文件失败: " + relativeFilePath + ", 错误: " + e.getMessage();
             log.error(errorMessage, e);
-            return errorMessage;
+            return error(errorMessage);
         }
     }
 

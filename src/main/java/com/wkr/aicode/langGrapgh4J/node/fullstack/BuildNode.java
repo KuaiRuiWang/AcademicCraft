@@ -26,6 +26,7 @@ public class BuildNode {
             Long appId = context.getAppId();
             log.info("执行节点: 全栈项目构建，appId={}", appId);
             context.setCurrentStep("项目构建");
+            pipe.stepStarted("build", "项目构建");
             FullstackProjectBuilder builder = SpringContextUtil.getBean(FullstackProjectBuilder.class);
             File projectDir = new File(context.getFullstackProjectDir());
 
@@ -33,11 +34,15 @@ public class BuildNode {
             if (!builder.buildFrontend(projectDir)) {
                 context.setErrorMessage("前端构建失败");
                 pipe.emitAiResponse("前端构建失败：生成的前端代码可能存在问题，请描述现象让 AI 修复\n");
+                pipe.stepFinished("build", "前端构建失败", "error");
+                pipe.failRun("前端构建失败，可继续对话修复生成的代码");
                 return WorkflowContext.saveContext(context);
             }
             if (!builder.copyDistToPublic(projectDir)) {
                 context.setErrorMessage("前端产物复制失败");
                 pipe.emitAiResponse("前端产物复制失败，请重试或联系管理员\n");
+                pipe.stepFinished("build", "构建产物复制失败", "error");
+                pipe.failRun("构建产物复制失败，请重试或联系管理员");
                 return WorkflowContext.saveContext(context);
             }
             context.setBuildResultDir(new File(projectDir, "backend/public").getAbsolutePath());
@@ -46,14 +51,17 @@ public class BuildNode {
             if (!builder.isDockerAvailable()) {
                 log.warn("未检测到可用的 Docker，跳过镜像预构建，appId={}", appId);
                 pipe.emitAiResponse("当前环境未安装 Docker，跳过镜像预构建（部署时自动构建）\n");
+                pipe.stepFinished("build", "前端构建完成，部署时构建镜像", "success");
                 return WorkflowContext.saveContext(context);
             }
             pipe.emitAiResponse("正在预构建运行镜像...\n");
             if (builder.buildImage(projectDir, imageTag(appId))) {
                 pipe.emitAiResponse("镜像预构建完成，部署时可直接启动\n");
+                pipe.stepFinished("build", "项目构建完成", "success");
             } else {
                 log.error("镜像预构建失败，appId={}", appId);
                 pipe.emitAiResponse("镜像预构建失败，部署时将重新构建\n");
+                pipe.stepFinished("build", "前端构建完成，部署时重试镜像", "warning");
             }
             return WorkflowContext.saveContext(context);
         });

@@ -6,6 +6,7 @@ import com.wkr.aicode.ai.AiCodeGeneratorServiceFactory;
 import com.wkr.aicode.ai.message.AiResponseMessage;
 import com.wkr.aicode.ai.message.ToolExecutedMessage;
 import com.wkr.aicode.ai.message.ToolRequestMessage;
+import com.wkr.aicode.ai.message.WorkflowEventMessage;
 import com.wkr.aicode.ai.model.HtmlCodeResult;
 import com.wkr.aicode.ai.model.MultiFileCodeResult;
 import com.wkr.aicode.constant.AppConstant;
@@ -153,6 +154,8 @@ public class AiCodeGeneratorFacade {
                             sink.next(JSONUtil.toJsonStr(new AiResponseMessage(partialResponse, role))))
                     .onPartialToolExecutionRequest((index, toolExecutionRequest) ->
                             sink.next(JSONUtil.toJsonStr(new ToolRequestMessage(toolExecutionRequest, role))))
+                    .onCompleteToolExecutionRequest((index, request) ->
+                            sink.next(JSONUtil.toJsonStr(ToolRequestMessage.ready(request, role))))
                     .onToolExecuted((ToolExecution toolExecution) ->
                             sink.next(JSONUtil.toJsonStr(new ToolExecutedMessage(toolExecution, role))))
                     .onCompleteResponse((ChatResponse response) -> sink.complete())
@@ -179,13 +182,22 @@ public class AiCodeGeneratorFacade {
                         ToolRequestMessage toolRequestMessage = new ToolRequestMessage(toolExecutionRequest);
                         sink.next(JSONUtil.toJsonStr(toolRequestMessage));
                     })
+                    .onCompleteToolExecutionRequest((index, request) ->
+                            sink.next(JSONUtil.toJsonStr(ToolRequestMessage.ready(request, null))))
                     .onToolExecuted((ToolExecution toolExecution) -> {
                         ToolExecutedMessage toolExecutedMessage = new ToolExecutedMessage(toolExecution);
                         sink.next(JSONUtil.toJsonStr(toolExecutedMessage));
                     })
                     .onCompleteResponse((ChatResponse response) -> {
                         String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR + "/vue_project_" + appId;
-                        vueProjectBuilder.buildProject(projectPath);
+                        sink.next(JSONUtil.toJsonStr(new WorkflowEventMessage("step_started", "build", "项目构建", "running", null)));
+                        boolean built = vueProjectBuilder.buildProject(projectPath);
+                        sink.next(JSONUtil.toJsonStr(new WorkflowEventMessage("step_finished", "build",
+                                built ? "项目构建完成" : "前端构建失败", built ? "success" : "error", null)));
+                        if (!built) {
+                            sink.error(new BusinessException(ErrorCode.OPERATION_ERROR, "前端构建失败，可继续对话修复生成的代码"));
+                            return;
+                        }
                         sink.complete();
                     })
                     .onError((Throwable error) -> {

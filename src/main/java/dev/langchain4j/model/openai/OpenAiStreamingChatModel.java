@@ -19,6 +19,7 @@ import dev.langchain4j.model.openai.internal.shared.StreamOptions;
 import dev.langchain4j.model.openai.spi.OpenAiStreamingChatModelBuilderFactory;
 
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -120,19 +121,22 @@ public class OpenAiStreamingChatModel implements StreamingChatModel {
                         .build();
 
         OpenAiStreamingResponseBuilder openAiResponseBuilder = new OpenAiStreamingResponseBuilder();
-        ToolExecutionRequestBuilder toolBuilder = new ToolExecutionRequestBuilder();
+        Map<Integer, ToolExecutionRequestBuilder> toolBuilders = new LinkedHashMap<>();
 
         client.chatCompletion(openAiRequest)
                 .onPartialResponse(partialResponse -> {
                     openAiResponseBuilder.append(partialResponse);
-                    handle(partialResponse, toolBuilder, handler);
+                    handle(partialResponse, toolBuilders, handler);
                 })
                 .onComplete(() -> {
-                    if (toolBuilder.hasToolExecutionRequests()) {
-                        try {
-                            handler.onCompleteToolExecutionRequest(toolBuilder.index(), toolBuilder.build());
-                        } catch (Exception e) {
-                            withLoggingExceptions(() -> handler.onError(e));
+                    // 多个工具的参数可以交错到达，响应结束后再分别通知参数已完整生成。
+                    for (ToolExecutionRequestBuilder toolBuilder : toolBuilders.values()) {
+                        if (toolBuilder.hasToolExecutionRequests()) {
+                            try {
+                                handler.onCompleteToolExecutionRequest(toolBuilder.index(), toolBuilder.build());
+                            } catch (Exception e) {
+                                withLoggingExceptions(() -> handler.onError(e));
+                            }
                         }
                     }
                     ChatResponse chatResponse = openAiResponseBuilder.build();
@@ -150,7 +154,7 @@ public class OpenAiStreamingChatModel implements StreamingChatModel {
     }
 
     private static void handle(ChatCompletionResponse partialResponse,
-                               ToolExecutionRequestBuilder toolBuilder,
+                               Map<Integer, ToolExecutionRequestBuilder> toolBuilders,
                                StreamingChatResponseHandler handler) {
         if (partialResponse == null) {
             return;
@@ -184,16 +188,11 @@ public class OpenAiStreamingChatModel implements StreamingChatModel {
             for (ToolCall toolCall : toolCalls) {
 
                 int index = toolCall.index();
-                if (toolBuilder.index() != index) {
-                    try {
-                        handler.onCompleteToolExecutionRequest(toolBuilder.index(), toolBuilder.build());
-                    } catch (Exception e) {
-                        withLoggingExceptions(() -> handler.onError(e));
-                    }
-                    toolBuilder.updateIndex(index);
-                }
-
+                ToolExecutionRequestBuilder toolBuilder = toolBuilders.computeIfAbsent(index, ToolExecutionRequestBuilder::new);
                 String id = toolBuilder.updateId(toolCall.id());
+                if (toolCall.function() == null) {
+                    continue;
+                }
                 String name = toolBuilder.updateName(toolCall.function().name());
 
                 String partialArguments = toolCall.function().arguments();

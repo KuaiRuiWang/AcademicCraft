@@ -36,6 +36,7 @@ public class ModifyRouterNode {
             Long appId = context.getAppId();
             log.info("执行节点: 修改意图路由，appId={}", appId);
             context.setCurrentStep("修改意图路由");
+            pipe.stepStarted("modify_router", "分析修改范围");
             // 已有项目的产物目录与生成流程一致，在此确定供 Agent 节点使用
             String projectDir = AppConstant.fullstackProjectDir(appId);
             context.setFullstackProjectDir(projectDir);
@@ -48,6 +49,7 @@ public class ModifyRouterNode {
             String summary = "修改范围：" + modifyScope.getText() + "\n";
             log.info(summary.trim());
             pipe.emitAiResponse(summary);
+            pipe.stepFinished("modify_router", "修改范围：" + modifyScope.getText(), "success");
             return WorkflowContext.saveContext(context);
         });
     }
