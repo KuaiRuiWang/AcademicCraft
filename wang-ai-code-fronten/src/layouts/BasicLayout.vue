@@ -3,7 +3,7 @@
     <!-- 顶部导航栏 -->
     <GlobalHeader />
     <!-- 主要内容区域 -->
-    <a-layout-content class="main-content">
+    <a-layout-content id="main-content" class="main-content" tabindex="-1">
       <router-view />
     </a-layout-content>
     <!-- 底部版权信息 -->
@@ -19,7 +19,7 @@ import GlobalFooter from '@/components/GlobalFooter.vue'
 <style scoped>
 .basic-layout {
   background: var(--color-bg);
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .main-content {
@@ -27,5 +27,7 @@ import GlobalFooter from '@/components/GlobalFooter.vue'
   padding: 0;
   background: none;
   margin: 0;
+  flex: 1;
+  outline: none;
 }
 </style>

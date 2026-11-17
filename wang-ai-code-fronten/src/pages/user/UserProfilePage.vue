@@ -71,7 +71,11 @@
                 <IdcardOutlined />
                 基本信息
               </h3>
-              <a-descriptions :column="1" size="middle" :label-style="{ color: '#8c8c8c', fontWeight: 500 }">
+              <a-descriptions
+                :column="1"
+                size="middle"
+                :label-style="{ color: '#8c8c8c', fontWeight: 500 }"
+              >
                 <a-descriptions-item label="用户 ID">
                   #{{ loginUserStore.loginUser.id ?? '-' }}
                 </a-descriptions-item>
@@ -170,12 +174,7 @@
 
           <a-form-item>
             <a-space :size="12">
-              <a-button
-                type="primary"
-                :loading="saving"
-                size="large"
-                @click="handleSave"
-              >
+              <a-button type="primary" :loading="saving" size="large" @click="handleSave">
                 <template #icon><SaveOutlined /></template>
                 保存修改
               </a-button>
@@ -336,14 +335,15 @@ const handleSave = async () => {
 
 <style scoped>
 #userProfilePage {
-  max-width: 800px;
-  margin: 24px auto;
-  padding: 0 16px;
+  max-width: 1040px;
+  margin: 40px auto 64px;
+  padding: 0 var(--page-gutter);
 }
 
 /* ======== 顶部横幅卡片 ======== */
 .profile-banner {
-  background: linear-gradient(135deg, var(--color-primary) 0%, #14b8a6 100%);
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-primary-muted);
   border-radius: 12px;
   margin-bottom: 16px;
 }
@@ -355,13 +355,13 @@ const handleSave = async () => {
 .profile-banner .user-display-name {
   font-size: 22px;
   font-weight: 700;
-  color: #fff;
-  line-height: 1.3;
+  color: var(--color-primary-strong);
+  line-height: 1.4;
 }
 
 .profile-banner .user-account {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--color-primary-strong);
   margin-top: 4px;
 }
 
@@ -371,27 +371,15 @@ const handleSave = async () => {
   font-weight: 500;
 }
 
-.profile-banner :deep(.ant-btn-primary) {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.profile-banner :deep(.ant-btn-primary:hover) {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.5);
-}
-
 /* 横幅中头像样式 */
 .profile-banner :deep(.ant-avatar) {
-  border: 3px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 3px solid var(--color-surface);
 }
 
 /* ======== 详情卡片 ======== */
 .profile-detail {
   border-radius: 12px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--color-border);
 }
 
 .profile-detail :deep(.ant-card-body) {
@@ -401,7 +389,7 @@ const handleSave = async () => {
 .section-title {
   font-size: 15px;
   font-weight: 600;
-  color: #262626;
+  color: var(--color-text);
   margin: 0 0 16px 0;
   display: flex;
   align-items: center;
@@ -415,7 +403,7 @@ const handleSave = async () => {
 
 /* 简介文本 */
 .profile-bio {
-  background: #fafafa;
+  background: var(--color-surface-soft);
   border-radius: 8px;
   padding: 16px;
   min-height: 80px;

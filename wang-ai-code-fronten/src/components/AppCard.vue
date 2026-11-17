@@ -1,13 +1,21 @@
 <template>
   <div class="app-card" :class="{ 'app-card--featured': featured }">
     <div class="app-preview">
-      <img v-if="app.cover" :src="app.cover" :alt="app.appName" />
+      <img
+        v-if="app.cover && !imageFailed"
+        :src="app.cover"
+        :alt="app.appName"
+        loading="lazy"
+        @error="imageFailed = true"
+      />
       <div v-else class="app-placeholder">
-        <span>🤖</span>
+        <AppstoreOutlined aria-hidden="true" />
       </div>
       <div class="app-overlay">
         <a-space>
-          <a-button type="primary" size="small" shape="round" @click="handleViewChat">查看对话</a-button>
+          <a-button type="primary" size="small" shape="round" @click="handleViewChat"
+            >查看对话</a-button
+          >
           <a-button
             v-if="app.deployKey"
             size="small"
@@ -35,6 +43,8 @@
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue'
+import { AppstoreOutlined } from '@ant-design/icons-vue'
 interface Props {
   app: API.AppVO
   featured?: boolean
@@ -50,6 +60,13 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<Emits>()
+const imageFailed = ref(false)
+watch(
+  () => props.app.cover,
+  () => {
+    imageFailed.value = false
+  },
+)
 
 const handleViewChat = () => {
   emit('view-chat', props.app.id)
@@ -65,22 +82,20 @@ const handleViewWork = () => {
   background: var(--color-surface);
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: var(--shadow-card);
-  border: 1px solid rgba(231, 229, 228, 0.6);
+  border: 1px solid var(--color-border);
   transition:
     transform 0.35s var(--ease-out-expo),
     box-shadow 0.35s var(--ease-out-expo);
-  cursor: pointer;
 }
 
 .app-card:hover {
-  transform: translateY(-6px);
-  box-shadow: var(--shadow-lift);
+  transform: translateY(-4px);
+  border-color: var(--color-primary-muted);
 }
 
 .app-preview {
-  height: 180px;
-  background: var(--color-surface-soft);
+  aspect-ratio: 16 / 10;
+  background: var(--color-primary-soft);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -101,7 +116,7 @@ const handleViewWork = () => {
 
 .app-placeholder {
   font-size: 48px;
-  color: #d6d3d1;
+  color: var(--color-primary);
 }
 
 .app-overlay {
@@ -109,13 +124,15 @@ const handleViewWork = () => {
   inset: 0;
   background: linear-gradient(to top, rgba(22, 24, 29, 0.5), rgba(22, 24, 29, 0) 60%);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  opacity: 0;
+  padding: 16px;
+  opacity: 1;
   transition: opacity 0.3s var(--ease-out-expo);
 }
 
-.app-card:hover .app-overlay {
+.app-card:hover .app-overlay,
+.app-card:focus-within .app-overlay {
   opacity: 1;
 }
 
@@ -132,7 +149,7 @@ const handleViewWork = () => {
 }
 
 .app-info {
-  padding: 16px;
+  padding: 20px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -160,5 +177,17 @@ const handleViewWork = () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.app-overlay :deep(.ant-btn) {
+  min-height: 38px;
+  padding-inline: 14px;
+  border-radius: 6px;
+}
+
+@media (pointer: coarse) {
+  .app-overlay :deep(.ant-btn) {
+    min-height: 44px;
+  }
 }
 </style>

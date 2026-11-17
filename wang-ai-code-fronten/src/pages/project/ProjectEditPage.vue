@@ -3,9 +3,7 @@
     <div class="container">
       <!-- 页面标题 -->
       <div class="page-header">
-        <a-button type="link" @click="$router.back()">
-          <LeftOutlined /> 返回
-        </a-button>
+        <a-button type="link" @click="$router.back()"> <LeftOutlined /> 返回 </a-button>
         <h1 class="page-title">{{ isEdit ? '编辑项目' : '发布项目' }}</h1>
       </div>
 
@@ -25,16 +23,8 @@
                 </a-form-item>
 
                 <a-form-item label="项目分类" required>
-                  <a-select
-                    v-model:value="form.categoryId"
-                    placeholder="请选择分类"
-                    size="large"
-                  >
-                    <a-select-option
-                      v-for="cat in categories"
-                      :key="cat.id"
-                      :value="cat.id"
-                    >
+                  <a-select v-model:value="form.categoryId" placeholder="请选择分类" size="large">
+                    <a-select-option v-for="cat in categories" :key="cat.id" :value="cat.id">
                       {{ cat.name }}
                     </a-select-option>
                   </a-select>
@@ -125,11 +115,7 @@
 
                   <!-- 演示地址 -->
                   <a-form-item label="演示地址">
-                    <a-input
-                      v-model:value="form.demoUrl"
-                      placeholder="https://..."
-                      size="large"
-                    />
+                    <a-input v-model:value="form.demoUrl" placeholder="https://..." size="large" />
                   </a-form-item>
 
                   <!-- 源码类型 -->
@@ -155,9 +141,7 @@
                       :before-upload="beforeSourceUpload"
                       :custom-request="customSourceUpload"
                     >
-                      <a-button>
-                        <UploadOutlined /> 选择文件
-                      </a-button>
+                      <a-button> <UploadOutlined /> 选择文件 </a-button>
                     </a-upload>
                   </a-form-item>
 
@@ -166,11 +150,7 @@
                   <!-- 项目截图 -->
                   <a-form-item label="项目截图">
                     <div class="screenshot-list">
-                      <div
-                        v-for="(img, idx) in form.images"
-                        :key="idx"
-                        class="screenshot-item"
-                      >
+                      <div v-for="(img, idx) in form.images" :key="idx" class="screenshot-item">
                         <img :src="img.imageUrl" alt="截图" />
                         <a-button
                           type="text"
@@ -207,12 +187,7 @@
             <!-- 提交按钮 -->
             <a-form-item>
               <a-space :size="12">
-                <a-button
-                  type="primary"
-                  size="large"
-                  :loading="submitting"
-                  @click="handleSubmit"
-                >
+                <a-button type="primary" size="large" :loading="submitting" @click="handleSubmit">
                   <template #icon><SaveOutlined /></template>
                   {{ isEdit ? '保存修改' : '发布项目' }}
                 </a-button>
@@ -298,7 +273,7 @@ const loadProject = async () => {
       form.sourceType = p.sourceType || 0
       form.sourceUrl = p.sourceUrl || ''
       form.demoUrl = p.demoUrl || ''
-      form.images = (p.images || []).map(img => ({
+      form.images = (p.images || []).map((img) => ({
         imageUrl: img.imageUrl || '',
         sortOrder: img.sortOrder || 0,
         type: img.type || 0,
@@ -371,7 +346,10 @@ const customImageUpload: UploadProps['customRequest'] = async (options) => {
     formData.append('file', file as File)
     const res = await upload(formData)
     if (res.data.code === 0 && res.data.data) {
-      form.images = [...(form.images || []), { imageUrl: res.data.data, sortOrder: (form.images?.length || 0) + 1, type: 0 }]
+      form.images = [
+        ...(form.images || []),
+        { imageUrl: res.data.data, sortOrder: (form.images?.length || 0) + 1, type: 0 },
+      ]
       message.success('截图上上传成功')
       onSuccess?.(res.data, file)
     } else {
@@ -474,14 +452,14 @@ onMounted(() => {
 
 <style scoped>
 #projectEditPage {
-  min-height: 100vh;
+  min-height: 60dvh;
   background: var(--color-bg);
 }
 
 .container {
-  max-width: 1200px;
+  max-width: calc(var(--page-width) + var(--page-gutter) * 2);
   margin: 0 auto;
-  padding: 24px 16px;
+  padding: 32px var(--page-gutter) 64px;
 }
 
 .page-header {
@@ -489,14 +467,15 @@ onMounted(() => {
 }
 
 .page-title {
-  font-size: 24px;
+  font-size: clamp(1.5rem, 1rem + 1.5vw, 2rem);
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--color-text);
   margin: 8px 0 0;
 }
 
 .form-card {
   border-radius: 12px;
+  border: 1px solid var(--color-border);
 }
 
 .form-card :deep(.ant-card-body) {
@@ -505,7 +484,7 @@ onMounted(() => {
 
 /* 编辑器 */
 .editor-wrapper {
-  border: 1px solid #e8e8e8;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -618,7 +597,7 @@ onMounted(() => {
 
 .upload-hint {
   font-size: 12px;
-  color: #bbb;
+  color: var(--color-text-tertiary);
   margin-top: 8px;
 }
 

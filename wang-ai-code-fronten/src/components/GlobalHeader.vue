@@ -1,276 +1,308 @@
-<template>
-  <a-layout-header class="header">
-    <a-row :wrap="false" align="middle" class="header-inner">
-      <!-- 左侧：Logo和标题 -->
-      <a-col flex="200px">
-        <RouterLink to="/">
-          <div class="header-left">
-            <img class="logo" src="@/assets/logo.png" alt="Logo" />
-            <h1 class="site-title">百夜毕设帮</h1>
-          </div>
-        </RouterLink>
-      </a-col>
-      <!-- 中间：导航菜单 -->
-      <a-col flex="auto">
-        <a-menu
-          v-model:selectedKeys="selectedKeys"
-          mode="horizontal"
-          :items="menuItems"
-          class="header-menu"
-          @click="handleMenuClick"
-        />
-      </a-col>
-      <!-- 右侧：用户操作区域 -->
-      <a-col>
-        <div class="user-login-status">
-          <div v-if="loginUserStore.loginUser.id" class="user-actions">
-            <a-button
-              v-if="loginUserStore.loginUser.userRole === 'admin'"
-              type="primary"
-              size="small"
-              class="admin-switch-btn"
-              @click="router.push('/admin/userManage')"
-            >
-              <template #icon><DashboardOutlined /></template>
-              管理端
-            </a-button>
-            <a-dropdown placement="bottomRight">
-              <a-space class="user-avatar-area" @click.stop="goToProfile">
-                <a-avatar :src="loginUserStore.loginUser.userAvatar" />
-                {{ loginUserStore.loginUser.userName ?? '无名' }}
-              </a-space>
-              <template #overlay>
-                <a-menu>
-                  <a-menu-item @click="goToProfile">
-                    <UserOutlined />
-                    个人中心
-                  </a-menu-item>
-                  <a-menu-item @click="router.push('/my/projects')">
-                    <ProjectOutlined />
-                    我的项目
-                  </a-menu-item>
-                  <a-menu-item @click="router.push('/my/orders')">
-                    <OrderedListOutlined />
-                    我的订单
-                  </a-menu-item>
-                  <a-menu-divider />
-                  <a-menu-item @click="doLogout">
-                    <LogoutOutlined />
-                    退出登录
-                  </a-menu-item>
-                </a-menu>
-              </template>
-            </a-dropdown>
-          </div>
-          <div v-else>
-            <a-button type="primary" shape="round" href="/user/login">登录</a-button>
-          </div>
-        </div>
-      </a-col>
-    </a-row>
-  </a-layout-header>
-</template>
-
 <script setup lang="ts">
-import { computed, h, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { type MenuProps, message } from 'ant-design-vue'
-import { useLoginUserStore } from '@/stores/loginUser.ts'
-import { userLogout } from '@/api/userController.ts'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
+import { useLoginUserStore } from '@/stores/loginUser'
+import { userLogout } from '@/api/userController'
 import {
-  LogoutOutlined,
   HomeOutlined,
-  UserOutlined,
   ShoppingOutlined,
+  ThunderboltOutlined,
   ProjectOutlined,
   OrderedListOutlined,
+  UserOutlined,
+  LogoutOutlined,
   DashboardOutlined,
-  ThunderboltOutlined,
+  DownOutlined,
 } from '@ant-design/icons-vue'
 
-const loginUserStore = useLoginUserStore()
+const route = useRoute()
 const router = useRouter()
-// 当前选中菜单
-const selectedKeys = ref<string[]>(['/'])
-// 监听路由变化，更新当前选中菜单
-router.afterEach((to) => {
-  selectedKeys.value = [to.path]
-})
-// 菜单配置项
-const originItems = [
-  {
-    key: '/',
-    icon: () => h(HomeOutlined),
-    label: '主页',
-    title: '主页',
-  },
-  {
-    key: '/project',
-    icon: () => h(ShoppingOutlined),
-    label: '项目商城',
-    title: '项目商城',
-  },
-  {
-    key: '/create',
-    icon: () => h(ThunderboltOutlined),
-    label: 'AI 定制',
-    title: 'AI 定制',
-  },
-  {
-    key: '/my/projects',
-    icon: () => h(ProjectOutlined),
-    label: '我的项目',
-    title: '我的项目',
-  },
-  {
-    key: '/my/orders',
-    icon: () => h(OrderedListOutlined),
-    label: '我的订单',
-    title: '我的订单',
-  },
-]
-// 过滤菜单项
-const filterMenus = (menus = [] as MenuProps['items']) => {
-  return menus?.filter((menu) => {
-    const menuKey = menu?.key as string
-    if (menuKey?.startsWith('/admin')) {
-      const loginUser = loginUserStore.loginUser
-      if (!loginUser || loginUser.userRole !== 'admin') {
-        return false
-      }
-    }
-    // 我的项目和我的订单需要登录
-    if (menuKey?.startsWith('/my/')) {
-      if (!loginUserStore.loginUser.id) {
-        return false
-      }
-    }
-    return true
-  })
-}
+const loginUserStore = useLoginUserStore()
+const menuItems = computed(() => [
+  { path: '/', label: '主页', icon: HomeOutlined },
+  { path: '/project', label: '项目商城', icon: ShoppingOutlined },
+  { path: '/create', label: 'AI 定制', icon: ThunderboltOutlined },
+  ...(loginUserStore.loginUser.id
+    ? [
+        { path: '/my/projects', label: '我的项目', icon: ProjectOutlined },
+        { path: '/my/orders', label: '我的订单', icon: OrderedListOutlined },
+      ]
+    : []),
+])
+const isCurrent = (path: string) =>
+  route.path === path || (path !== '/' && route.path.startsWith(`${path}/`))
 
-// 展示在菜单的路由数组
-const menuItems = computed<MenuProps['items']>(() => filterMenus(originItems))
-
-// 处理菜单点击
-const handleMenuClick: MenuProps['onClick'] = (e) => {
-  const key = e.key as string
-  selectedKeys.value = [key]
-  // 跳转到对应页面
-  if (key.startsWith('/')) {
-    router.push(key)
-  }
-}
-
-// 跳转个人中心
-const goToProfile = () => {
-  router.push('/user/profile')
-}
-
-// 退出登录
 const doLogout = async () => {
-  const res = await userLogout()
-  if (res.data.code === 0) {
-    loginUserStore.setLoginUser({
-      userName: '未登录',
-    })
-    message.success('退出登录成功')
-    await router.push('/user/login')
-  } else {
-    message.error('退出登录失败，' + res.data.message)
+  try {
+    const res = await userLogout()
+    if (res.data.code === 0) {
+      loginUserStore.setLoginUser({ userName: '未登录' })
+      message.success('退出登录成功')
+      await router.push('/user/login')
+    } else {
+      message.error('退出登录失败，' + res.data.message)
+    }
+  } catch {
+    message.error('退出登录失败，请稍后重试')
   }
 }
 </script>
 
+<template>
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <a-layout-header class="header">
+    <div class="header-inner">
+      <RouterLink to="/" class="header-brand" aria-label="百夜毕设帮主页">
+        <img class="logo" src="@/assets/logo.png" alt="" width="38" height="38" />
+        <span class="site-title">百夜毕设帮</span>
+      </RouterLink>
+      <nav class="header-nav" aria-label="主导航">
+        <RouterLink
+          v-for="item in menuItems"
+          :key="item.path"
+          :to="item.path"
+          class="nav-link"
+          :aria-current="isCurrent(item.path) ? 'page' : undefined"
+        >
+          <component :is="item.icon" aria-hidden="true" />
+          <span>{{ item.label }}</span>
+        </RouterLink>
+      </nav>
+      <div class="header-actions">
+        <template v-if="loginUserStore.loginUser.id">
+          <a-button
+            v-if="loginUserStore.loginUser.userRole === 'admin'"
+            class="admin-link"
+            @click="router.push('/admin/userManage')"
+          >
+            <DashboardOutlined /> 管理端
+          </a-button>
+          <a-dropdown placement="bottomRight" :trigger="['click']">
+            <button class="profile-trigger" type="button" aria-label="打开账户菜单">
+              <a-avatar :src="loginUserStore.loginUser.userAvatar" :size="30">
+                {{ loginUserStore.loginUser.userName?.charAt(0) || 'U' }}
+              </a-avatar>
+              <span class="profile-name">{{ loginUserStore.loginUser.userName || '无名' }}</span>
+              <DownOutlined aria-hidden="true" />
+            </button>
+            <template #overlay>
+              <a-menu>
+                <a-menu-item @click="router.push('/user/profile')"
+                  ><UserOutlined /> 个人中心</a-menu-item
+                >
+                <a-menu-item @click="router.push('/my/projects')"
+                  ><ProjectOutlined /> 我的项目</a-menu-item
+                >
+                <a-menu-item @click="router.push('/my/orders')"
+                  ><OrderedListOutlined /> 我的订单</a-menu-item
+                >
+                <a-menu-divider />
+                <a-menu-item @click="doLogout"><LogoutOutlined /> 退出登录</a-menu-item>
+              </a-menu>
+            </template>
+          </a-dropdown>
+        </template>
+        <template v-else>
+          <RouterLink class="login-link" to="/user/login">登录</RouterLink>
+          <a-button type="primary" @click="router.push('/user/register')">注册账号</a-button>
+        </template>
+      </div>
+    </div>
+  </a-layout-header>
+</template>
+
 <style scoped>
 .header {
   position: sticky;
-  top: 0;
+  inset-block-start: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(231, 229, 228, 0.9);
-  padding: 0 24px;
-  height: 68px;
-  line-height: 68px;
+  height: auto;
+  padding-inline: var(--page-gutter);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  line-height: 1.5;
 }
-
 .header-inner {
-  height: 68px;
-}
-
-.header-left {
+  max-width: var(--page-width);
+  min-height: 80px;
+  margin-inline: auto;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: clamp(24px, 3vw, 48px);
 }
-
+.header-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
 .logo {
-  height: 40px;
-  width: 40px;
   border-radius: 10px;
   object-fit: cover;
 }
-
 .site-title {
-  margin: 0;
   font-size: 19px;
-  font-weight: 700;
+  font-weight: 750;
   letter-spacing: -0.02em;
-  color: var(--color-primary);
+  color: var(--color-text);
 }
-
-/* 水平菜单：pill 选中态，去掉 antd 默认下划线 */
-.header-menu {
-  background: transparent;
-  border-bottom: none !important;
-  font-weight: 500;
-}
-
-:deep(.ant-menu-horizontal .ant-menu-item),
-:deep(.ant-menu-horizontal .ant-menu-submenu) {
-  border-radius: 999px;
-  padding-inline: 16px;
-  transition:
-    color 0.25s var(--ease-out-expo),
-    background-color 0.25s var(--ease-out-expo);
-}
-
-:deep(.ant-menu-horizontal .ant-menu-item::after),
-:deep(.ant-menu-horizontal .ant-menu-submenu::after) {
-  display: none;
-}
-
-:deep(.ant-menu-horizontal .ant-menu-item:hover) {
-  background-color: var(--color-surface-soft);
-}
-
-:deep(.ant-menu-horizontal .ant-menu-item-selected) {
-  background-color: rgba(15, 118, 110, 0.1);
-  color: var(--color-primary);
-}
-
-.user-avatar-area {
-  cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-weight: 500;
-  transition: background-color 0.25s var(--ease-out-expo);
-}
-
-.user-avatar-area:hover {
-  background-color: var(--color-surface-soft);
-}
-
-.user-actions {
+.header-nav {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
+  min-width: 0;
 }
-
-.admin-switch-btn {
-  font-size: 13px;
-  border-radius: 999px;
+.nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding-inline: 14px;
+  color: var(--color-text-secondary);
+  border-radius: 8px;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.nav-link:hover {
+  color: var(--color-primary);
+  background: var(--color-surface-soft);
+}
+.nav-link[aria-current='page'] {
+  color: var(--color-primary-strong);
+  background: var(--color-primary-soft);
+  font-weight: 650;
+}
+.nav-link[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  bottom: 5px;
+  width: 14px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 2px;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-inline-start: auto;
+  flex-shrink: 0;
+}
+.header-actions :deep(.ant-btn) {
+  min-height: 44px;
+}
+.login-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+.profile-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.profile-trigger:hover {
+  background: var(--color-surface-soft);
+}
+.profile-name {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skip-link {
+  position: fixed;
+  inset-block-start: 8px;
+  inset-inline-start: 16px;
+  z-index: 1000;
+  padding: 8px 16px;
+  background: var(--color-primary);
+  color: white;
+  border-radius: 8px;
+  transform: translateY(-160%);
+}
+.skip-link:focus {
+  transform: translateY(0);
+}
+@media (max-width: 1080px) {
+  .header-inner {
+    gap: 20px;
+  }
+  .nav-link {
+    padding-inline: 10px;
+  }
+  .admin-link {
+    display: none;
+  }
+}
+@media (max-width: 1000px) {
+  .header-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 12px;
+    padding-block-start: 10px;
+  }
+  .header-brand {
+    min-height: 48px;
+  }
+  .site-title {
+    font-size: 17px;
+  }
+  .logo {
+    width: 32px;
+    height: 32px;
+  }
+  .header-actions {
+    gap: 14px;
+  }
+  .header-actions :deep(.ant-btn) {
+    padding-inline: 12px;
+  }
+  .header-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-block: 4px 10px;
+  }
+  .nav-link {
+    flex-shrink: 0;
+    min-height: 44px;
+    padding-inline: 14px;
+  }
+  .profile-name {
+    display: none;
+  }
+  .header-nav::-webkit-scrollbar {
+    display: none;
+  }
+}
+@media (max-width: 360px) {
+  .header-brand {
+    gap: 7px;
+  }
+  .header-actions {
+    gap: 10px;
+  }
+  .nav-link {
+    padding-inline: 10px;
+    gap: 6px;
+  }
+  .header-actions :deep(.ant-btn) {
+    padding-inline: 8px;
+    font-size: 13px;
+  }
 }
 </style>

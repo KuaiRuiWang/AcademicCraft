@@ -10,6 +10,10 @@
             </a-button>
           </div>
 
+          <header class="project-heading">
+            <h1>{{ project.name }}</h1>
+            <p>{{ project.description }}</p>
+          </header>
           <a-row :gutter="[24, 24]">
             <!-- 左侧：主要信息 -->
             <a-col :xs="24" :lg="17">
@@ -19,7 +23,11 @@
                   :src="project.coverImage || defaultCover"
                   :alt="project.name"
                   class="detail-cover"
-                  @error="(e: any) => { e.target.src = defaultCover }"
+                  @error="
+                    (e: any) => {
+                      e.target.src = defaultCover
+                    }
+                  "
                 />
               </a-card>
 
@@ -39,7 +47,12 @@
               </a-card>
 
               <!-- 项目截图 -->
-              <a-card v-if="project.images && project.images.length > 0" class="detail-card" :bordered="false" title="项目截图">
+              <a-card
+                v-if="project.images && project.images.length > 0"
+                class="detail-card"
+                :bordered="false"
+                title="项目截图"
+              >
                 <div class="screenshot-grid">
                   <a-image
                     v-for="(img, idx) in project.images"
@@ -56,7 +69,12 @@
                 <template #extra>
                   <a-space>
                     <StarFilled style="color: #faad14" />
-                    <span>{{ project.avgRating ? project.avgRating.toFixed(1) : '-' }} ({{ reviews.length }} 条评价)</span>
+                    <span
+                      >{{ project.avgRating ? project.avgRating.toFixed(1) : '-' }} ({{
+                        reviews.length
+                      }}
+                      条评价)</span
+                    >
                   </a-space>
                 </template>
 
@@ -110,7 +128,9 @@
               <div class="sidebar">
                 <a-card class="detail-card purchase-card" :bordered="false">
                   <div class="price-block">
-                    <span class="price-value">{{ project.price ? `¥${project.price}` : '免费' }}</span>
+                    <span class="price-value">{{
+                      project.price ? `¥${project.price}` : '免费'
+                    }}</span>
                   </div>
 
                   <a-divider />
@@ -119,12 +139,8 @@
                     <div class="info-row">
                       <TagOutlined /> 分类：{{ project.categoryName || '-' }}
                     </div>
-                    <div class="info-row">
-                      <FireOutlined /> 销量：{{ project.salesCount || 0 }}
-                    </div>
-                    <div class="info-row">
-                      <EyeOutlined /> 浏览：{{ project.viewCount || 0 }}
-                    </div>
+                    <div class="info-row"><FireOutlined /> 销量：{{ project.salesCount || 0 }}</div>
+                    <div class="info-row"><EyeOutlined /> 浏览：{{ project.viewCount || 0 }}</div>
                     <div class="info-row">
                       <StarFilled style="color: #faad14" />
                       评分：{{ project.avgRating ? project.avgRating.toFixed(1) : '暂无' }}
@@ -149,12 +165,7 @@
                       <ShoppingCartOutlined />
                       {{ project.price ? '立即购买' : '免费获取' }}
                     </a-button>
-                    <a-button
-                      v-if="project.demoUrl"
-                      size="large"
-                      block
-                      @click="openDemo"
-                    >
+                    <a-button v-if="project.demoUrl" size="large" block @click="openDemo">
                       <LinkOutlined /> 查看演示
                     </a-button>
                   </a-space>
@@ -171,7 +182,9 @@
                       <a-avatar :src="project.author?.userAvatar" :size="48" />
                       <div>
                         <div class="author-name">{{ project.author?.userName || '匿名' }}</div>
-                        <div class="author-bio">{{ project.author?.userProfile || '暂无简介' }}</div>
+                        <div class="author-bio">
+                          {{ project.author?.userProfile || '暂无简介' }}
+                        </div>
                       </div>
                     </a-space>
                   </div>
@@ -218,7 +231,8 @@ const route = useRoute()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
 
-const defaultCover = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2YwZjJmNSIvPjx0ZXh0IHg9IjQwMCIgeT0iMjEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjI0IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+'
+const defaultCover =
+  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2YwZjJmNSIvPjx0ZXh0IHg9IjQwMCIgeT0iMjEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjI0IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+'
 
 const loading = ref(true)
 const buying = ref(false)
@@ -287,9 +301,7 @@ const loadReviews = async () => {
     if (res.data.code === 0 && res.data.data) {
       reviews.value = res.data.data
       // 查找我的评价
-      myReview.value = res.data.data.find(
-        (r) => r.userId === loginUserStore.loginUser.id
-      ) || null
+      myReview.value = res.data.data.find((r) => r.userId === loginUserStore.loginUser.id) || null
     }
   } catch {
     // ignore
@@ -358,7 +370,10 @@ const openDemo = () => {
 // 解析标签
 const parseTags = (tags?: string): string[] => {
   if (!tags) return []
-  return tags.split(',').filter(Boolean).map(t => t.trim())
+  return tags
+    .split(',')
+    .filter(Boolean)
+    .map((t) => t.trim())
 }
 
 onMounted(() => {
@@ -368,14 +383,14 @@ onMounted(() => {
 
 <style scoped>
 #projectDetailPage {
-  min-height: 100vh;
+  min-height: 60dvh;
   background: var(--color-bg);
 }
 
 .container {
-  max-width: 1280px;
+  max-width: calc(var(--page-width) + var(--page-gutter) * 2);
   margin: 0 auto;
-  padding: 16px 16px 64px;
+  padding: 24px var(--page-gutter) 64px;
 }
 
 .breadcrumb {
@@ -386,8 +401,7 @@ onMounted(() => {
 .detail-card {
   border-radius: 14px;
   margin-bottom: 16px;
-  box-shadow: var(--shadow-card);
-  border: 1px solid rgba(231, 229, 228, 0.6);
+  border: 1px solid var(--color-border);
 }
 
 .detail-card :deep(.ant-card-head) {
@@ -407,7 +421,9 @@ onMounted(() => {
 
 .detail-cover {
   width: 100%;
-  max-height: 400px;
+  display: block;
+  aspect-ratio: 16 / 9;
+  max-height: 440px;
   object-fit: cover;
 }
 
@@ -427,6 +443,7 @@ onMounted(() => {
   line-height: 1.8;
   color: var(--color-text);
   font-size: 15px;
+  overflow-wrap: anywhere;
 }
 
 .detail-content :deep(h1),
@@ -472,7 +489,7 @@ onMounted(() => {
 /* 侧边栏 */
 .sidebar {
   position: sticky;
-  top: 84px;
+  top: calc(var(--header-height) + 24px);
 }
 
 .purchase-card {
@@ -579,5 +596,39 @@ onMounted(() => {
 /* 404 */
 .not-found {
   padding: 120px 16px;
+}
+.project-heading {
+  margin-bottom: 28px;
+}
+.project-heading h1 {
+  margin: 0 0 12px;
+  font-size: clamp(1.75rem, 1rem + 2vw, 2.25rem);
+  line-height: 1.5;
+  color: var(--color-text);
+}
+.project-heading p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  max-width: 70ch;
+}
+.detail-content :deep(pre code) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+@media (max-width: 700px) {
+  .detail-card :deep(.ant-card-head-wrapper) {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-block: 14px;
+  }
+  .detail-card :deep(.ant-card-extra) {
+    margin-inline-start: 0;
+  }
+  .review-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 }
 </style>

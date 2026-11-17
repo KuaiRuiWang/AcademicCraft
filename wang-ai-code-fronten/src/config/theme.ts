@@ -17,18 +17,22 @@ export const themeConfig: ThemeConfig = {
     colorBgElevated: '#FFFFFF',
     colorText: '#1C1917',
     colorTextSecondary: '#57534E',
-    colorTextTertiary: '#78716C',
+    colorTextTertiary: '#746D67',
+    colorTextPlaceholder: '#746D67',
+    colorError: '#B93838',
     colorBorder: '#E7E5E4',
     colorBorderSecondary: '#F0EFED',
     colorSplit: '#E7E5E4',
     colorBgTextHover: '#F5F5F4',
     colorBgTextActive: '#EEEDE9',
-    borderRadius: 10,
-    borderRadiusLG: 14,
+    borderRadius: 8,
+    borderRadiusLG: 12,
     borderRadiusSM: 8,
     fontFamily:
       "'Plus Jakarta Sans Variable', 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif",
     controlOutline: 'rgba(15, 118, 110, 0.12)',
+    controlHeight: 38,
+    controlHeightLG: 46,
   },
   components: {
     Layout: {
@@ -54,8 +58,8 @@ export const themeConfig: ThemeConfig = {
       headerSplitColor: '#F0EFED',
     },
     Button: {
-      primaryShadow: '0 8px 20px -8px rgba(15, 118, 110, 0.5)',
-      fontWeight: 500,
+      primaryShadow: 'none',
+      fontWeight: 600,
     },
     Card: {
       colorBorderSecondary: '#F0EFED',

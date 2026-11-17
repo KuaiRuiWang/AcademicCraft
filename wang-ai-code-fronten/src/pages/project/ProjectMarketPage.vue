@@ -1,155 +1,131 @@
 <template>
   <div id="projectMarketPage">
     <div class="container">
-      <!-- 页面头部 -->
-      <div class="page-header">
-        <span class="page-eyebrow">PROJECT MARKET</span>
-        <h1 class="page-title">项目商城</h1>
-        <p class="page-desc">发现优秀的计算机毕设项目，轻松获取源码</p>
-      </div>
-
-      <a-row :gutter="24">
-        <!-- 左侧筛选栏 -->
-        <a-col :xs="24" :md="6">
-          <a-card class="filter-card" :bordered="false">
-            <div class="filter-section">
-              <h4 class="filter-title">
-                <SearchOutlined /> 搜索
-              </h4>
-              <a-input-search
-                v-model:value="query.name"
-                placeholder="搜索项目名称..."
-                allow-clear
-                @search="handleSearch"
-              />
-            </div>
-
-            <a-divider />
-
-            <div class="filter-section">
-              <h4 class="filter-title">
-                <AppstoreOutlined /> 分类
-              </h4>
-              <a-radio-group v-model:value="query.categoryId" class="category-list" @change="handleSearch">
-                <a-radio :value="undefined" class="category-item">全部</a-radio>
-                <a-radio
-                  v-for="cat in categories"
-                  :key="cat.id"
-                  :value="cat.id"
-                  class="category-item"
-                >
-                  {{ cat.name }}
-                </a-radio>
-              </a-radio-group>
-            </div>
-
-            <a-divider />
-
-            <div class="filter-section">
-              <h4 class="filter-title">
-                <DollarOutlined /> 价格区间
-              </h4>
-              <a-slider
-                v-model:value="priceRange"
-                :min="0"
-                :max="200"
-                range
-                :tip-formatter="(v: number) => `¥${v}`"
-                @after-change="handlePriceChange"
-              />
-              <div class="price-labels">
-                <span>¥0</span>
-                <span>¥200</span>
-              </div>
-            </div>
-          </a-card>
-        </a-col>
-
-        <!-- 右侧项目列表 -->
-        <a-col :xs="24" :md="18">
-          <!-- 排序栏 -->
-          <div class="toolbar">
-            <a-radio-group v-model:value="query.sortField" button-style="solid" size="small" @change="handleSearch">
-              <a-radio-button value="createTime">最新</a-radio-button>
-              <a-radio-button value="salesCount">销量</a-radio-button>
-              <a-radio-button value="avgRating">评分</a-radio-button>
-              <a-radio-button value="price">价格</a-radio-button>
-            </a-radio-group>
-            <a-button
-              v-if="query.sortField === 'price'"
-              size="small"
-              type="text"
-              @click="togglePriceOrder"
-            >
-              {{ query.sortOrder === 'asc' ? '↑ 从低到高' : '↓ 从高到低' }}
-            </a-button>
+      <header class="page-header">
+        <div>
+          <h1 class="page-title">项目商城</h1>
+          <p class="page-desc">发现优秀的计算机毕设项目，轻松获取源码</p>
+        </div>
+        <RouterLink to="/create" class="custom-link"
+          >没有合适的？试试 AI 定制 <ThunderboltOutlined aria-hidden="true"
+        /></RouterLink>
+      </header>
+      <a-button
+        class="filter-toggle"
+        :aria-expanded="filtersOpen"
+        aria-controls="market-filters"
+        @click="filtersOpen = !filtersOpen"
+        ><FilterOutlined aria-hidden="true" /> {{ filtersOpen ? '收起筛选' : '筛选项目' }}</a-button
+      >
+      <div class="market-layout">
+        <aside
+          id="market-filters"
+          class="filter-panel"
+          :class="{ 'is-open': filtersOpen }"
+          aria-label="筛选项目"
+        >
+          <div class="filter-heading">
+            <h2>筛选项目</h2>
+            <a-button type="text" size="small" @click="resetFilters">重置</a-button>
           </div>
-
-          <!-- 加载骨架屏 -->
+          <div class="filter-section">
+            <label class="filter-title" for="project-search"
+              ><SearchOutlined aria-hidden="true" /> 搜索</label
+            >
+            <a-input-search
+              id="project-search"
+              v-model:value="query.name"
+              placeholder="搜索项目名称..."
+              allow-clear
+              @search="handleSearch"
+            />
+          </div>
+          <div class="filter-section">
+            <h3 class="filter-title"><AppstoreOutlined aria-hidden="true" /> 分类</h3>
+            <a-radio-group
+              v-model:value="query.categoryId"
+              class="category-list"
+              aria-label="项目分类"
+              @change="handleSearch"
+            >
+              <a-radio :value="undefined" class="category-item">全部</a-radio>
+              <a-radio
+                v-for="cat in categories"
+                :key="cat.id"
+                :value="cat.id"
+                class="category-item"
+                >{{ cat.name }}</a-radio
+              >
+            </a-radio-group>
+          </div>
+          <div class="filter-section">
+            <h3 class="filter-title"><DollarOutlined aria-hidden="true" /> 价格区间</h3>
+            <a-slider
+              v-model:value="priceRange"
+              :aria-label-group-for-handles="['最低价格', '最高价格']"
+              :min="0"
+              :max="200"
+              range
+              :tip-formatter="(v: number) => `¥${v}`"
+              @after-change="handlePriceChange"
+            />
+            <div class="price-labels">
+              <span>¥{{ priceRange[0] }}</span
+              ><span>¥{{ priceRange[1] }}</span>
+            </div>
+          </div>
+        </aside>
+        <section class="market-results" aria-label="项目列表" :aria-busy="loading">
+          <div class="toolbar">
+            <span class="result-count">{{ loadError ? '项目列表' : `共 ${total} 个项目` }}</span>
+            <div class="sort-controls">
+              <a-radio-group
+                v-model:value="query.sortField"
+                button-style="solid"
+                size="small"
+                aria-label="项目排序"
+                @change="handleSearch"
+              >
+                <a-radio-button value="createTime">最新</a-radio-button
+                ><a-radio-button value="salesCount">销量</a-radio-button
+                ><a-radio-button value="avgRating">评分</a-radio-button
+                ><a-radio-button value="price">价格</a-radio-button>
+              </a-radio-group>
+              <a-button
+                v-if="query.sortField === 'price'"
+                size="small"
+                type="text"
+                @click="togglePriceOrder"
+                >{{ query.sortOrder === 'asc' ? '从低到高' : '从高到低' }}</a-button
+              >
+            </div>
+          </div>
           <div v-if="loading" class="project-grid">
-            <div v-for="i in 8" :key="i" class="project-card">
+            <div v-for="i in 6" :key="i" class="skeleton-card">
               <div class="skel-cover"></div>
-              <div class="card-body">
+              <div class="skel-body">
                 <a-skeleton active :title="{ width: '70%' }" :paragraph="{ rows: 2 }" />
               </div>
             </div>
           </div>
-
-          <div v-else-if="projects.length === 0" class="empty-state">
-            <div class="empty-icon">🗂️</div>
-            <p class="empty-text">暂无项目，换个筛选条件试试</p>
-          </div>
-
-          <div v-else class="project-grid">
-            <div
-              v-for="project in projects"
-              :key="project.id"
-              class="project-card"
-              @click="goToDetail(project.id)"
+          <div v-else-if="loadError" class="empty-state" role="status">
+            <DisconnectOutlined class="empty-icon" aria-hidden="true" />
+            <h2>项目暂时无法加载</h2>
+            <p>请检查网络连接，稍后重试。</p>
+            <a-button @click="loadProjects"
+              ><ReloadOutlined aria-hidden="true" /> 重新加载</a-button
             >
-              <div class="card-cover">
-                <img
-                  :src="project.coverImage || defaultCover"
-                  :alt="project.name"
-                  @error="(e: any) => { e.target.src = defaultCover }"
-                />
-                <div class="card-price">{{ project.price ? `¥${project.price}` : '免费' }}</div>
-                <div v-if="project.salesCount" class="card-sales">
-                  <FireOutlined /> {{ project.salesCount }}
-                </div>
-              </div>
-              <div class="card-body">
-                <h3 class="card-title">{{ project.name }}</h3>
-                <p class="card-desc">{{ project.description || '暂无描述' }}</p>
-                <div class="card-meta">
-                  <a-space :size="4" wrap>
-                    <a-tag v-for="tag in parseTags(project.techTags)" :key="tag" class="tech-tag">
-                      {{ tag }}
-                    </a-tag>
-                  </a-space>
-                </div>
-                <div class="card-footer">
-                  <a-space>
-                    <a-avatar :src="project.author?.userAvatar" :size="20" />
-                    <span class="author-name">{{ project.author?.userName || '匿名' }}</span>
-                  </a-space>
-                  <a-space :size="16">
-                    <span class="stat">
-                      <StarFilled style="color: #f59e0b" />
-                      {{ project.avgRating ? project.avgRating.toFixed(1) : '-' }}
-                    </span>
-                    <span class="stat">
-                      <EyeOutlined />
-                      {{ project.viewCount || 0 }}
-                    </span>
-                  </a-space>
-                </div>
-              </div>
-            </div>
           </div>
-
-          <!-- 分页 -->
-          <div v-if="total > 0" class="pagination-wrapper">
+          <div v-else-if="projects.length === 0" class="empty-state">
+            <InboxOutlined class="empty-icon" aria-hidden="true" />
+            <h2>暂时没有找到项目</h2>
+            <p>换个筛选条件试试，或用 AI 定制你的项目。</p>
+            <a-button @click="resetFilters">重置筛选</a-button>
+          </div>
+          <div v-else class="project-grid">
+            <ProjectCard v-for="project in projects" :key="project.id" :project="project" />
+          </div>
+          <div v-if="!loading && !loadError && total > 0" class="pagination-wrapper">
             <a-pagination
               v-model:current="query.pageNum"
               :page-size="query.pageSize"
@@ -159,8 +135,8 @@
               @change="loadProjects"
             />
           </div>
-        </a-col>
-      </a-row>
+        </section>
+      </div>
     </div>
   </div>
 </template>
@@ -172,20 +148,22 @@ import {
   SearchOutlined,
   AppstoreOutlined,
   DollarOutlined,
-  FireOutlined,
-  StarFilled,
-  EyeOutlined,
+  ThunderboltOutlined,
+  FilterOutlined,
+  ReloadOutlined,
+  InboxOutlined,
+  DisconnectOutlined,
 } from '@ant-design/icons-vue'
 import { listProjectVoByPage } from '@/api/projectController'
 import { listCategories } from '@/api/projectCategoryController'
-import { message } from 'ant-design-vue'
+import ProjectCard from '@/components/ProjectCard.vue'
 
 const router = useRouter()
 const route = useRoute()
 
-const defaultCover = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgZmlsbD0iI2YwZjJmNSIvPjx0ZXh0IHg9IjIwMCIgeT0iMTI1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjE4IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+'
-
 const loading = ref(false)
+const loadError = ref(false)
+const filtersOpen = ref(false)
 const projects = ref<API.ProjectVO[]>([])
 const categories = ref<API.ProjectCategory[]>([])
 const total = ref(0)
@@ -213,14 +191,17 @@ const loadCategories = async () => {
 // 加载项目列表
 const loadProjects = async () => {
   loading.value = true
+  loadError.value = false
   try {
     const res = await listProjectVoByPage(query)
     if (res.data.code === 0 && res.data.data) {
       projects.value = res.data.data.records || []
       total.value = res.data.data.totalRow || 0
+    } else {
+      loadError.value = true
     }
   } catch {
-    message.error('加载项目失败')
+    loadError.value = true
   } finally {
     loading.value = false
   }
@@ -246,15 +227,17 @@ const togglePriceOrder = () => {
   loadProjects()
 }
 
-// 跳转详情
-const goToDetail = (id?: number) => {
-  if (id) router.push(`/project/${id}`)
-}
-
-// 解析 techTags 字符串
-const parseTags = (tags?: string): string[] => {
-  if (!tags) return []
-  return tags.split(',').filter(Boolean).map(t => t.trim())
+const resetFilters = () => {
+  query.name = undefined
+  query.categoryId = undefined
+  query.minPrice = undefined
+  query.maxPrice = undefined
+  priceRange.value = [0, 200]
+  if (route.query.categoryId) {
+    router.replace({ query: { ...route.query, categoryId: undefined } })
+  } else {
+    handleSearch()
+  }
 }
 
 // 从路由 query 同步分类筛选（主页分类卡片跳转带入）
@@ -282,269 +265,247 @@ onMounted(() => {
 
 <style scoped>
 #projectMarketPage {
-  min-height: 100vh;
   background: var(--color-bg);
 }
-
 .container {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 24px 16px 64px;
+  max-width: calc(var(--page-width) + var(--page-gutter) * 2);
+  margin-inline: auto;
+  padding: 44px var(--page-gutter) 72px;
 }
-
-/* 头部 */
 .page-header {
-  text-align: center;
-  padding: 40px 0 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  padding-bottom: 32px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--color-border);
 }
-
-.page-eyebrow {
-  display: inline-block;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-primary);
-  margin-bottom: 12px;
-}
-
 .page-title {
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--color-text);
   margin: 0 0 10px;
-}
-
-.page-desc {
-  font-size: 16px;
-  color: var(--color-text-secondary);
-  margin: 0;
-}
-
-/* 筛选卡片 */
-.filter-card {
-  border-radius: 14px;
-  position: sticky;
-  top: 84px;
-  box-shadow: var(--shadow-card);
-  border: 1px solid rgba(231, 229, 228, 0.6);
-}
-
-.filter-section {
-  margin-bottom: 4px;
-}
-
-.filter-title {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: clamp(1.75rem, 1.25rem + 1.5vw, 2.25rem);
+  font-weight: 750;
   color: var(--color-text);
-  margin: 0 0 12px;
+  line-height: 1.4;
+}
+.page-desc {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+.custom-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-primary);
+  font-size: 13px;
+  min-height: 44px;
+}
+.market-layout {
+  display: grid;
+  grid-template-columns: 228px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+.filter-panel {
+  position: sticky;
+  top: calc(var(--header-height) + 24px);
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+.filter-heading {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  margin-bottom: 20px;
 }
-
+.filter-heading h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+}
+.filter-heading :deep(.ant-btn) {
+  color: var(--color-text-tertiary);
+}
+.filter-section + .filter-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+.filter-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 12px;
+  color: var(--color-text-secondary);
+}
 .category-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
-
 .category-item {
-  margin: 0 !important;
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  margin: 0;
+  font-size: 13px;
 }
-
 .price-labels {
   display: flex;
   justify-content: space-between;
+  color: var(--color-text-secondary);
   font-size: 12px;
-  color: var(--color-text-tertiary);
-  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
 }
-
-/* 工具栏 */
+.market-results {
+  min-width: 0;
+}
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  min-height: 40px;
   margin-bottom: 20px;
 }
-
-/* 项目网格 */
+.result-count {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+}
+.sort-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.sort-controls :deep(.ant-radio-button-wrapper) {
+  min-height: 36px;
+  height: auto;
+  line-height: 34px;
+  font-size: 12px;
+  padding-inline: 14px;
+}
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px;
 }
-
-.project-card {
+.skeleton-card {
+  overflow: hidden;
   background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 14px;
-  overflow: hidden;
-  cursor: pointer;
-  border: 1px solid rgba(231, 229, 228, 0.6);
-  box-shadow: var(--shadow-card);
-  transition:
-    transform 0.35s var(--ease-out-expo),
-    box-shadow 0.35s var(--ease-out-expo);
 }
-
-.project-card:hover {
-  transform: translateY(-6px);
-  box-shadow: var(--shadow-lift);
-}
-
-.card-cover {
-  position: relative;
-  height: 160px;
-  overflow: hidden;
-  background: var(--color-surface-soft);
-}
-
-.card-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s var(--ease-out-expo);
-}
-
-.project-card:hover .card-cover img {
-  transform: scale(1.05);
-}
-
-.card-price {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: var(--color-primary);
-  color: #fff;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 600;
-  box-shadow: 0 6px 16px -6px rgba(15, 118, 110, 0.6);
-}
-
-.card-sales {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  background: rgba(22, 24, 29, 0.55);
-  backdrop-filter: blur(6px);
-  color: #fff;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-}
-
-.card-body {
-  padding: 16px;
-}
-
-.card-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0 0 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.card-desc {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  margin: 0 0 10px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-height: 1.5;
-  min-height: 39px;
-}
-
-.card-meta {
-  margin-bottom: 12px;
-  min-height: 24px;
-}
-
-.tech-tag {
-  background: rgba(15, 118, 110, 0.08);
-  color: var(--color-primary);
-  border: none;
-  border-radius: 999px;
-  font-size: 12px;
-  padding-inline: 10px;
-  line-height: 22px;
-}
-
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 12px;
-  border-top: 1px solid var(--color-border);
-  font-size: 13px;
-  color: var(--color-text-tertiary);
-}
-
-.author-name {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-
-.stat {
-  font-size: 13px;
-  color: var(--color-text-tertiary);
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-/* 骨架屏 */
 .skel-cover {
-  height: 160px;
-  background: linear-gradient(90deg, #f0efed 25%, #f7f6f3 37%, #f0efed 63%);
-  background-size: 400% 100%;
-  animation: skel 1.4s ease infinite;
+  aspect-ratio: 16 / 10;
+  background: var(--color-primary-soft);
 }
-
-@keyframes skel {
-  0% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0 50%;
-  }
+.skel-body {
+  padding: 20px;
 }
-
-/* 空状态 */
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 72px 24px;
+  justify-content: center;
+  min-height: 380px;
+  padding: 36px 20px;
   background: var(--color-surface);
   border: 1px dashed var(--color-border);
-  border-radius: 14px;
+  border-radius: 12px;
   text-align: center;
 }
-
 .empty-icon {
-  font-size: 40px;
+  font-size: 36px;
+  color: var(--color-primary);
+  margin-bottom: 20px;
 }
-
-.empty-text {
+.empty-state h2 {
   margin: 0;
-  color: var(--color-text-secondary);
+  font-size: 19px;
+  line-height: 1.5;
 }
-
-/* 分页 */
+.empty-state p {
+  margin: 10px 0 24px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
 .pagination-wrapper {
   display: flex;
   justify-content: center;
   margin-top: 32px;
+}
+.filter-toggle {
+  display: none;
+}
+@media (max-width: 1100px) {
+  .project-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .market-layout {
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+@media (max-width: 760px) {
+  .container {
+    padding-block: 32px 48px;
+  }
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+  }
+  .market-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    margin-bottom: 20px;
+    min-height: 44px;
+  }
+  .filter-panel {
+    display: none;
+    position: static;
+  }
+  .filter-panel.is-open {
+    display: block;
+  }
+  .category-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+  }
+  .category-item {
+    min-height: 44px;
+  }
+  .toolbar {
+    gap: 12px;
+  }
+  .sort-controls :deep(.ant-radio-button-wrapper) {
+    min-height: 44px;
+    line-height: 42px;
+  }
+  .empty-state {
+    min-height: 300px;
+  }
+}
+@media (max-width: 520px) {
+  .project-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pagination-wrapper :deep(.ant-pagination-total-text) {
+    display: none;
+  }
 }
 </style>

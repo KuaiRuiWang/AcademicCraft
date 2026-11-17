@@ -4,8 +4,9 @@
 
 :root {
   /* 字体 */
-  --font-display: 'Plus Jakarta Sans Variable', 'PingFang SC', 'Microsoft YaHei',
-    -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display:
+    'Plus Jakarta Sans Variable', 'PingFang SC', 'Microsoft YaHei', -apple-system,
+    BlinkMacSystemFont, sans-serif;
 
   /* 色彩（暖灰家族，单强调色深青） */
   --color-bg: #f7f6f3;
@@ -13,10 +14,15 @@
   --color-surface-soft: #faf9f7;
   --color-text: #1c1917;
   --color-text-secondary: #57534e;
-  --color-text-tertiary: #78716c;
+  --color-text-tertiary: #746d67;
   --color-border: #e7e5e4;
   --color-primary: #0f766e;
   --color-primary-strong: #115e59;
+  --color-primary-soft: #e8f1ed;
+  --color-primary-muted: #c3ded5;
+  --page-width: 1240px;
+  --page-gutter: clamp(20px, 4vw, 48px);
+  --header-height: 80px;
 
   /* 柔和暖色扩散阴影（替代纯黑低透明度） */
   --shadow-soft: 0 20px 45px -18px rgba(28, 25, 23, 0.16);
@@ -36,6 +42,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--header-height) + 24px);
 }
 
 body {
@@ -46,6 +53,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  line-height: 1.7;
+  accent-color: var(--color-primary);
+  caret-color: var(--color-primary);
 }
 
 /* 数字对齐：数据类内容用等宽数字 */
@@ -68,6 +78,59 @@ h4,
   letter-spacing: -0.02em;
   line-height: 1.15;
   text-wrap: balance;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+input::placeholder,
+textarea::placeholder,
+.ant-input::placeholder,
+.ant-input-affix-wrapper input::placeholder {
+  color: var(--color-text-tertiary);
+  opacity: 1;
+}
+
+.ant-btn-lg {
+  min-height: 46px;
+  padding-inline: 22px;
+}
+
+.ant-btn-primary {
+  box-shadow: none;
+}
+
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector {
+  caret-color: var(--color-primary);
+}
+
+.ant-input-lg:not(.ant-input-affix-wrapper .ant-input),
+.ant-input-affix-wrapper-lg {
+  min-height: 46px;
+}
+
+@media (max-width: 1000px) {
+  :root {
+    --header-height: 116px;
+  }
+}
+
+@media (pointer: coarse) {
+  .ant-btn {
+    min-height: 44px;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
 }
 
 /* 焦点环（键盘可达性，必须） */
@@ -144,5 +207,51 @@ a:not(.ant-btn) {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* 项目与订单工作区沿用相同的页面节奏。 */
+.workspace-page {
+  background: var(--color-bg);
+}
+.workspace-page > .container {
+  max-width: calc(var(--page-width) + var(--page-gutter) * 2);
+  margin-inline: auto;
+  padding: 40px var(--page-gutter) 64px;
+}
+.workspace-page .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--color-border);
+}
+.workspace-page .page-title {
+  margin: 0;
+  color: var(--color-text);
+  font-size: clamp(1.5rem, 1rem + 1.5vw, 2rem);
+  line-height: 1.5;
+  font-weight: 700;
+}
+.workspace-page .empty-state {
+  margin: 0;
+  padding: 64px 20px;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+}
+.workspace-page .empty-state .ant-empty-description {
+  margin-bottom: 20px;
+  color: var(--color-text-secondary);
+}
+@media (max-width: 600px) {
+  .workspace-page .page-header {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .workspace-page > .container {
+    padding-block-start: 28px;
   }
 }

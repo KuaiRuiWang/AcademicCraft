@@ -1,5 +1,5 @@
 <template>
-  <div id="myOrdersPage">
+  <div id="myOrdersPage" class="workspace-page">
     <div class="container">
       <div class="page-header">
         <h1 class="page-title">我的订单</h1>
@@ -10,11 +10,7 @@
 
       <a-spin :spinning="loading">
         <template v-if="orders.length > 0">
-          <a-table
-            :data-source="orders"
-            :pagination="false"
-            row-key="id"
-          >
+          <a-table :data-source="orders" :pagination="false" :scroll="{ x: 900 }" row-key="id">
             <a-table-column title="项目" key="project" :width="300">
               <template #default="{ record }">
                 <a-space>
@@ -60,10 +56,7 @@
                   >
                     <DownloadOutlined /> 下载
                   </a-button>
-                  <a-button
-                    size="small"
-                    @click="$router.push(`/project/${record.projectId}`)"
-                  >
+                  <a-button size="small" @click="$router.push(`/project/${record.projectId}`)">
                     <EyeOutlined /> 查看
                   </a-button>
                 </a-space>
@@ -99,7 +92,8 @@ import { message } from 'ant-design-vue'
 import { DownloadOutlined, EyeOutlined, ShoppingOutlined } from '@ant-design/icons-vue'
 import { listMyOrders, downloadProject } from '@/api/projectOrderController.ts'
 
-const defaultCover = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjZjBmMmY1Ii8+PHRleHQgeD0iMjQiIHk9IjI3IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjEwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+Tm9uZTwvdGV4dD48L3N2Zz4='
+const defaultCover =
+  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjZjBmMmY1Ii8+PHRleHQgeD0iMjQiIHk9IjI3IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjEwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+Tm9uZTwvdGV4dD48L3N2Zz4='
 
 const loading = ref(false)
 const orders = ref<API.ProjectOrderVO[]>([])
@@ -165,66 +159,30 @@ onMounted(() => {
 </script>
 
 <style scoped>
-#myOrdersPage {
-  min-height: 100vh;
-  background: var(--color-bg);
+.text-muted,
+.order-id {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
 }
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px 16px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1a1a2e;
-  margin: 0;
-}
-
 .project-name {
   font-weight: 600;
   font-size: 14px;
 }
-
-.order-id {
-  font-size: 12px;
-  color: #999;
-}
-
 .price {
-  color: #ff4d4f;
-  font-weight: 600;
+  color: var(--color-primary-strong);
+  font-weight: 650;
 }
-
-.empty-state {
-  padding: 80px 0;
-  background: #fff;
-  border-radius: 12px;
-}
-
 .pagination-wrapper {
   display: flex;
   justify-content: center;
   margin-top: 24px;
 }
-
 :deep(.ant-table) {
-  background: #fff;
+  border: 1px solid var(--color-border);
   border-radius: 12px;
-  overflow: hidden;
 }
-
 :deep(.ant-table-thead > tr > th) {
-  background: #fafafa;
+  background: var(--color-surface-soft);
   font-weight: 600;
 }
 </style>
