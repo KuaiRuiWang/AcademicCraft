@@ -60,9 +60,9 @@ public class ProjectOrderVO implements Serializable {
     private Integer sourceType;
 
     /**
-     * 源码地址（购买后可见）
+     * 当前是否允许下载
      */
-    private String sourceUrl;
+    private Boolean downloadAvailable;
 
     /**
      * 支付时间

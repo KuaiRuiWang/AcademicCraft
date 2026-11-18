@@ -9,7 +9,7 @@
           size="large"
           @click="$router.push('/project/create')"
         >
-          <PlusOutlined /> 发布新项目
+          <PlusOutlined /> 发布模板
         </a-button>
       </div>
 
@@ -33,9 +33,10 @@
                     style="border-radius: 4px; object-fit: cover"
                   />
                   <div>
-                    <a-typography-link @click="$router.push(`/project/${record.id}`)">
+                    <a-typography-link v-if="record.status === 1" @click="$router.push(`/project/${record.id}`)">
                       {{ record.name }}
                     </a-typography-link>
+                    <span v-else>{{ record.name }}</span>
                     <div style="font-size: 12px; color: var(--color-text-tertiary)">
                       #{{ record.id }}
                     </div>
@@ -50,7 +51,7 @@
               </template>
             </a-table-column>
 
-            <a-table-column title="价格" data-index="price" :width="100" align="center">
+            <a-table-column title="原标价" data-index="price" :width="100" align="center">
               <template #default="{ record }">
                 <span style="color: var(--color-primary-strong); font-weight: 600">
                   {{ record.price ? `¥${record.price}` : '免费' }}
@@ -58,7 +59,7 @@
               </template>
             </a-table-column>
 
-            <a-table-column title="销量" data-index="salesCount" :width="80" align="center" />
+            <a-table-column title="获取次数" data-index="salesCount" :width="100" align="center" />
 
             <a-table-column title="评分" :width="100" align="center">
               <template #default="{ record }">
@@ -73,7 +74,7 @@
             <a-table-column title="状态" :width="80" align="center">
               <template #default="{ record }">
                 <a-tag :color="record.status === 1 ? 'green' : 'orange'">
-                  {{ record.status === 1 ? '上架' : '下架' }}
+                  {{ record.status === 1 ? '已上架' : record.status === 0 ? '草稿' : '已下架' }}
                 </a-tag>
               </template>
             </a-table-column>

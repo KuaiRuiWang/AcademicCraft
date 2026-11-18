@@ -2,7 +2,7 @@
 /* eslint-disable */
 import request from '@/request'
 
-/** 发布项目（管理员） 管理员发布新项目到商城，支持设置分类、标签、价格、交付方式和介绍图片 POST /project/add */
+/** 发布已登记来源与许可的免费模板 POST /project/add */
 export async function addProject(body: API.ProjectAddRequest, options?: { [key: string]: any }) {
   return request<API.BaseResponseLong>('/project/add', {
     method: 'POST',
@@ -86,7 +86,12 @@ export async function getProjectVoById(
   })
 }
 
-/** 分页浏览项目列表 公开接口，分页查询已发布的项目，支持按分类、技术标签、价格区间筛选，支持排序 POST /project/list/page/vo */
+/** 作者或管理员读取编辑表单 GET /project/edit/get/vo */
+export async function getEditableProjectVo(params: API.getProjectVOByIdParams) {
+  return request<API.BaseResponseProjectVO>('/project/edit/get/vo', { method: 'GET', params })
+}
+
+/** 分页浏览已上架的免费授权模板 POST /project/list/page/vo */
 export async function listProjectVoByPage(
   body: API.ProjectQueryRequest,
   options?: { [key: string]: any }

@@ -29,7 +29,7 @@ const router = createRouter({
     },
     {
       path: '/create',
-      name: 'AI 定制生成',
+      name: '创建应用',
       component: CreatePage,
     },
     {
@@ -67,7 +67,7 @@ const router = createRouter({
     },
     {
       path: '/admin/projectManage',
-      name: '项目管理',
+      name: '模板管理',
       component: ProjectManagePage,
       meta: { layout: 'admin' },
     },
@@ -87,15 +87,15 @@ const router = createRouter({
       name: '编辑应用',
       component: AppEditPage,
     },
-    // --- 项目商城 ---
+    // --- 模板库 ---
     {
       path: '/project',
-      name: '项目商城',
+      name: '模板库',
       component: ProjectMarketPage,
     },
     {
       path: '/project/create',
-      name: '发布项目',
+      name: '发布模板',
       component: ProjectEditPage,
       meta: { requiresAdmin: true },
     },
@@ -117,7 +117,7 @@ const router = createRouter({
     },
     {
       path: '/my/orders',
-      name: '我的订单',
+      name: '领取记录',
       component: MyOrdersPage,
     },
   ],

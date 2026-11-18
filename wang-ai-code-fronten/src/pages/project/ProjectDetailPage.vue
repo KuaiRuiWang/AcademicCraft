@@ -6,7 +6,7 @@
           <!-- 返回按钮 -->
           <div class="breadcrumb">
             <a-button type="link" @click="$router.push('/project')">
-              <LeftOutlined /> 返回商城
+              <LeftOutlined /> 返回模板库
             </a-button>
           </div>
 
@@ -32,7 +32,7 @@
               </a-card>
 
               <!-- 项目信息 -->
-              <a-card class="detail-card" :bordered="false" title="项目详情">
+              <a-card class="detail-card" :bordered="false" title="模板详情">
                 <template #extra>
                   <a-space :size="4" wrap>
                     <a-tag v-for="tag in parseTags(project.techTags)" :key="tag" class="tech-tag">
@@ -97,8 +97,8 @@
                 <a-empty v-else description="暂无评价" />
 
                 <!-- 发表评价 -->
-                <a-divider />
-                <div v-if="hasPurchased && !myReview" class="review-form">
+                <a-divider v-if="claim?.downloadAvailable && !myReview" />
+                <div v-if="claim?.downloadAvailable && !myReview" class="review-form">
                   <h4>发表评价</h4>
                   <div class="rating-row">
                     <span>评分：</span>
@@ -123,14 +123,12 @@
               </a-card>
             </a-col>
 
-            <!-- 右侧：购买信息 -->
+            <!-- 右侧：授权信息与源码 -->
             <a-col :xs="24" :lg="7">
               <div class="sidebar">
                 <a-card class="detail-card purchase-card" :bordered="false">
                   <div class="price-block">
-                    <span class="price-value">{{
-                      project.price ? `¥${project.price}` : '免费'
-                    }}</span>
+                    <span class="price-value">免费模板</span>
                   </div>
 
                   <a-divider />
@@ -139,7 +137,7 @@
                     <div class="info-row">
                       <TagOutlined /> 分类：{{ project.categoryName || '-' }}
                     </div>
-                    <div class="info-row"><FireOutlined /> 销量：{{ project.salesCount || 0 }}</div>
+                    <div class="info-row"><FireOutlined /> 领取：{{ project.salesCount || 0 }}</div>
                     <div class="info-row"><EyeOutlined /> 浏览：{{ project.viewCount || 0 }}</div>
                     <div class="info-row">
                       <StarFilled style="color: #faad14" />
@@ -152,27 +150,54 @@
 
                   <a-divider />
 
+                  <a-descriptions
+                    :column="1"
+                    size="small"
+                    layout="vertical"
+                    class="license-details"
+                  >
+                    <a-descriptions-item label="来源">{{
+                      project.sourceAttribution
+                    }}</a-descriptions-item>
+                    <a-descriptions-item label="使用许可">{{
+                      project.licenseTerms
+                    }}</a-descriptions-item>
+                  </a-descriptions>
+
                   <!-- 按钮组 -->
                   <a-space direction="vertical" style="width: 100%" :size="12">
                     <a-button
-                      v-if="canBuy"
+                      v-if="claim?.downloadAvailable && claim.id"
+                      :href="getTemplateDownloadUrl(claim.id)"
+                      target="_blank"
+                      rel="noopener"
                       type="primary"
                       size="large"
                       block
-                      :loading="buying"
-                      @click="handleBuy"
                     >
-                      <ShoppingCartOutlined />
-                      {{ project.price ? '立即购买' : '免费获取' }}
+                      <DownloadOutlined aria-hidden="true" /> 下载源码
                     </a-button>
-                    <a-button v-if="project.demoUrl" size="large" block @click="openDemo">
-                      <LinkOutlined /> 查看演示
+                    <a-button
+                      v-else-if="!isAuthor"
+                      type="primary"
+                      size="large"
+                      block
+                      :loading="claiming"
+                      @click="handleClaim"
+                    >
+                      免费领取
+                    </a-button>
+                    <a-button
+                      v-if="project.demoUrl"
+                      :href="project.demoUrl"
+                      target="_blank"
+                      rel="noopener"
+                      size="large"
+                      block
+                    >
+                      <LinkOutlined aria-hidden="true" /> 查看演示
                     </a-button>
                   </a-space>
-
-                  <div v-if="!canBuy && loginUserStore.loginUser.id" class="already-purchased">
-                    <a-alert message="您已购买此项目" type="success" show-icon />
-                  </div>
                 </a-card>
 
                 <!-- 作者信息 -->
@@ -197,9 +222,9 @@
 
       <!-- 项目不存在 -->
       <div v-else-if="!loading" class="not-found">
-        <a-result status="404" title="项目不存在" sub-title="可能已下架或链接有误">
+        <a-result status="404" title="模板暂未开放" sub-title="可能已下架或链接有误">
           <template #extra>
-            <a-button type="primary" @click="$router.push('/project')">返回商城</a-button>
+            <a-button type="primary" @click="$router.push('/project')">返回模板库</a-button>
           </template>
         </a-result>
       </div>
@@ -218,13 +243,13 @@ import {
   FireOutlined,
   EyeOutlined,
   ClockCircleOutlined,
-  ShoppingCartOutlined,
+  DownloadOutlined,
   LinkOutlined,
   TagOutlined,
 } from '@ant-design/icons-vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import { getProjectVoById } from '@/api/projectController.ts'
-import { createOrder } from '@/api/projectOrderController.ts'
+import { createOrder, getTemplateDownloadUrl, listMyOrders } from '@/api/projectOrderController.ts'
 import { addReview, listReviews } from '@/api/projectReviewController.ts'
 
 const route = useRoute()
@@ -235,7 +260,8 @@ const defaultCover =
   'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2YwZjJmNSIvPjx0ZXh0IHg9IjQwMCIgeT0iMjEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjI0IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+'
 
 const loading = ref(true)
-const buying = ref(false)
+const claiming = ref(false)
+const claim = ref<API.ProjectOrderVO>()
 const submittingReview = ref(false)
 const project = ref<API.ProjectVO>({})
 const reviews = ref<API.ProjectReviewVO[]>([])
@@ -250,18 +276,6 @@ const reviewForm = reactive<API.ProjectReviewAddRequest>({
 // 判断当前用户是否作者
 const isAuthor = computed(() => {
   return loginUserStore.loginUser.id && loginUserStore.loginUser.id === project.value.authorId
-})
-
-// 是否可以购买（未登录用户也不允许直接购买，但按钮仍显示用于引导登录）
-const canBuy = computed(() => {
-  if (!loginUserStore.loginUser.id) return false
-  return !isAuthor.value
-})
-
-// 判断是否已购买（简单处理：非作者且登录即显示）
-// 实际项目中应由后端接口判断
-const hasPurchased = computed(() => {
-  return loginUserStore.loginUser.id && !isAuthor.value
 })
 
 // 渲染 markdown 内容
@@ -284,7 +298,7 @@ const loadProject = async () => {
     if (res.data.code === 0 && res.data.data) {
       project.value = res.data.data
       reviewForm.projectId = id as unknown as number
-      loadReviews()
+      await Promise.all([loadReviews(), loadClaim()])
     }
   } catch {
     message.error('加载项目失败')
@@ -308,32 +322,40 @@ const loadReviews = async () => {
   }
 }
 
-// 购买
-const handleBuy = async () => {
+const loadClaim = async () => {
+  const projectId = project.value.id
+  if (!loginUserStore.loginUser.id || !projectId || isAuthor.value) return
+  const res = await listMyOrders({ projectId })
+  if (res.data.code === 0) {
+    claim.value = res.data.data?.records?.find((record) => record.downloadAvailable)
+  }
+}
+
+const handleClaim = async () => {
   if (!loginUserStore.loginUser.id) {
-    message.warning('请先登录')
-    router.push('/user/login')
+    router.push({ path: '/user/login', query: { redirect: route.fullPath } })
     return
   }
 
-  buying.value = true
+  claiming.value = true
   try {
     const res = await createOrder({ projectId: project.value.id })
-    if (res.data.code === 0) {
-      message.success('下单成功！')
-      router.push('/my/orders')
+    if (res.data.code === 0 && res.data.data) {
+      claim.value = { id: res.data.data, downloadAvailable: true }
+      message.success('已领取模板')
     } else {
-      message.error(res.data.message || '下单失败')
+      message.error(res.data.message || '领取失败')
     }
   } catch {
-    message.error('下单失败，请稍后重试')
+    message.error('领取失败，请稍后重试')
   } finally {
-    buying.value = false
+    claiming.value = false
   }
 }
 
 // 提交评价
 const submitReview = async () => {
+  if (!claim.value?.id || !claim.value.downloadAvailable) return
   if (!reviewForm.content?.trim()) {
     message.warning('请输入评价内容')
     return
@@ -343,6 +365,7 @@ const submitReview = async () => {
   try {
     const res = await addReview({
       ...reviewForm,
+      orderId: claim.value.id,
       content: reviewForm.content.trim(),
     })
     if (res.data.code === 0) {
@@ -357,13 +380,6 @@ const submitReview = async () => {
     message.error('评价失败')
   } finally {
     submittingReview.value = false
-  }
-}
-
-// 打开演示
-const openDemo = () => {
-  if (project.value.demoUrl) {
-    window.open(project.value.demoUrl, '_blank')
   }
 }
 
@@ -520,8 +536,10 @@ onMounted(() => {
   gap: 6px;
 }
 
-.already-purchased {
-  margin-top: 12px;
+.license-details {
+  margin-bottom: 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* 作者 */

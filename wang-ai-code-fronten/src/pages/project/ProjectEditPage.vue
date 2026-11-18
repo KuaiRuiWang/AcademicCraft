@@ -4,12 +4,18 @@
       <!-- 页面标题 -->
       <div class="page-header">
         <a-button type="link" @click="$router.back()"> <LeftOutlined /> 返回 </a-button>
-        <h1 class="page-title">{{ isEdit ? '编辑项目' : '发布项目' }}</h1>
+        <h1 class="page-title">{{ isEdit ? '编辑项目' : '发布模板' }}</h1>
       </div>
 
       <a-spin :spinning="submitting" tip="保存中...">
         <a-card class="form-card" :bordered="false">
-          <a-form :model="form" layout="vertical" :label-col="{ style: { fontWeight: 600 } }">
+          <a-form
+            :model="form"
+            name="template-editor"
+            layout="vertical"
+            :label-col="{ style: { fontWeight: 600 } }"
+            @finish="handleSubmit"
+          >
             <a-row :gutter="24">
               <!-- 基本信息 -->
               <a-col :span="24" :md="16">
@@ -98,51 +104,70 @@
                     </div>
                   </a-form-item>
 
-                  <!-- 价格 -->
-                  <a-form-item label="价格 (元)">
-                    <a-input-number
-                      v-model:value="form.price"
-                      :min="0"
-                      :max="9999"
-                      :precision="2"
-                      placeholder="0 表示免费"
-                      size="large"
-                      style="width: 100%"
+                  <template v-if="isAdmin">
+                    <a-form-item
+                      label="模板来源或授权方"
+                      name="sourceAttribution"
+                      validate-trigger="blur"
+                      :rules="[
+                        {
+                          required: authorizationRequired,
+                          whitespace: true,
+                          message: '请填写模板来源或授权方',
+                        },
+                      ]"
                     >
-                      <template #prefix>¥</template>
-                    </a-input-number>
-                  </a-form-item>
+                      <a-input
+                        v-model:value="form.sourceAttribution"
+                        placeholder="填写原创作者、上游项目或授权方"
+                        :maxlength="500"
+                      />
+                    </a-form-item>
+                    <a-form-item
+                      label="使用许可"
+                      name="licenseTerms"
+                      validate-trigger="blur"
+                      :rules="[
+                        {
+                          required: authorizationRequired,
+                          whitespace: true,
+                          message: '请填写许可名称、商用和再分发条件',
+                        },
+                      ]"
+                      extra="上架前核对授权。上架后模板可免费领取。"
+                    >
+                      <a-textarea
+                        v-model:value="form.licenseTerms"
+                        placeholder="填写许可名称、是否允许商用和再分发，以及适用条件"
+                        :rows="3"
+                        :maxlength="1000"
+                      />
+                    </a-form-item>
+                  </template>
 
                   <!-- 演示地址 -->
                   <a-form-item label="演示地址">
                     <a-input v-model:value="form.demoUrl" placeholder="https://..." size="large" />
                   </a-form-item>
 
-                  <!-- 源码类型 -->
-                  <a-form-item label="源码获取方式">
-                    <a-radio-group v-model:value="form.sourceType">
-                      <a-radio :value="0">手动填写链接</a-radio>
-                      <a-radio :value="1">上传文件</a-radio>
-                    </a-radio-group>
-                  </a-form-item>
-
-                  <a-form-item v-if="form.sourceType === 0" label="源码地址">
+                  <a-form-item
+                    label="源码下载地址"
+                    name="sourceUrl"
+                    validate-trigger="blur"
+                    :rules="[
+                      {
+                        required: authorizationRequired,
+                        whitespace: true,
+                        message: '请填写源码下载地址',
+                      },
+                    ]"
+                  >
                     <a-input
                       v-model:value="form.sourceUrl"
                       placeholder="网盘链接或其他下载地址"
+                      :maxlength="500"
                       size="large"
                     />
-                  </a-form-item>
-
-                  <a-form-item v-else label="上传源码">
-                    <a-upload
-                      :multiple="false"
-                      :show-upload-list="true"
-                      :before-upload="beforeSourceUpload"
-                      :custom-request="customSourceUpload"
-                    >
-                      <a-button> <UploadOutlined /> 选择文件 </a-button>
-                    </a-upload>
                   </a-form-item>
 
                   <a-divider />
@@ -187,9 +212,9 @@
             <!-- 提交按钮 -->
             <a-form-item>
               <a-space :size="12">
-                <a-button type="primary" size="large" :loading="submitting" @click="handleSubmit">
-                  <template #icon><SaveOutlined /></template>
-                  {{ isEdit ? '保存修改' : '发布项目' }}
+                <a-button type="primary" size="large" :loading="submitting" html-type="submit">
+                  <template #icon><SaveOutlined aria-hidden="true" /></template>
+                  {{ isEdit ? '保存修改' : '发布模板' }}
                 </a-button>
                 <a-button size="large" @click="$router.back()">取消</a-button>
               </a-space>
@@ -212,11 +237,10 @@ import {
   PlusOutlined,
   SaveOutlined,
   DeleteOutlined,
-  UploadOutlined,
 } from '@ant-design/icons-vue'
 import type { UploadProps } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
-import { addProject, updateProject, getProjectVoById } from '@/api/projectController.ts'
+import { addProject, updateProject, getEditableProjectVo } from '@/api/projectController.ts'
 import { listCategories } from '@/api/projectCategoryController.ts'
 import { upload } from '@/api/commonController.ts'
 
@@ -225,6 +249,11 @@ const router = useRouter()
 const loginUserStore = useLoginUserStore()
 
 const isEdit = computed(() => !!route.params.id)
+const isAdmin = computed(() => loginUserStore.loginUser.userRole === 'admin')
+const projectStatus = ref<number>()
+const authorizationRequired = computed(
+  () => isAdmin.value && (!isEdit.value || projectStatus.value === 1),
+)
 const submitting = ref(false)
 const categories = ref<API.ProjectCategory[]>([])
 
@@ -235,9 +264,10 @@ const form = reactive<API.ProjectAddRequest>({
   description: '',
   detailContent: '',
   coverImage: '',
-  price: 0,
-  sourceType: 0,
+  sourceType: 2,
   sourceUrl: '',
+  sourceAttribution: '',
+  licenseTerms: '',
   demoUrl: '',
   images: [],
 })
@@ -260,7 +290,7 @@ const loadProject = async () => {
   try {
     // 不使用 Number()，避免 JS 大数精度丢失。后端已配置 Long → String 序列化
     const id = route.params.id as string
-    const res = await getProjectVoById({ id: id as unknown as number })
+    const res = await getEditableProjectVo({ id: id as unknown as number })
     if (res.data.code === 0 && res.data.data) {
       const p = res.data.data
       form.name = p.name || ''
@@ -269,15 +299,20 @@ const loadProject = async () => {
       form.description = p.description || ''
       form.detailContent = p.detailContent || ''
       form.coverImage = p.coverImage || ''
-      form.price = p.price || 0
-      form.sourceType = p.sourceType || 0
+      projectStatus.value = p.status
+      form.sourceType = p.sourceType
       form.sourceUrl = p.sourceUrl || ''
+      form.sourceAttribution = p.sourceAttribution || ''
+      form.licenseTerms = p.licenseTerms || ''
       form.demoUrl = p.demoUrl || ''
       form.images = (p.images || []).map((img) => ({
         imageUrl: img.imageUrl || '',
         sortOrder: img.sortOrder || 0,
         type: img.type || 0,
       }))
+    } else {
+      message.error(res.data.message || '加载项目失败')
+      router.back()
     }
   } catch {
     message.error('加载项目失败')
@@ -364,29 +399,6 @@ const removeImage = (idx: number) => {
   form.images = (form.images || []).filter((_, i) => i !== idx)
 }
 
-// 源码上传
-const beforeSourceUpload: UploadProps['beforeUpload'] = () => {
-  return true
-}
-
-const customSourceUpload: UploadProps['customRequest'] = async (options) => {
-  const { file, onSuccess, onError } = options as any
-  try {
-    const formData = new FormData()
-    formData.append('file', file as File)
-    const res = await upload(formData)
-    if (res.data.code === 0 && res.data.data) {
-      form.sourceUrl = res.data.data
-      message.success('源码上传成功')
-      onSuccess?.(res.data, file)
-    } else {
-      onError?.(new Error(res.data.message))
-    }
-  } catch {
-    onError?.(new Error('上传失败'))
-  }
-}
-
 // 提交
 const handleSubmit = async () => {
   if (!form.name?.trim()) {
@@ -401,39 +413,26 @@ const handleSubmit = async () => {
     message.warning('请填写项目简介')
     return
   }
-
   submitting.value = true
   try {
-    let res
-    if (isEdit.value) {
-      res = await updateProject({
-        id: route.params.id as unknown as number,
-        name: form.name?.trim(),
-        categoryId: form.categoryId,
-        techTags: form.techTags?.trim(),
-        description: form.description?.trim(),
-        detailContent: form.detailContent?.trim(),
-        coverImage: form.coverImage,
-        price: form.price,
-        sourceType: form.sourceType,
-        sourceUrl: form.sourceUrl?.trim(),
-        demoUrl: form.demoUrl?.trim(),
-        images: form.images,
-      })
-    } else {
-      res = await addProject({
-        ...form,
-        name: form.name?.trim(),
-        techTags: form.techTags?.trim(),
-        description: form.description?.trim(),
-        detailContent: form.detailContent?.trim(),
-        sourceUrl: form.sourceUrl?.trim(),
-        demoUrl: form.demoUrl?.trim(),
-      })
+    const template = {
+      ...form,
+      name: form.name.trim(),
+      techTags: form.techTags?.trim(),
+      description: form.description.trim(),
+      detailContent: form.detailContent?.trim(),
+      sourceUrl: form.sourceUrl?.trim(),
+      demoUrl: form.demoUrl?.trim(),
+      price: isAdmin.value ? 0 : undefined,
+      sourceAttribution: isAdmin.value ? form.sourceAttribution?.trim() : undefined,
+      licenseTerms: isAdmin.value ? form.licenseTerms?.trim() : undefined,
     }
+    const res = isEdit.value
+      ? await updateProject({ ...template, id: route.params.id as unknown as number })
+      : await addProject(template)
     if (res.data.code === 0) {
       message.success(isEdit.value ? '修改成功' : '发布成功')
-      router.push('/my/projects')
+      router.push(isAdmin.value ? '/admin/projectManage' : '/my/projects')
     } else {
       message.error(res.data.message || '操作失败')
     }

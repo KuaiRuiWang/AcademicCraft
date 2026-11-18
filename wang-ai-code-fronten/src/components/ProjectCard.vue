@@ -31,14 +31,14 @@ watch(
       />
       <div v-else class="cover-placeholder">
         <CodeOutlined aria-hidden="true" />
-        <span>{{ project.categoryName || '毕设项目' }}</span>
+        <span>{{ project.categoryName || '应用模板' }}</span>
       </div>
-      <span v-if="project.salesCount" class="card-sales">已售 {{ project.salesCount }}</span>
+      <span v-if="project.salesCount" class="card-sales">领取 {{ project.salesCount }}</span>
     </div>
     <div class="card-body">
       <div class="card-heading">
         <h3 class="card-title">{{ project.name }}</h3>
-        <span class="card-price">{{ project.price ? `¥${project.price}` : '免费' }}</span>
+        <span class="card-price">免费</span>
       </div>
       <p class="card-desc">{{ project.description || '暂无描述' }}</p>
       <div class="card-tags">
@@ -59,7 +59,7 @@ watch(
           <span><EyeOutlined aria-hidden="true" /> {{ project.viewCount || 0 }}</span>
         </span>
       </div>
-      <div class="card-action">查看项目 <ArrowRightOutlined aria-hidden="true" /></div>
+      <div class="card-action">查看模板 <ArrowRightOutlined aria-hidden="true" /></div>
     </div>
   </RouterLink>
 </template>

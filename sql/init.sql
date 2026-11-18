@@ -88,6 +88,8 @@ create table project
     price         decimal(10,2) default 0.00            not null comment '价格',
     sourceType    tinyint      default 1                not null comment '交付方式：1-ZIP下载 2-网盘链接 3-两者都有',
     sourceUrl     varchar(500)                          null comment '源码地址',
+    sourceAttribution varchar(500)                      null comment '模板来源或授权方',
+    licenseTerms  varchar(1000)                         null comment '许可名称、商用和再分发条件',
     demoUrl       varchar(500)                          null comment '在线演示地址',
     authorId      bigint                                not null comment '卖家用户ID',
     status        tinyint      default 0                not null comment '状态：0-草稿 1-已发布 2-已下架',

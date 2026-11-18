@@ -106,7 +106,7 @@ const adminMenuItems: MenuProps['items'] = [
   {
     key: 'project-group',
     icon: () => h(ProjectOutlined),
-    label: '项目管理',
+    label: '模板管理',
     children: [
       {
         key: '/admin/projectManage',

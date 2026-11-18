@@ -1,0 +1,107 @@
+<!doctype html>
+<!--
+MIT License
+
+Copyright (c) 2026 百夜应用工坊贡献者
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>团队看板</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #17243c; background: #f3f6fb; font: 16px/1.6 system-ui, sans-serif; }
+    main { width: min(100% - 32px, 720px); margin: 40px auto; }
+    h1 { margin-bottom: 8px; }
+    h2 { font-size: 1.25rem; }
+    form, section { padding: 20px; margin-block: 20px; background: #fff; border: 1px solid #d8e1f0; border-radius: 12px; }
+    form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+    label { display: grid; gap: 4px; }
+    input, select, button { min-height: 44px; padding: 6px 10px; border: 1px solid #818ea5; border-radius: 6px; font: inherit; }
+    button { color: #fff; background: #254c9e; border-color: #254c9e; cursor: pointer; }
+    :focus-visible { outline: 3px solid #2d59b0; outline-offset: 3px; }
+    li { overflow-wrap: anywhere; }
+    .board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .board section { margin: 0; }
+    .board ul { padding: 0; list-style: none; }
+    .board li { display: grid; gap: 6px; margin-block: 8px; }
+    @media (max-width: 560px) { .board { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>团队看板</h1>
+    <p>添加任务，用任务旁的下拉菜单更新状态。</p>
+    <form id="new-task">
+      <label>任务名称 <input name="task" required maxlength="60"></label>
+      <button>添加任务</button>
+    </form>
+    <div class="board">
+      <section aria-labelledby="todo-title"><h2 id="todo-title">待办</h2><ul id="todo"></ul></section>
+      <section aria-labelledby="doing-title"><h2 id="doing-title">进行中</h2><ul id="doing"></ul></section>
+      <section aria-labelledby="done-title"><h2 id="done-title">已完成</h2><ul id="done"></ul></section>
+    </div>
+    <p id="feedback" role="status"></p>
+    <p>示例数据仅保留到页面刷新前。</p>
+  </main>
+  <script>
+    const statuses = { todo: '待办', doing: '进行中', done: '已完成' }
+    const form = document.getElementById('new-task')
+    const feedback = document.getElementById('feedback')
+
+    function addTask(title, initialStatus) {
+      const task = document.createElement('li')
+      const name = document.createElement('span')
+      name.textContent = title
+      const status = document.createElement('select')
+      status.setAttribute('aria-label', title + '的状态')
+      for (const [value, label] of Object.entries(statuses)) {
+        status.add(new Option(label, value))
+      }
+      status.value = initialStatus
+      task.append(name, status)
+
+      status.addEventListener('change', () => {
+        document.getElementById(status.value).append(task)
+        status.focus()
+        feedback.textContent = title + '已移至' + statuses[status.value]
+      })
+      document.getElementById(initialStatus).append(task)
+    }
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault()
+      const title = new FormData(form).get('task').trim()
+      if (!title) {
+        feedback.textContent = '请填写任务名称。'
+        form.elements.task.focus()
+        return
+      }
+      addTask(title, 'todo')
+      feedback.textContent = '已添加任务 ' + title
+      form.reset()
+    })
+    addTask('确认本周发布事项', 'todo')
+    addTask('整理用户反馈', 'doing')
+  </script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<!--
+MIT License
+
+Copyright (c) 2026 百夜应用工坊贡献者
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>活动报名表</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #17243c; background: #f3f6fb; font: 16px/1.6 system-ui, sans-serif; }
+    main { width: min(100% - 32px, 720px); margin: 40px auto; }
+    h1 { margin-bottom: 8px; }
+    h2 { font-size: 1.25rem; }
+    form, section { padding: 20px; margin-block: 20px; background: #fff; border: 1px solid #d8e1f0; border-radius: 12px; }
+    form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+    label { display: grid; gap: 4px; }
+    input, select, button { min-height: 44px; padding: 6px 10px; border: 1px solid #818ea5; border-radius: 6px; font: inherit; }
+    button { color: #fff; background: #254c9e; border-color: #254c9e; cursor: pointer; }
+    :focus-visible { outline: 3px solid #2d59b0; outline-offset: 3px; }
+    li { overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>活动报名表</h1>
+    <p>周末手作体验，每人可为自己和同行者报名。</p>
+    <form id="signup">
+      <label>称呼 <input name="participant" required maxlength="30"></label>
+      <label>人数 <input name="count" type="number" required min="1" max="10" value="1"></label>
+      <button>登记报名</button>
+    </form>
+    <section aria-labelledby="signups-title">
+      <h2 id="signups-title">报名名单</h2>
+      <p id="total" role="status">已报名 0 人</p>
+      <ul id="attendees"></ul>
+    </section>
+    <p>示例数据仅保留到页面刷新前。</p>
+  </main>
+  <script>
+    const signup = document.getElementById('signup')
+    const attendees = document.getElementById('attendees')
+    const total = document.getElementById('total')
+    let people = 0
+
+    signup.addEventListener('submit', (event) => {
+      event.preventDefault()
+      const fields = new FormData(signup)
+      const participant = fields.get('participant').trim()
+      const count = Number(fields.get('count'))
+      if (!participant) {
+        total.textContent = '请填写称呼。'
+        signup.elements.participant.focus()
+        return
+      }
+
+      const entry = document.createElement('li')
+      entry.textContent = participant + ' · ' + count + ' 人'
+      attendees.append(entry)
+      people += count
+      total.textContent = '已报名 ' + people + ' 人'
+      signup.reset()
+    })
+  </script>
+</body>
+</html>

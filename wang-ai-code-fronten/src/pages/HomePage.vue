@@ -6,56 +6,17 @@ import {
   CodeOutlined,
   CloudUploadOutlined,
   ThunderboltOutlined,
-  ShoppingOutlined,
-  InboxOutlined,
-  ReloadOutlined,
-  DisconnectOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons-vue'
-import { listProjectVoByPage } from '@/api/projectController'
-import { listCategories } from '@/api/projectCategoryController'
 import { listGoodAppVoByPage } from '@/api/appController'
 import { getDeployUrl } from '@/config/env'
+import { starterTemplates } from '@/config/starterTemplates'
 import AppCard from '@/components/AppCard.vue'
-import ProjectCard from '@/components/ProjectCard.vue'
+import StarterTemplateCards from '@/components/StarterTemplateCards.vue'
 
 const router = useRouter()
-const projectsLoading = ref(false)
-const projectsError = ref(false)
-const projects = ref<API.ProjectVO[]>([])
-const categories = ref<API.ProjectCategory[]>([])
 const featuredApps = ref<API.AppVO[]>([])
 const featuredAppsLoading = ref(false)
-
-const loadHotProjects = async () => {
-  projectsLoading.value = true
-  projectsError.value = false
-  try {
-    const res = await listProjectVoByPage({
-      pageNum: 1,
-      pageSize: 6,
-      sortField: 'salesCount',
-      sortOrder: 'desc',
-    })
-    if (res.data.code === 0 && res.data.data) {
-      projects.value = res.data.data.records || []
-    } else {
-      projectsError.value = true
-    }
-  } catch {
-    projectsError.value = true
-  } finally {
-    projectsLoading.value = false
-  }
-}
-
-const loadCategories = async () => {
-  try {
-    const res = await listCategories()
-    if (res.data.code === 0 && res.data.data) categories.value = res.data.data
-  } catch {
-    // 分类不可用时保留商城入口。
-  }
-}
 
 const loadFeaturedApps = async () => {
   featuredAppsLoading.value = true
@@ -66,7 +27,9 @@ const loadFeaturedApps = async () => {
       sortField: 'createTime',
       sortOrder: 'desc',
     })
-    if (res.data.code === 0 && res.data.data) featuredApps.value = res.data.data.records || []
+    if (res.data.code === 0 && res.data.data) {
+      featuredApps.value = res.data.data.records || []
+    }
   } catch {
     // 案例不可用时不展示该区块。
   } finally {
@@ -81,11 +44,7 @@ const viewWork = (app: API.AppVO) => {
   if (app.deployKey)
     window.open(getDeployUrl(app.deployKey, app.codeGenType), '_blank', 'noopener,noreferrer')
 }
-onMounted(() => {
-  loadHotProjects()
-  loadCategories()
-  loadFeaturedApps()
-})
+onMounted(loadFeaturedApps)
 </script>
 
 <template>
@@ -94,117 +53,71 @@ onMounted(() => {
       <section class="hero-section" aria-labelledby="home-title">
         <div class="hero-copy">
           <h1 id="home-title" class="hero-title">
-            选一份成品项目，<br />或让 <span class="accent">AI 为你定制</span>
+            从一个想法，<br /><span class="accent">做出可运行的应用</span>
           </h1>
-          <p class="hero-description">
-            精选优质毕设项目源码，购买即交付、可部署上线；没有找到合适的，用 AI 从零生成
-          </p>
+          <p class="hero-description">描述你的需求，生成可预览、可修改的 Web 应用。</p>
           <div class="hero-actions">
-            <RouterLink to="/project" class="hero-link primary-link"
-              >逛项目商城 <ArrowRightOutlined aria-hidden="true"
-            /></RouterLink>
-            <RouterLink to="/create" class="hero-link secondary-link"
-              ><ThunderboltOutlined aria-hidden="true" /> AI 定制生成</RouterLink
-            >
+            <RouterLink to="/create" class="hero-link primary-link">
+              <ThunderboltOutlined aria-hidden="true" /> 创建应用
+              <ArrowRightOutlined aria-hidden="true" />
+            </RouterLink>
+            <RouterLink to="/project" class="hero-link secondary-link">
+              <AppstoreOutlined aria-hidden="true" /> 浏览模板
+            </RouterLink>
           </div>
-          <p class="hero-note">
-            <CodeOutlined aria-hidden="true" /> 百夜毕设帮 · 计算机毕设一站式平台
-          </p>
         </div>
-        <aside class="start-panel" aria-label="项目获取方式">
+        <aside class="start-panel" aria-label="应用场景示例">
           <CodeOutlined class="panel-mark" aria-hidden="true" />
-          <h2>一个想法，两种开始。</h2>
-          <RouterLink to="/project" class="path-option">
-            <ShoppingOutlined class="path-icon" aria-hidden="true" />
-            <span><strong>选一份成品项目</strong><small>精选优质毕设项目源码</small></span>
-            <ArrowRightOutlined aria-hidden="true" />
-          </RouterLink>
-          <RouterLink to="/create" class="path-option">
+          <h2>从这些场景开始</h2>
+          <RouterLink
+            v-for="template in starterTemplates"
+            :key="template.id"
+            :to="{ path: '/create', query: { template: template.id } }"
+            class="path-option"
+          >
             <ThunderboltOutlined class="path-icon" aria-hidden="true" />
-            <span><strong>让 AI 为你定制</strong><small>描述你的需求，从零生成项目</small></span>
+            <span
+              ><strong>{{ template.name }}</strong
+              ><small>{{ template.description }}</small></span
+            >
             <ArrowRightOutlined aria-hidden="true" />
           </RouterLink>
           <div class="panel-stack"><span>Vue</span><span>Node.js</span><span>MySQL</span></div>
         </aside>
       </section>
 
-      <nav v-if="categories.length" class="category-bar" aria-label="热门分类">
-        <span class="category-label">热门分类</span>
-        <div class="category-chips">
-          <RouterLink
-            v-for="cat in categories"
-            :key="cat.id"
-            :to="{ path: '/project', query: { categoryId: cat.id } }"
-            class="category-chip"
-            >{{ cat.name }}</RouterLink
-          >
-        </div>
-      </nav>
-
-      <section class="section" aria-labelledby="projects-title">
+      <section class="section" aria-labelledby="templates-title">
         <div class="section-header">
-          <div>
-            <h2 id="projects-title" class="section-title">热门项目</h2>
-            <p class="section-desc">精选优质毕设项目源码，找到适合你的起点</p>
-          </div>
-          <RouterLink to="/project" class="section-more"
-            >查看全部 <ArrowRightOutlined aria-hidden="true"
-          /></RouterLink>
+          <h2 id="templates-title" class="section-title">入门模板</h2>
+          <RouterLink to="/project" class="section-more">
+            打开模板库 <ArrowRightOutlined aria-hidden="true" />
+          </RouterLink>
         </div>
-        <div
-          v-if="projectsLoading"
-          class="project-grid"
-          aria-label="正在加载热门项目"
-          aria-busy="true"
-        >
-          <div v-for="i in 6" :key="i" class="skeleton-card">
-            <div class="skel-cover"></div>
-            <div class="skel-body">
-              <a-skeleton active :title="{ width: '70%' }" :paragraph="{ rows: 2 }" />
-            </div>
-          </div>
-        </div>
-        <div v-else-if="projectsError" class="empty-state" role="status">
-          <DisconnectOutlined class="empty-icon" aria-hidden="true" />
-          <h3>项目暂时无法加载</h3>
-          <p>请检查网络后重试，也可以先用 AI 定制一个项目。</p>
-          <a-button @click="loadHotProjects"
-            ><ReloadOutlined aria-hidden="true" /> 重新加载</a-button
-          >
-        </div>
-        <div v-else-if="projects.length" class="project-grid">
-          <ProjectCard v-for="project in projects" :key="project.id" :project="project" />
-        </div>
-        <div v-else class="empty-state">
-          <InboxOutlined class="empty-icon" aria-hidden="true" />
-          <h3>项目整理中</h3>
-          <p>先用 AI 定制一个试试，让想法成为你的第一个项目。</p>
-          <a-button type="primary" @click="router.push('/create')">AI 定制生成</a-button>
-        </div>
+        <StarterTemplateCards />
       </section>
 
       <section class="section value-section" aria-labelledby="values-title">
-        <h2 id="values-title" class="section-title">为什么选择我们</h2>
+        <h2 id="values-title" class="section-title">从生成到部署</h2>
         <div class="value-grid">
+          <div class="value-item">
+            <ThunderboltOutlined class="value-icon" aria-hidden="true" />
+            <div>
+              <h3>对话生成应用</h3>
+              <p>描述需求，生成网站或全栈应用</p>
+            </div>
+          </div>
           <div class="value-item">
             <CodeOutlined class="value-icon" aria-hidden="true" />
             <div>
-              <h3>源码完整交付</h3>
-              <p>完整源码 + 数据库脚本 + 说明文档，买断可二次开发</p>
+              <h3>导出应用源码</h3>
+              <p>下载生成的源码，在本地运行和修改</p>
             </div>
           </div>
           <div class="value-item">
             <CloudUploadOutlined class="value-icon" aria-hidden="true" />
             <div>
-              <h3>支持部署上线</h3>
-              <p>云端一键部署，域名直接访问，答辩演示随时可用</p>
-            </div>
-          </div>
-          <div class="value-item">
-            <ThunderboltOutlined class="value-icon" aria-hidden="true" />
-            <div>
-              <h3>AI 定制生成</h3>
-              <p>描述需求自动生成前后端与数据库，支持全栈项目</p>
+              <h3>部署并分享</h3>
+              <p>部署应用后，通过链接分享可运行的版本</p>
             </div>
           </div>
         </div>
@@ -217,9 +130,6 @@ onMounted(() => {
       >
         <div class="section-header">
           <h2 id="apps-title" class="section-title">AI 生成案例</h2>
-          <RouterLink to="/create" class="section-more"
-            >我也要定制 <ArrowRightOutlined aria-hidden="true"
-          /></RouterLink>
         </div>
         <div v-if="featuredAppsLoading" class="app-grid" aria-busy="true">
           <div v-for="i in 3" :key="i" class="skeleton-card">
@@ -239,16 +149,6 @@ onMounted(() => {
             @view-work="viewWork"
           />
         </div>
-      </section>
-
-      <section class="cta-band">
-        <div>
-          <h2>没找到心仪的项目？</h2>
-          <p>描述你的需求，让 AI 从零生成一个专属项目</p>
-        </div>
-        <RouterLink to="/create" class="hero-link cta-link"
-          >开始 AI 定制 <ArrowRightOutlined aria-hidden="true"
-        /></RouterLink>
       </section>
     </div>
   </div>
@@ -328,14 +228,6 @@ onMounted(() => {
   border-color: var(--color-primary-muted);
   color: var(--color-primary);
 }
-.hero-note {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 22px 0 0;
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-}
 .start-panel {
   padding: 32px;
   border-radius: 16px;
@@ -394,37 +286,6 @@ onMounted(() => {
   font-size: 11px;
   color: #c1ded5;
 }
-.category-bar {
-  display: flex;
-  align-items: baseline;
-  gap: 24px;
-  margin-bottom: 56px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid var(--color-border);
-}
-.category-label {
-  flex-shrink: 0;
-  color: var(--color-text-tertiary);
-  font-size: 13px;
-}
-.category-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.category-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding-inline: 14px;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  border-radius: 6px;
-}
-.category-chip:hover {
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
-}
 .section {
   margin-bottom: 64px;
 }
@@ -442,11 +303,6 @@ onMounted(() => {
   font-weight: 700;
   color: var(--color-text);
 }
-.section-desc {
-  margin: 6px 0 0;
-  color: var(--color-text-tertiary);
-  font-size: 13px;
-}
 .section-more {
   display: inline-flex;
   align-items: center;
@@ -457,7 +313,6 @@ onMounted(() => {
   font-weight: 600;
   flex-shrink: 0;
 }
-.project-grid,
 .app-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -507,61 +362,7 @@ onMounted(() => {
 .skel-body {
   padding: 20px;
 }
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 44px 24px;
-  border: 1px dashed var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface);
-  text-align: center;
-}
-.empty-icon {
-  font-size: 32px;
-  color: var(--color-primary);
-  margin-bottom: 16px;
-}
-.empty-state h3 {
-  margin: 0;
-  font-size: 17px;
-  line-height: 1.6;
-}
-.empty-state p {
-  margin: 8px 0 20px;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-}
-.cta-band {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 24px;
-  padding: 36px 40px;
-  border-radius: 14px;
-  background: var(--color-primary-soft);
-}
-.cta-band h2 {
-  margin: 0 0 8px;
-  font-size: 24px;
-  color: var(--color-primary-strong);
-}
-.cta-band p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--color-primary-strong);
-}
-.cta-link {
-  background: var(--color-primary);
-  color: white;
-}
-.cta-link:hover {
-  background: var(--color-primary-strong);
-  color: white;
-}
 @media (max-width: 1000px) {
-  .project-grid,
   .app-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -601,17 +402,6 @@ onMounted(() => {
     font-size: 21px;
     margin-bottom: 12px;
   }
-  .category-bar {
-    gap: 8px;
-    flex-direction: column;
-    margin-bottom: 36px;
-  }
-  .category-chips {
-    gap: 0;
-  }
-  .category-chip {
-    padding-inline: 10px;
-  }
   .section {
     margin-bottom: 40px;
   }
@@ -619,23 +409,12 @@ onMounted(() => {
     align-items: flex-start;
     gap: 12px;
   }
-  .section-desc {
-    max-width: 220px;
-  }
   .value-grid {
     grid-template-columns: 1fr;
     gap: 24px;
   }
-  .cta-band {
-    padding: 28px 24px;
-  }
-  .cta-band h2 {
-    font-size: 22px;
-    line-height: 1.5;
-  }
 }
 @media (max-width: 520px) {
-  .project-grid,
   .app-grid {
     grid-template-columns: minmax(0, 1fr);
   }

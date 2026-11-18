@@ -3,29 +3,34 @@
     <div class="container">
       <header class="page-header">
         <div>
-          <h1 class="page-title">项目商城</h1>
-          <p class="page-desc">发现优秀的计算机毕设项目，轻松获取源码</p>
+          <h1 class="page-title">模板库</h1>
+          <p class="page-desc">预览免费模板，按使用许可下载和修改源码。</p>
         </div>
         <RouterLink to="/create" class="custom-link"
-          >没有合适的？试试 AI 定制 <ThunderboltOutlined aria-hidden="true"
+          >创建应用 <ThunderboltOutlined aria-hidden="true"
         /></RouterLink>
       </header>
+      <section class="starter-library" aria-labelledby="starter-library-title">
+        <h2 id="starter-library-title">入门模板</h2>
+        <StarterTemplateCards />
+      </section>
+      <h2 id="published-templates-title">已上架模板</h2>
       <a-button
         class="filter-toggle"
         :aria-expanded="filtersOpen"
         aria-controls="market-filters"
         @click="filtersOpen = !filtersOpen"
-        ><FilterOutlined aria-hidden="true" /> {{ filtersOpen ? '收起筛选' : '筛选项目' }}</a-button
+        ><FilterOutlined aria-hidden="true" /> {{ filtersOpen ? '收起筛选' : '筛选模板' }}</a-button
       >
       <div class="market-layout">
         <aside
           id="market-filters"
           class="filter-panel"
           :class="{ 'is-open': filtersOpen }"
-          aria-label="筛选项目"
+          aria-label="筛选模板"
         >
           <div class="filter-heading">
-            <h2>筛选项目</h2>
+            <h2>筛选模板</h2>
             <a-button type="text" size="small" @click="resetFilters">重置</a-button>
           </div>
           <div class="filter-section">
@@ -35,7 +40,7 @@
             <a-input-search
               id="project-search"
               v-model:value="query.name"
-              placeholder="搜索项目名称..."
+              placeholder="搜索模板名称…"
               allow-clear
               @search="handleSearch"
             />
@@ -45,7 +50,7 @@
             <a-radio-group
               v-model:value="query.categoryId"
               class="category-list"
-              aria-label="项目分类"
+              aria-label="模板分类"
               @change="handleSearch"
             >
               <a-radio :value="undefined" class="category-item">全部</a-radio>
@@ -58,46 +63,26 @@
               >
             </a-radio-group>
           </div>
-          <div class="filter-section">
-            <h3 class="filter-title"><DollarOutlined aria-hidden="true" /> 价格区间</h3>
-            <a-slider
-              v-model:value="priceRange"
-              :aria-label-group-for-handles="['最低价格', '最高价格']"
-              :min="0"
-              :max="200"
-              range
-              :tip-formatter="(v: number) => `¥${v}`"
-              @after-change="handlePriceChange"
-            />
-            <div class="price-labels">
-              <span>¥{{ priceRange[0] }}</span
-              ><span>¥{{ priceRange[1] }}</span>
-            </div>
-          </div>
         </aside>
-        <section class="market-results" aria-label="项目列表" :aria-busy="loading">
+        <section
+          class="market-results"
+          aria-labelledby="published-templates-title"
+          :aria-busy="loading"
+        >
           <div class="toolbar">
-            <span class="result-count">{{ loadError ? '项目列表' : `共 ${total} 个项目` }}</span>
+            <span class="result-count">{{ loadError ? '模板列表' : `共 ${total} 个模板` }}</span>
             <div class="sort-controls">
               <a-radio-group
                 v-model:value="query.sortField"
                 button-style="solid"
                 size="small"
-                aria-label="项目排序"
+                aria-label="模板排序"
                 @change="handleSearch"
               >
                 <a-radio-button value="createTime">最新</a-radio-button
-                ><a-radio-button value="salesCount">销量</a-radio-button
-                ><a-radio-button value="avgRating">评分</a-radio-button
-                ><a-radio-button value="price">价格</a-radio-button>
+                ><a-radio-button value="salesCount">领取次数</a-radio-button
+                ><a-radio-button value="avgRating">评分</a-radio-button>
               </a-radio-group>
-              <a-button
-                v-if="query.sortField === 'price'"
-                size="small"
-                type="text"
-                @click="togglePriceOrder"
-                >{{ query.sortOrder === 'asc' ? '从低到高' : '从高到低' }}</a-button
-              >
             </div>
           </div>
           <div v-if="loading" class="project-grid">
@@ -110,7 +95,7 @@
           </div>
           <div v-else-if="loadError" class="empty-state" role="status">
             <DisconnectOutlined class="empty-icon" aria-hidden="true" />
-            <h2>项目暂时无法加载</h2>
+            <h3>模板暂时无法加载</h3>
             <p>请检查网络连接，稍后重试。</p>
             <a-button @click="loadProjects"
               ><ReloadOutlined aria-hidden="true" /> 重新加载</a-button
@@ -118,8 +103,8 @@
           </div>
           <div v-else-if="projects.length === 0" class="empty-state">
             <InboxOutlined class="empty-icon" aria-hidden="true" />
-            <h2>暂时没有找到项目</h2>
-            <p>换个筛选条件试试，或用 AI 定制你的项目。</p>
+            <h3>暂时没有符合条件的模板</h3>
+            <p>可以调整筛选条件，或试试上方的入门模板。</p>
             <a-button @click="resetFilters">重置筛选</a-button>
           </div>
           <div v-else class="project-grid">
@@ -131,7 +116,7 @@
               :page-size="query.pageSize"
               :total="total"
               :show-size-changer="false"
-              :show-total="(t: number) => `共 ${t} 个项目`"
+              :show-total="(t: number) => `共 ${t} 个模板`"
               @change="loadProjects"
             />
           </div>
@@ -147,7 +132,6 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   SearchOutlined,
   AppstoreOutlined,
-  DollarOutlined,
   ThunderboltOutlined,
   FilterOutlined,
   ReloadOutlined,
@@ -157,6 +141,7 @@ import {
 import { listProjectVoByPage } from '@/api/projectController'
 import { listCategories } from '@/api/projectCategoryController'
 import ProjectCard from '@/components/ProjectCard.vue'
+import StarterTemplateCards from '@/components/StarterTemplateCards.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -167,7 +152,6 @@ const filtersOpen = ref(false)
 const projects = ref<API.ProjectVO[]>([])
 const categories = ref<API.ProjectCategory[]>([])
 const total = ref(0)
-const priceRange = ref<[number, number]>([0, 200])
 
 const query = reactive<API.ProjectQueryRequest>({
   pageNum: 1,
@@ -213,26 +197,9 @@ const handleSearch = () => {
   loadProjects()
 }
 
-// 价格区间变化
-const handlePriceChange = () => {
-  query.minPrice = priceRange.value[0]
-  query.maxPrice = priceRange.value[1]
-  query.pageNum = 1
-  loadProjects()
-}
-
-// 切换价格排序方向
-const togglePriceOrder = () => {
-  query.sortOrder = query.sortOrder === 'asc' ? 'desc' : 'asc'
-  loadProjects()
-}
-
 const resetFilters = () => {
   query.name = undefined
   query.categoryId = undefined
-  query.minPrice = undefined
-  query.maxPrice = undefined
-  priceRange.value = [0, 200]
   if (route.query.categoryId) {
     router.replace({ query: { ...route.query, categoryId: undefined } })
   } else {
@@ -240,14 +207,14 @@ const resetFilters = () => {
   }
 }
 
-// 从路由 query 同步分类筛选（主页分类卡片跳转带入）
+// 从路由 query 同步分类筛选。
 // 分类 id 是雪花 Long，字符串传递避免精度丢失，同时与单选组 value 类型一致
 const applyRouteCategory = () => {
   const raw = route.query.categoryId
   query.categoryId = typeof raw === 'string' && raw !== '' ? (raw as unknown as number) : undefined
 }
 
-// 已在商城页时，query 变化（顶部导航回商城/切换分类）重新加载
+// 模板分类变化后重新加载列表。
 watch(
   () => route.query.categoryId,
   () => {
@@ -280,6 +247,14 @@ onMounted(() => {
   padding-bottom: 32px;
   margin-bottom: 32px;
   border-bottom: 1px solid var(--color-border);
+}
+.starter-library {
+  margin-bottom: 36px;
+}
+.starter-library h2,
+#published-templates-title {
+  margin: 0 0 16px;
+  font-size: 24px;
 }
 .page-title {
   margin: 0 0 10px;
@@ -355,13 +330,6 @@ onMounted(() => {
   margin: 0;
   font-size: 13px;
 }
-.price-labels {
-  display: flex;
-  justify-content: space-between;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
 .market-results {
   min-width: 0;
 }
@@ -426,7 +394,7 @@ onMounted(() => {
   color: var(--color-primary);
   margin-bottom: 20px;
 }
-.empty-state h2 {
+.empty-state h3 {
   margin: 0;
   font-size: 19px;
   line-height: 1.5;

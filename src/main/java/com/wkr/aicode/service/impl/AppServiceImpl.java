@@ -10,6 +10,7 @@ import com.mybatisflex.spring.service.impl.ServiceImpl;
 
 import com.wkr.aicode.ai.AiCodeGenTypeRoutingService;
 import com.wkr.aicode.ai.AiCodeGenTypeRoutingServiceFactory;
+import com.wkr.aicode.ai.guardrail.AcademicUsePolicy;
 import com.wkr.aicode.constant.AppConstant;
 import com.wkr.aicode.constant.UserConstant;
 import com.wkr.aicode.core.AiCodeGeneratorFacade;
@@ -75,6 +76,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 参数校验
         String initPrompt = appAddRequest.getInitPrompt();
         ThrowUtils.throwIf(StrUtil.isBlank(initPrompt), ErrorCode.PARAMS_ERROR, "初始化 prompt 不能为空");
+        AcademicUsePolicy.validate(initPrompt, null);
         // 勾选生成后端时直接指定全栈类型（跳过 AI 路由），否则使用 AI 智能选择代码生成类型（多例模式）
         CodeGenTypeEnum selectedCodeGenType;
         if (Boolean.TRUE.equals(appAddRequest.getGenerateBackend())) {
@@ -227,6 +229,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         if (!app.getUserId().equals(loginUser.getId())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限访问该应用");
         }
+        AcademicUsePolicy.validate(message, app.getInitPrompt());
         // 4. 获取应用的代码生成类型
         String codeGenTypeStr = app.getCodeGenType();
         CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenTypeStr);

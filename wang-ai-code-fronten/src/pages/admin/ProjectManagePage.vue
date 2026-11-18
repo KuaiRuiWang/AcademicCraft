@@ -22,7 +22,10 @@
         <a-input v-model:value="searchParams.authorId" placeholder="输入作者ID" style="width: 130px" />
       </a-form-item>
       <a-form-item>
-        <a-button type="primary" html-type="submit">搜索</a-button>
+        <a-space>
+          <a-button type="primary" html-type="submit">搜索</a-button>
+          <a-button @click="router.push('/project/create')">发布模板</a-button>
+        </a-space>
       </a-form-item>
     </a-form>
     <a-divider />
@@ -47,9 +50,10 @@
           <div v-else class="no-cover">无封面</div>
         </template>
         <template v-else-if="column.dataIndex === 'name'">
-          <a-typography-link @click="$router.push(`/project/${record.id}`)">
+          <a-typography-link v-if="record.status === 1" @click="$router.push(`/project/${record.id}`)">
             {{ record.name }}
           </a-typography-link>
+          <span v-else>{{ record.name }}</span>
         </template>
         <template v-else-if="column.dataIndex === 'categoryName'">
           <a-tag v-if="record.categoryName">{{ record.categoryName }}</a-tag>
@@ -63,10 +67,9 @@
           </template>
           <span v-else class="text-gray">-</span>
         </template>
-        <template v-else-if="column.dataIndex === 'price'">
-          <span style="color: #ff4d4f; font-weight: 600">
-            {{ record.price ? `¥${record.price}` : '免费' }}
-          </span>
+        <template v-else-if="column.dataIndex === 'licenseTerms'">
+          <a-tag v-if="record.sourceAttribution && record.licenseTerms" color="green">已登记</a-tag>
+          <a-tag v-else color="orange">待登记</a-tag>
         </template>
         <template v-else-if="column.dataIndex === 'status'">
           <a-tag v-if="record.status === 0" color="default">草稿</a-tag>
@@ -147,12 +150,12 @@ const columns = [
     width: 160,
   },
   {
-    title: '价格',
-    dataIndex: 'price',
-    width: 80,
+    title: '使用许可',
+    dataIndex: 'licenseTerms',
+    width: 100,
   },
   {
-    title: '销量',
+    title: '领取次数',
     dataIndex: 'salesCount',
     width: 70,
   },

@@ -330,6 +330,8 @@ declare namespace API {
     price?: number
     sourceType?: number
     sourceUrl?: string
+    sourceAttribution?: string
+    licenseTerms?: string
     demoUrl?: string
     images?: ProjectImageItem[]
   }
@@ -360,6 +362,12 @@ declare namespace API {
     projectId?: number
   }
 
+  type listMyOrdersParams = {
+    pageNum?: number
+    pageSize?: number
+    projectId?: number
+  }
+
   type ProjectOrderVO = {
     id?: number
     projectId?: number
@@ -370,7 +378,7 @@ declare namespace API {
     amount?: number
     status?: number
     sourceType?: number
-    sourceUrl?: string
+    downloadAvailable?: boolean
     payTime?: string
     createTime?: string
   }
@@ -418,6 +426,8 @@ declare namespace API {
     price?: number
     sourceType?: number
     sourceUrl?: string
+    sourceAttribution?: string
+    licenseTerms?: string
     demoUrl?: string
     status?: number
     images?: ProjectImageItem[]
@@ -435,6 +445,8 @@ declare namespace API {
     price?: number
     sourceType?: number
     sourceUrl?: string
+    sourceAttribution?: string
+    licenseTerms?: string
     demoUrl?: string
     authorId?: number
     status?: number

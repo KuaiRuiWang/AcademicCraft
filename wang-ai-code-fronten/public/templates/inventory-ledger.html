@@ -1,0 +1,103 @@
+<!doctype html>
+<!--
+MIT License
+
+Copyright (c) 2026 百夜应用工坊贡献者
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>库存台账</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #17243c; background: #f3f6fb; font: 16px/1.6 system-ui, sans-serif; }
+    main { width: min(100% - 32px, 720px); margin: 40px auto; }
+    h1 { margin-bottom: 8px; }
+    h2 { font-size: 1.25rem; }
+    form, section { padding: 20px; margin-block: 20px; background: #fff; border: 1px solid #d8e1f0; border-radius: 12px; }
+    form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+    label { display: grid; gap: 4px; }
+    input, select, button { min-height: 44px; padding: 6px 10px; border: 1px solid #818ea5; border-radius: 6px; font: inherit; }
+    button { color: #fff; background: #254c9e; border-color: #254c9e; cursor: pointer; }
+    :focus-visible { outline: 3px solid #2d59b0; outline-offset: 3px; }
+    li { overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>库存台账</h1>
+    <p>为同一物品登记入库或出库，查看剩余数量。</p>
+    <form id="movement">
+      <label>物品 <input name="item" required maxlength="30"></label>
+      <label>数量 <input name="quantity" type="number" required min="1" max="100000" value="1"></label>
+      <label>类型 <select name="direction"><option value="in">入库</option><option value="out">出库</option></select></label>
+      <button>保存变动</button>
+    </form>
+    <section aria-labelledby="inventory-title">
+      <h2 id="inventory-title">当前库存</h2>
+      <p id="feedback" role="status"></p>
+      <ul id="balances"></ul>
+    </section>
+    <p>示例数据仅保留到页面刷新前。</p>
+  </main>
+  <script>
+    const inventory = new Map([['记事本', 12], ['标签纸', 20]])
+    const movement = document.getElementById('movement')
+    const balances = document.getElementById('balances')
+    const feedback = document.getElementById('feedback')
+
+    function showInventory() {
+      balances.replaceChildren()
+      for (const [item, remaining] of inventory) {
+        const entry = document.createElement('li')
+        entry.textContent = item + ' · ' + remaining + ' 件'
+        balances.append(entry)
+      }
+    }
+
+    movement.addEventListener('submit', (event) => {
+      event.preventDefault()
+      const fields = new FormData(movement)
+      const item = fields.get('item').trim()
+      const quantity = Number(fields.get('quantity'))
+      if (!item) {
+        feedback.textContent = '请填写物品名称。'
+        movement.elements.item.focus()
+        return
+      }
+
+      const delta = fields.get('direction') === 'in' ? quantity : -quantity
+      const remaining = (inventory.get(item) ?? 0) + delta
+      if (remaining < 0) {
+        feedback.textContent = '库存不足，请检查出库数量。'
+        return
+      }
+
+      inventory.set(item, remaining)
+      showInventory()
+      feedback.textContent = '已更新 ' + item + ' 的库存。'
+      movement.reset()
+    })
+    showInventory()
+  </script>
+</body>
+</html>

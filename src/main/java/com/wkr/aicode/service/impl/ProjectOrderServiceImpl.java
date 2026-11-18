@@ -20,7 +20,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,53 +42,46 @@ public class ProjectOrderServiceImpl extends ServiceImpl<ProjectOrderMapper, Pro
     public Long createOrder(Long projectId, User buyer) {
         ThrowUtils.throwIf(projectId == null || projectId <= 0, ErrorCode.PARAMS_ERROR, "项目ID无效");
 
-        // 查询项目
-        Project project = projectService.getById(projectId);
-        ThrowUtils.throwIf(project == null, ErrorCode.NOT_FOUND_ERROR, "项目不存在");
-        ThrowUtils.throwIf(project.getStatus() != 1, ErrorCode.OPERATION_ERROR, "该项目暂不可购买");
+        // 锁定模板，确保重复领取和同时下架都以当前状态为准。
+        Project project = projectService.getOne(QueryWrapper.create().eq("id", projectId).forUpdate());
+        ThrowUtils.throwIf(!projectService.isPublicTemplate(project), ErrorCode.NOT_FOUND_ERROR, "模板暂未开放");
 
-        // 不能购买自己的项目
+        // 作者已有源码，无需领取自己的模板。
         if (project.getAuthorId().equals(buyer.getId())) {
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "不能购买自己的项目");
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "不能领取自己的模板");
         }
 
-        // 检查是否已购买过（防重）
+        // 重试返回原领取记录，兼容旧订单。
         QueryWrapper checkWrapper = QueryWrapper.create()
                 .eq("projectId", projectId)
                 .eq("buyerId", buyer.getId())
-                .eq("status", 1);
-        long count = this.count(checkWrapper);
-        ThrowUtils.throwIf(count > 0, ErrorCode.OPERATION_ERROR, "您已购买过该项目，请勿重复购买");
+                .eq("status", 1)
+                .orderBy("id", true)
+                .limit(1);
+        ProjectOrder existingOrder = this.getOne(checkWrapper);
+        if (existingOrder != null) {
+            return existingOrder.getId();
+        }
 
-        // 创建订单（当前无支付，直接已支付）
+        // 免费领取直接完成，复用历史记录和下载权限。
         ProjectOrder order = ProjectOrder.builder()
                 .projectId(projectId)
                 .buyerId(buyer.getId())
                 .sellerId(project.getAuthorId())
-                .amount(project.getPrice())
-                .payTime(LocalDateTime.now())
+                .amount(BigDecimal.ZERO)
+                .status(1)
                 .build();
 
-        // 免费项目或暂未对接支付，直接完成
-        if (project.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
-            order.setStatus(1);
-        } else {
-            order.setStatus(1); // 支付暂未对接，直接标记已支付
-        }
-        if(order.getPayTime() == null) {
-            order.setPayTime(LocalDateTime.now());
-        }
-
         boolean result = this.save(order);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "创建订单失败");
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "领取模板失败");
 
-        // 更新项目销量
+        // 更新领取次数
         Project updateProject = new Project();
         updateProject.setId(projectId);
         updateProject.setSalesCount(project.getSalesCount() + 1);
-        projectService.updateById(updateProject);
+        ThrowUtils.throwIf(!projectService.updateById(updateProject), ErrorCode.OPERATION_ERROR, "更新领取次数失败");
 
-        log.info("订单创建成功，订单ID: {}, 买家: {}, 项目: {}", order.getId(), buyer.getId(), projectId);
+        log.info("模板领取成功，记录ID: {}, 用户: {}, 模板: {}", order.getId(), buyer.getId(), projectId);
         return order.getId();
     }
 
@@ -98,19 +90,7 @@ public class ProjectOrderServiceImpl extends ServiceImpl<ProjectOrderMapper, Pro
         if (order == null) {
             return null;
         }
-        ProjectOrderVO vo = new ProjectOrderVO();
-        BeanUtil.copyProperties(order, vo);
-
-        // 关联项目信息
-        Project project = projectService.getById(order.getProjectId());
-        if (project != null) {
-            vo.setProjectName(project.getName());
-            vo.setProjectCover(project.getCoverImage());
-            vo.setSourceType(project.getSourceType());
-            vo.setSourceUrl(project.getSourceUrl());
-        }
-
-        return vo;
+        return toOrderVO(order, projectService.getById(order.getProjectId()));
     }
 
     @Override
@@ -127,18 +107,21 @@ public class ProjectOrderServiceImpl extends ServiceImpl<ProjectOrderMapper, Pro
         Map<Long, Project> projectMap = projectService.listByIds(projectIds).stream()
                 .collect(Collectors.toMap(Project::getId, p -> p));
 
-        return orderList.stream().map(order -> {
-            ProjectOrderVO vo = new ProjectOrderVO();
-            BeanUtil.copyProperties(order, vo);
-            Project project = projectMap.get(order.getProjectId());
-            if (project != null) {
-                vo.setProjectName(project.getName());
-                vo.setProjectCover(project.getCoverImage());
-                vo.setSourceType(project.getSourceType());
-                vo.setSourceUrl(project.getSourceUrl());
-            }
-            return vo;
-        }).collect(Collectors.toList());
+        return orderList.stream()
+                .map(order -> toOrderVO(order, projectMap.get(order.getProjectId())))
+                .collect(Collectors.toList());
+    }
+
+    private ProjectOrderVO toOrderVO(ProjectOrder order, Project project) {
+        ProjectOrderVO vo = new ProjectOrderVO();
+        BeanUtil.copyProperties(order, vo);
+        if (project != null) {
+            vo.setProjectName(project.getName());
+            vo.setProjectCover(project.getCoverImage());
+            vo.setSourceType(project.getSourceType());
+        }
+        vo.setDownloadAvailable(Integer.valueOf(1).equals(order.getStatus()) && projectService.isPublicTemplate(project));
+        return vo;
     }
 
     @Override

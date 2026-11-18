@@ -1,6 +1,5 @@
 package com.wkr.aicode.controller;
 
-import cn.hutool.core.bean.BeanUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.wkr.aicode.annotation.AuthCheck;
@@ -16,7 +15,6 @@ import com.wkr.aicode.model.dto.project.ProjectQueryRequest;
 import com.wkr.aicode.model.dto.project.ProjectUpdateRequest;
 import com.wkr.aicode.model.entity.Project;
 import com.wkr.aicode.model.entity.User;
-import com.wkr.aicode.model.enums.ProjectStatusEnum;
 import com.wkr.aicode.model.vo.project.ProjectVO;
 import com.wkr.aicode.service.ProjectService;
 import com.wkr.aicode.service.UserService;
@@ -26,7 +24,6 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -48,7 +45,7 @@ public class ProjectController {
     /**
      * 发布项目
      */
-    @Operation(summary = "发布项目（管理员）", description = "管理员发布新项目到商城，支持设置分类、标签、价格、交付方式和介绍图片")
+    @Operation(summary = "发布模板（管理员）", description = "管理员发布免费模板，需登记模板来源和许可条件")
     @PostMapping("/add")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Long> addProject(@RequestBody ProjectAddRequest addRequest, HttpServletRequest request) {
@@ -61,7 +58,7 @@ public class ProjectController {
     /**
      * 更新项目（仅本人可编辑）
      */
-    @Operation(summary = "编辑项目", description = "项目作者编辑自己的项目信息，上架需要管理员权限")
+    @Operation(summary = "编辑项目", description = "作者可编辑自己的草稿和下架项目，公开模板由管理员维护")
     @PostMapping("/update")
     public BaseResponse<Boolean> updateProject(@RequestBody ProjectUpdateRequest updateRequest, HttpServletRequest request) {
         if (updateRequest == null || updateRequest.getId() == null) {
@@ -95,33 +92,45 @@ public class ProjectController {
     /**
      * 获取项目详情（公开）
      */
-    @Operation(summary = "获取项目详情", description = "根据项目ID获取项目完整信息，包含作者信息、分类名称、图片列表，同时自动增加浏览量")
+    @Operation(summary = "获取模板详情", description = "公开展示已上架的免费授权模板")
     @GetMapping("/get/vo")
     public BaseResponse<ProjectVO> getProjectVOById(@RequestParam long id) {
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
-        Project project = projectService.getById(id);
-        ThrowUtils.throwIf(project == null, ErrorCode.NOT_FOUND_ERROR);
+        Project project = projectService.getPublicTemplate(id);
         projectService.incrementViewCount(id);
+        ProjectVO template = projectService.getProjectVO(project);
+        template.setSourceUrl(null);
+        return ResultUtils.success(template);
+    }
+
+    @Operation(summary = "获取可编辑的项目详情", description = "作者或管理员查看待编辑项目及其源码地址")
+    @GetMapping("/edit/get/vo")
+    public BaseResponse<ProjectVO> getEditableProjectVO(@RequestParam long id, HttpServletRequest request) {
+        ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        Project project = projectService.getById(id);
+        ThrowUtils.throwIf(project == null, ErrorCode.NOT_FOUND_ERROR, "项目不存在");
+        ThrowUtils.throwIf(!project.getAuthorId().equals(loginUser.getId())
+                        && !UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole()),
+                ErrorCode.NO_AUTH_ERROR, "无权限查看待编辑项目");
         return ResultUtils.success(projectService.getProjectVO(project));
     }
 
     /**
      * 分页浏览已发布项目（公开）
      */
-    @Operation(summary = "分页浏览项目列表", description = "公开接口，分页查询已发布的项目，支持按分类、技术标签、价格区间筛选，支持排序")
+    @Operation(summary = "分页浏览模板", description = "公开查询已上架的免费授权模板")
     @PostMapping("/list/page/vo")
     public BaseResponse<Page<ProjectVO>> listProjectVOByPage(@RequestBody ProjectQueryRequest queryRequest) {
         ThrowUtils.throwIf(queryRequest == null, ErrorCode.PARAMS_ERROR);
         long pageSize = queryRequest.getPageSize();
         ThrowUtils.throwIf(pageSize > 20, ErrorCode.PARAMS_ERROR, "每页最多查询 20 个项目");
         long pageNum = queryRequest.getPageNum();
-        if (queryRequest.getStatus() == null) {
-            queryRequest.setStatus(ProjectStatusEnum.PUBLISHED.getValue());
-        }
-        QueryWrapper queryWrapper = projectService.getQueryWrapper(queryRequest);
+        QueryWrapper queryWrapper = projectService.getPublicTemplateQuery(queryRequest);
         Page<Project> projectPage = projectService.page(Page.of(pageNum, pageSize), queryWrapper);
         Page<ProjectVO> projectVOPage = new Page<>(pageNum, pageSize, projectPage.getTotalRow());
         List<ProjectVO> projectVOList = projectService.getProjectVOList(projectPage.getRecords());
+        projectVOList.forEach(template -> template.setSourceUrl(null));
         projectVOPage.setRecords(projectVOList);
         return ResultUtils.success(projectVOPage);
     }
@@ -170,22 +179,12 @@ public class ProjectController {
     @Operation(summary = "管理员更新项目", description = "管理员编辑任意项目信息，可用于审核、上下架等操作")
     @PostMapping("/admin/update")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    public BaseResponse<Boolean> updateProjectByAdmin(@RequestBody ProjectUpdateRequest updateRequest) {
+    public BaseResponse<Boolean> updateProjectByAdmin(@RequestBody ProjectUpdateRequest updateRequest, HttpServletRequest request) {
         if (updateRequest == null || updateRequest.getId() == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        Project oldProject = projectService.getById(updateRequest.getId());
-        ThrowUtils.throwIf(oldProject == null, ErrorCode.NOT_FOUND_ERROR);
-        Project project = new Project();
-        BeanUtil.copyProperties(updateRequest, project);
-        project.setEditTime(LocalDateTime.now());
-        project.setAuthorId(null);
-        project.setSalesCount(null);
-        project.setViewCount(null);
-        project.setAvgRating(null);
-        boolean result = projectService.updateById(project);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
-        return ResultUtils.success(true);
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(projectService.updateProject(updateRequest, loginUser));
     }
 
     /**

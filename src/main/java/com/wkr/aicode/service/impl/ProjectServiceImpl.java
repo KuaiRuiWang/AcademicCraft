@@ -1,7 +1,9 @@
 package com.wkr.aicode.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.bean.copier.CopyOptions;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
@@ -30,6 +32,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,17 +61,17 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createProject(ProjectAddRequest addRequest, User loginUser) {
-        // 参数校验
+        // 上架由管理员负责，授权信息需要和源码一并提交。
+        ThrowUtils.throwIf(!UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole()), ErrorCode.NO_AUTH_ERROR);
         ThrowUtils.throwIf(StrUtil.isBlank(addRequest.getName()), ErrorCode.PARAMS_ERROR, "项目名称不能为空");
         ThrowUtils.throwIf(addRequest.getCategoryId() == null || addRequest.getCategoryId() <= 0,
                 ErrorCode.PARAMS_ERROR, "项目分类不能为空");
-        ThrowUtils.throwIf(addRequest.getPrice() == null, ErrorCode.PARAMS_ERROR, "价格不能为空");
-        ThrowUtils.throwIf(addRequest.getPrice().compareTo(BigDecimal.ZERO) < 0,
-                ErrorCode.PARAMS_ERROR, "价格不能为负数");
 
         // 构造项目对象
         Project project = new Project();
         BeanUtil.copyProperties(addRequest, project);
+        project.setPrice(ObjectUtil.defaultIfNull(project.getPrice(), BigDecimal.ZERO));
+        validateTemplateForPublication(project);
         project.setAuthorId(loginUser.getId());
         project.setStatus(ProjectStatusEnum.PUBLISHED.getValue());
         project.setSalesCount(0);
@@ -104,24 +107,35 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
         ThrowUtils.throwIf(updateRequest.getId() == null || updateRequest.getId() <= 0,
                 ErrorCode.PARAMS_ERROR, "项目ID不能为空");
 
-        // 查询原项目
-        Project oldProject = this.getById(updateRequest.getId());
+        // 锁定项目，确保授权和上架状态对应同一版内容。
+        Project oldProject = this.getOne(QueryWrapper.create().eq("id", updateRequest.getId()).forUpdate());
         ThrowUtils.throwIf(oldProject == null, ErrorCode.NOT_FOUND_ERROR, "项目不存在");
-        // 仅本人可编辑
-        if (!oldProject.getAuthorId().equals(loginUser.getId())) {
+        // 管理员维护上架模板，原作者可处理自己的草稿和下架项目。
+        boolean isAdmin = UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole());
+        if (!isAdmin && !oldProject.getAuthorId().equals(loginUser.getId())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限编辑该项目");
         }
 
-        // 校验上架权限
-        ProjectStatusEnum requestedStatus = ProjectStatusEnum.getEnumByValue(updateRequest.getStatus());
-        ThrowUtils.throwIf(requestedStatus == ProjectStatusEnum.PUBLISHED
-                        && !UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole()),
-                ErrorCode.NO_AUTH_ERROR, "仅管理员可以发布项目");
+        Integer status = ObjectUtil.defaultIfNull(updateRequest.getStatus(), oldProject.getStatus());
+        ProjectStatusEnum nextStatus = ProjectStatusEnum.getEnumByValue(status);
+        ThrowUtils.throwIf(nextStatus == null, ErrorCode.PARAMS_ERROR, "模板状态无效");
+        if (nextStatus == ProjectStatusEnum.PUBLISHED) {
+            ThrowUtils.throwIf(!isAdmin, ErrorCode.NO_AUTH_ERROR, "仅管理员可以维护上架模板");
+            // 上下架入口会局部更新，按保存后的完整数据检查授权。
+            Project publishedTemplate = BeanUtil.copyProperties(oldProject, Project.class);
+            BeanUtil.copyProperties(updateRequest, publishedTemplate, CopyOptions.create().ignoreNullValue());
+            validateTemplateForPublication(publishedTemplate);
+        }
 
         // 更新项目字段
         Project project = new Project();
         BeanUtil.copyProperties(updateRequest, project);
         project.setEditTime(LocalDateTime.now());
+        if (!isAdmin) {
+            // 原作者改动后，管理员需要重新核对授权。
+            project.setSourceAttribution("");
+            project.setLicenseTerms("");
+        }
         // 不覆盖的字段
         project.setAuthorId(null);
         project.setSalesCount(null);
@@ -150,6 +164,36 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
 
         log.info("项目更新成功，ID: {}", updateRequest.getId());
         return true;
+    }
+
+    private void validateTemplateForPublication(Project template) {
+        ThrowUtils.throwIf(template.getPrice() == null || template.getPrice().signum() != 0,
+                ErrorCode.PARAMS_ERROR, "模板库仅开放免费模板，请在编辑页保存为免费模板后上架");
+        ThrowUtils.throwIf(!isTemplateLink(template.getSourceUrl()), ErrorCode.PARAMS_ERROR,
+                "请提供有效的源码下载地址");
+        ThrowUtils.throwIf(StrUtil.isNotBlank(template.getDemoUrl()) && !isTemplateLink(template.getDemoUrl()),
+                ErrorCode.PARAMS_ERROR, "请提供有效的演示地址");
+        ThrowUtils.throwIf(StrUtil.isBlank(template.getSourceAttribution()) || template.getSourceAttribution().length() > 500,
+                ErrorCode.PARAMS_ERROR, "请填写模板来源或授权方（最多 500 字）");
+        ThrowUtils.throwIf(StrUtil.isBlank(template.getLicenseTerms()) || template.getLicenseTerms().length() > 1000,
+                ErrorCode.PARAMS_ERROR, "请填写许可名称、商用和再分发条件（最多 1000 字）");
+    }
+
+    private boolean isTemplateLink(String link) {
+        if (StrUtil.isBlank(link) || link.length() > 500) {
+            return false;
+        }
+        try {
+            String address = link.strip();
+            URI uri = URI.create(address);
+            if (uri.getScheme() == null) {
+                return address.startsWith("/") && !address.startsWith("//");
+            }
+            return uri.getHost() != null
+                    && ("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme()));
+        } catch (IllegalArgumentException invalidUrl) {
+            return false;
+        }
     }
 
     @Override
@@ -269,6 +313,29 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
         }
 
         return wrapper;
+    }
+
+    @Override
+    public QueryWrapper getPublicTemplateQuery(ProjectQueryRequest queryRequest) {
+        queryRequest.setStatus(ProjectStatusEnum.PUBLISHED.getValue());
+        return getQueryWrapper(queryRequest)
+                .eq("price", BigDecimal.ZERO)
+                .and("TRIM(sourceUrl) <> '' AND TRIM(sourceAttribution) <> '' AND TRIM(licenseTerms) <> ''");
+    }
+
+    @Override
+    public Project getPublicTemplate(Long projectId) {
+        Project template = this.getById(projectId);
+        ThrowUtils.throwIf(!isPublicTemplate(template), ErrorCode.NOT_FOUND_ERROR, "模板暂未开放");
+        return template;
+    }
+
+    @Override
+    public boolean isPublicTemplate(Project template) {
+        return template != null
+                && ProjectStatusEnum.getEnumByValue(template.getStatus()) == ProjectStatusEnum.PUBLISHED
+                && template.getPrice() != null && template.getPrice().signum() == 0
+                && StrUtil.isAllNotBlank(template.getSourceUrl(), template.getSourceAttribution(), template.getLicenseTerms());
     }
 
     @Override

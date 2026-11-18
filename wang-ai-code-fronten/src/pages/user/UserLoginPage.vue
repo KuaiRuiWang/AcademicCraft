@@ -2,8 +2,8 @@
   <div class="auth-page">
     <div class="auth-layout">
       <aside class="auth-intro">
-        <h2 class="auth-display">选一份成品项目，<br /><span>或让 AI 为你定制。</span></h2>
-        <p>精选优质毕设项目源码，购买即交付、可部署上线；没有找到合适的，用 AI 从零生成。</p>
+        <h2 class="auth-display">百夜<span>应用工坊</span></h2>
+        <p>创建 Web 应用，或者从授权模板开始。</p>
         <RouterLink to="/" class="auth-back"
           ><ArrowLeftOutlined aria-hidden="true" /> 返回首页</RouterLink
         >
@@ -11,7 +11,7 @@
       <section class="auth-card" aria-labelledby="auth-title">
         <div class="auth-head">
           <h1 id="auth-title" class="auth-title">欢迎回来</h1>
-          <p class="auth-desc">不写一行代码，生成计算机毕设</p>
+          <p class="auth-desc">登录后继续创建应用或领取模板</p>
         </div>
         <a-form :model="formState" name="login" layout="vertical" @finish="handleSubmit">
           <a-form-item
@@ -58,7 +58,7 @@ import { reactive, ref } from 'vue'
 import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons-vue'
 import { userLogin } from '@/api/userController.ts'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 
 const submitting = ref(false)
@@ -69,6 +69,7 @@ const formState = reactive<API.UserLoginRequest>({
 })
 
 const router = useRouter()
+const route = useRoute()
 const loginUserStore = useLoginUserStore()
 
 /**
@@ -83,10 +84,12 @@ const handleSubmit = async (values: API.UserLoginRequest) => {
     if (res.data.code === 0 && res.data.data) {
       await loginUserStore.fetchLoginUser()
       message.success('登录成功')
-      router.push({
-        path: '/',
-        replace: true,
-      })
+      const redirect = route.query.redirect
+      const nextPath =
+        typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
+          ? redirect
+          : '/'
+      router.replace(nextPath)
     } else {
       message.error('登录失败，' + res.data.message)
     }

@@ -1,5 +1,6 @@
 package com.wkr.aicode.controller;
 
+import com.wkr.aicode.ai.guardrail.AcademicUsePolicy;
 import com.wkr.aicode.langGrapgh4J.CodeGenWorkflow;
 import com.wkr.aicode.langGrapgh4J.state.WorkflowContext;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ public class WorkflowSseController {
      */
     @PostMapping("/execute")
     public WorkflowContext executeWorkflow(@RequestParam String prompt) {
+        AcademicUsePolicy.validate(prompt, null);
         log.info("收到同步工作流执行请求: {}", prompt);
         return new CodeGenWorkflow().executeWorkflow(prompt);
     }
@@ -30,6 +32,7 @@ public class WorkflowSseController {
      */
     @GetMapping(value = "/execute-flux", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> executeWorkflowWithFlux(@RequestParam String prompt) {
+        AcademicUsePolicy.validate(prompt, null);
         log.info("收到 Flux 工作流执行请求: {}", prompt);
         return new CodeGenWorkflow().executeWorkflowWithFlux(prompt);
     }

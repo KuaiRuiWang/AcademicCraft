@@ -87,6 +87,14 @@ public class Project implements Serializable {
     @Column("sourceUrl")
     private String sourceUrl;
 
+    /** 模板来源或授权方 */
+    @Column("sourceAttribution")
+    private String sourceAttribution;
+
+    /** 许可名称、商用和再分发条件 */
+    @Column("licenseTerms")
+    private String licenseTerms;
+
     /**
      * 在线演示地址
      */

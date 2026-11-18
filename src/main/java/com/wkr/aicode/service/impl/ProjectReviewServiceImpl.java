@@ -69,6 +69,7 @@ public class ProjectReviewServiceImpl extends ServiceImpl<ProjectReviewMapper, P
                 ErrorCode.OPERATION_ERROR, "订单未支付，无法评价");
         ThrowUtils.throwIf(!order.getProjectId().equals(addRequest.getProjectId()),
                 ErrorCode.PARAMS_ERROR, "订单与项目不匹配");
+        projectService.getPublicTemplate(addRequest.getProjectId());
 
         // 检查是否已评价过该订单
         QueryWrapper checkWrapper = QueryWrapper.create()
@@ -114,6 +115,7 @@ public class ProjectReviewServiceImpl extends ServiceImpl<ProjectReviewMapper, P
 
     @Override
     public List<ProjectReviewVO> getReviewVOList(Long projectId) {
+        projectService.getPublicTemplate(projectId);
         QueryWrapper wrapper = QueryWrapper.create()
                 .eq("projectId", projectId)
                 .orderBy("createTime", false);

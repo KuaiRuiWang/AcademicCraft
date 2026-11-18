@@ -64,6 +64,12 @@ public class ProjectUpdateRequest implements Serializable {
      */
     private String sourceUrl;
 
+    /** 模板来源或授权方 */
+    private String sourceAttribution;
+
+    /** 许可名称、商用和再分发条件 */
+    private String licenseTerms;
+
     /**
      * 在线演示地址
      */

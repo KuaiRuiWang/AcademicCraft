@@ -2,8 +2,8 @@
   <div class="auth-page">
     <div class="auth-layout">
       <aside class="auth-intro">
-        <h2 class="auth-display">选一份成品项目，<br /><span>或让 AI 为你定制。</span></h2>
-        <p>精选优质毕设项目源码，购买即交付、可部署上线；没有找到合适的，用 AI 从零生成。</p>
+        <h2 class="auth-display">百夜<span>应用工坊</span></h2>
+        <p>从一个想法开始，创建可预览、可修改的 Web 应用。</p>
         <RouterLink to="/" class="auth-back"
           ><ArrowLeftOutlined aria-hidden="true" /> 返回首页</RouterLink
         >
@@ -11,7 +11,7 @@
       <section class="auth-card" aria-labelledby="auth-title">
         <div class="auth-head">
           <h1 id="auth-title" class="auth-title">创建账号</h1>
-          <p class="auth-desc">注册后即可生成应用、购买毕设项目</p>
+          <p class="auth-desc">注册后即可创建应用和领取免费模板</p>
         </div>
         <a-form :model="formState" name="register" layout="vertical" @finish="handleSubmit">
           <a-form-item

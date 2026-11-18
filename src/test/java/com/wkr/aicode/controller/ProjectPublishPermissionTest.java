@@ -1,5 +1,6 @@
 package com.wkr.aicode.controller;
 
+import com.mybatisflex.core.query.QueryWrapper;
 import com.wkr.aicode.aop.AuthInterceptor;
 import com.wkr.aicode.exception.ErrorCode;
 import com.wkr.aicode.exception.GlobalExceptionHandler;
@@ -20,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -56,7 +58,7 @@ class ProjectPublishPermissionTest {
         project.setId(1L);
         project.setAuthorId(10L);
         project.setStatus(ProjectStatusEnum.TAKEN_DOWN.getValue());
-        doReturn(project).when(projectService).getById(1L);
+        doReturn(project).when(projectService).getOne(any(QueryWrapper.class));
     }
 
     @ParameterizedTest
@@ -87,7 +89,30 @@ class ProjectPublishPermissionTest {
         doReturn(true).when(projectService).updateById(any(Project.class));
 
         mockMvc.perform(post("/project/update").contentType(APPLICATION_JSON)
-                        .content("{\"id\":1,\"name\":\"修改名称\"}"))
+                        .content("{\"id\":1,\"name\":\"修改名称\",\"licenseTerms\":\"MIT\"}"))
+                .andExpect(jsonPath("$.code").value(0));
+        verify(projectService).updateById(argThat(project -> "".equals(project.getLicenseTerms())));
+    }
+
+    @Test
+    void adminCannotPublishAnUnreviewedDraft() throws Exception {
+        logInAs(UserRoleEnum.ADMIN);
+        mockMvc.perform(post("/project/admin/update").contentType(APPLICATION_JSON)
+                        .content("{\"id\":1,\"status\":1}"))
+                .andExpect(jsonPath("$.code").value(ErrorCode.PARAMS_ERROR.getCode()));
+        verify(projectService, never()).updateById(any(Project.class));
+    }
+
+    @Test
+    void adminCanPublishAfterProvidingFreeTemplateAndTerms() throws Exception {
+        logInAs(UserRoleEnum.ADMIN);
+        doReturn(true).when(projectService).updateById(any(Project.class));
+
+        mockMvc.perform(post("/project/admin/update").contentType(APPLICATION_JSON)
+                        .content("""
+                                {"id":1,"status":1,"price":0,"sourceUrl":"https://example.com/template.zip",
+                                 "sourceAttribution":"原创模板","licenseTerms":"MIT，商用和再分发须保留许可声明"}
+                                """))
                 .andExpect(jsonPath("$.code").value(0));
     }
 

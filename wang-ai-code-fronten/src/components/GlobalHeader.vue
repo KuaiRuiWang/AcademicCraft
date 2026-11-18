@@ -21,12 +21,12 @@ const router = useRouter()
 const loginUserStore = useLoginUserStore()
 const menuItems = computed(() => [
   { path: '/', label: '主页', icon: HomeOutlined },
-  { path: '/project', label: '项目商城', icon: ShoppingOutlined },
-  { path: '/create', label: 'AI 定制', icon: ThunderboltOutlined },
+  { path: '/create', label: '创建应用', icon: ThunderboltOutlined },
+  { path: '/project', label: '模板库', icon: ShoppingOutlined },
   ...(loginUserStore.loginUser.id
     ? [
         { path: '/my/projects', label: '我的项目', icon: ProjectOutlined },
-        { path: '/my/orders', label: '我的订单', icon: OrderedListOutlined },
+        { path: '/my/orders', label: '领取记录', icon: OrderedListOutlined },
       ]
     : []),
 ])
@@ -53,9 +53,9 @@ const doLogout = async () => {
   <a class="skip-link" href="#main-content">跳到主要内容</a>
   <a-layout-header class="header">
     <div class="header-inner">
-      <RouterLink to="/" class="header-brand" aria-label="百夜毕设帮主页">
+      <RouterLink to="/" class="header-brand" aria-label="百夜应用工坊主页">
         <img class="logo" src="@/assets/logo.png" alt="" width="38" height="38" />
-        <span class="site-title">百夜毕设帮</span>
+        <span class="site-title">百夜应用工坊</span>
       </RouterLink>
       <nav class="header-nav" aria-label="主导航">
         <RouterLink
@@ -95,7 +95,7 @@ const doLogout = async () => {
                   ><ProjectOutlined /> 我的项目</a-menu-item
                 >
                 <a-menu-item @click="router.push('/my/orders')"
-                  ><OrderedListOutlined /> 我的订单</a-menu-item
+                  ><OrderedListOutlined /> 领取记录</a-menu-item
                 >
                 <a-menu-divider />
                 <a-menu-item @click="doLogout"><LogoutOutlined /> 退出登录</a-menu-item>

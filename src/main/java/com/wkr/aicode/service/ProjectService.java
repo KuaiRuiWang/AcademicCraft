@@ -43,6 +43,15 @@ public interface ProjectService extends IService<Project> {
      */
     QueryWrapper getQueryWrapper(ProjectQueryRequest queryRequest);
 
+    /** 公开模板查询条件 */
+    QueryWrapper getPublicTemplateQuery(ProjectQueryRequest queryRequest);
+
+    /** 查询可公开访问的免费授权模板 */
+    Project getPublicTemplate(Long projectId);
+
+    /** 判断模板当前是否可公开访问 */
+    boolean isPublicTemplate(Project project);
+
     /**
      * 增加浏览量
      */

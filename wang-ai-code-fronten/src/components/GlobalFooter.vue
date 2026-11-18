@@ -3,15 +3,15 @@
     <div class="footer-content">
       <div>
         <RouterLink to="/" class="footer-brand"
-          >百夜毕设帮<span class="brand-dot" aria-hidden="true"></span
+          >百夜应用工坊<span class="brand-dot" aria-hidden="true"></span
         ></RouterLink>
         <p class="copyright">
-          © {{ new Date().getFullYear() }} 百夜毕设帮 · 不写一行代码，生成计算机毕设
+          © {{ new Date().getFullYear() }} 百夜应用工坊
         </p>
       </div>
       <nav class="footer-links" aria-label="页脚导航">
-        <RouterLink to="/project">项目商城</RouterLink>
-        <RouterLink to="/create">AI 定制</RouterLink>
+        <RouterLink to="/create">创建应用</RouterLink>
+        <RouterLink to="/project">模板库</RouterLink>
         <RouterLink to="/user/profile">个人中心</RouterLink>
       </nav>
     </div>
