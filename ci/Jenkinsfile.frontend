@@ -1,0 +1,60 @@
+pipeline {
+    agent any
+    options {
+        skipDefaultCheckout(true)
+        disableConcurrentBuilds()
+        timeout(time: 40, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '15', artifactNumToKeepStr: '5'))
+    }
+    parameters {
+        string(name: 'SOURCE_BRANCH', defaultValue: 'dev', description: '应用代码分支，例如 dev 或 master')
+        booleanParam(name: 'DEPLOY', defaultValue: false, description: '勾选后发布到生产；未勾选时只构建和预检')
+    }
+    environment {
+        REPOSITORY_URL = 'https://github.com/KuaiRuiWang/AcademicCraft.git'
+        DEPLOY_HOST = '192.168.0.178'
+        DEPLOY_PORT = '22'
+        JENKINS_HOST_HOME = '/opt/1panel/apps/jenkins/jenkins/data'
+        NODE_IMAGE = 'node:24-bookworm'
+        MAVEN_USER_HOME = "${JENKINS_HOME}/caches/maven"
+    }
+    stages {
+        stage('获取代码') {
+            steps {
+                checkout scm
+                dir('artifacts') { deleteDir() }
+                dir('source') { deleteDir() }
+                sh 'bash ci/validate-branch.sh'
+                dir('source') {
+                    checkout scmGit(branches: [[name: "*/${params.SOURCE_BRANCH}"]],
+                        userRemoteConfigs: [[url: env.REPOSITORY_URL]])
+                    script { env.RELEASE = "${sh(script: 'git rev-parse --short=12 HEAD', returnStdout: true).trim()}-${env.BUILD_NUMBER}" }
+                }
+            }
+        }
+        stage('前端测试与构建') {
+            steps { sh 'bash ci/build-frontend.sh' }
+        }
+        stage('部署预检') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'academiccraft-deploy', keyFileVariable: 'DEPLOY_KEY', usernameVariable: 'DEPLOY_USER')]) {
+                    sh 'bash ci/publish.sh frontend check'
+                }
+            }
+        }
+        stage('发布前端') {
+            when { expression { params.DEPLOY } }
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'academiccraft-deploy', keyFileVariable: 'DEPLOY_KEY', usernameVariable: 'DEPLOY_USER')]) {
+                    sh 'bash ci/publish.sh frontend deploy'
+                }
+            }
+        }
+    }
+    post {
+        always {
+            junit testResults: 'source/target/surefire-reports/TEST-*.xml', allowEmptyResults: true
+            archiveArtifacts artifacts: 'artifacts/*', allowEmptyArchive: true, fingerprint: true
+        }
+    }
+}
