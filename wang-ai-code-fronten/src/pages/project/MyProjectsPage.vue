@@ -3,7 +3,12 @@
     <div class="container">
       <div class="page-header">
         <h1 class="page-title">我的项目</h1>
-        <a-button type="primary" size="large" @click="$router.push('/project/create')">
+        <a-button
+          v-if="canPublishProject"
+          type="primary"
+          size="large"
+          @click="$router.push('/project/create')"
+        >
           <PlusOutlined /> 发布新项目
         </a-button>
       </div>
@@ -95,7 +100,7 @@
         </template>
 
         <a-empty v-else description="还没有发布过项目" class="empty-state">
-          <a-button type="primary" @click="$router.push('/project/create')">
+          <a-button v-if="canPublishProject" type="primary" @click="$router.push('/project/create')">
             <PlusOutlined /> 发布第一个项目
           </a-button>
         </a-empty>
@@ -105,11 +110,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import { PlusOutlined, EditOutlined, DeleteOutlined, StarFilled } from '@ant-design/icons-vue'
 import type { TablePaginationConfig } from 'ant-design-vue'
 import { listMyProjectVoByPage, deleteProject } from '@/api/projectController.ts'
+import { useLoginUserStore } from '@/stores/loginUser'
+
+const loginUserStore = useLoginUserStore()
+const canPublishProject = computed(() => loginUserStore.loginUser.userRole === 'admin')
 
 const defaultCover = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjZjBmMmY1Ii8+PHRleHQgeD0iMzAiIHk9IjIzIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjgiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIj5Ob25lPC90ZXh0Pjwvc3ZnPg=='
 
