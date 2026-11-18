@@ -8,6 +8,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
+import java.util.Map;
+
 @Configuration
 @ConfigurationProperties(prefix = "langchain4j.open-ai.routing-chat-model")
 @Data
@@ -39,6 +41,8 @@ public class RoutingAiModelConfig {
                 .baseUrl(baseUrl)
                 .maxTokens(maxTokens)
                 .temperature(temperature)
+                // 避免压缩分段响应只读到首个 JSON 片段，导致路由解析失败。
+                .customHeaders(Map.of("Accept-Encoding", "identity"))
                 .logRequests(logRequests)
                 .logResponses(logResponses)
                 .build();
