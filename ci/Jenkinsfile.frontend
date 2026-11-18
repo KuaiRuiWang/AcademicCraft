@@ -14,8 +14,8 @@ pipeline {
         REPOSITORY_URL = 'ssh://git@ssh.github.com:443/KuaiRuiWang/AcademicCraft.git'
         DEPLOY_HOST = '192.168.0.178'
         DEPLOY_PORT = '22'
-        JENKINS_HOST_HOME = '/opt/1panel/apps/jenkins/jenkins/data'
-        NODE_IMAGE = 'node:24-bookworm-slim'
+        NODE_HOME = "${JENKINS_HOME}/tools/node-v24.18.0-linux-x64"
+        NPM_CONFIG_CACHE = "${JENKINS_HOME}/caches/npm"
         MAVEN_USER_HOME = "${JENKINS_HOME}/caches/maven"
     }
     stages {
