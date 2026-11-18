@@ -8,7 +8,7 @@ java -version
 
 # 这些用例使用临时目录、模拟模型和 Mockito，不调用线上模型或业务数据库。
 tests='AgUi*Test,ToolResultTest,AgentWorkspaceTest,JsonMessageStreamHandlerTest,FullstackCodeGenWorkflowTest,FullstackModifyWorkflowTest,FullstackGraphSemanticsTest,AgentStreamPipeTest,ContractCheckNodeTest,FullstackProjectDetectTest,ChatHistoryServiceImplTest'
-sh mvnw -B -ntp "-Dmaven.repo.local=${MAVEN_USER_HOME}/repository" "-Dtest=$tests" package
+bash ../ci/maven.sh "-Dtest=$tests" package
 
 jar='target/ai-code-0.0.1-SNAPSHOT.jar'
 jar tf "$jar" > target/jar-contents.txt

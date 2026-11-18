@@ -15,7 +15,7 @@ pipeline {
         DEPLOY_HOST = '192.168.0.178'
         DEPLOY_PORT = '22'
         JENKINS_HOST_HOME = '/opt/1panel/apps/jenkins/jenkins/data'
-        NODE_IMAGE = 'node:24-bookworm'
+        NODE_IMAGE = 'node:24-bookworm-slim'
         MAVEN_USER_HOME = "${JENKINS_HOME}/caches/maven"
     }
     stages {

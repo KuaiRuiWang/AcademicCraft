@@ -60,8 +60,8 @@ Jenkins 的 SSH 凭据 ID 为 `academiccraft-deploy`。私钥存放在 Jenkins �
 
 更新发布入口时，用管理员权限安装 `ci/deploy.py` 到上述路径，权限 755、所有者 root。
 生产参数变更仅修改 `/etc/academiccraft-ci/backend.json`，不会在普通构建时覆盖正在运行的配置。
-Jenkins 使用已安装的 JDK 21 和 Maven Wrapper；前端使用 `node:24-bookworm` 构建容器。
-Maven 缓存在 Jenkins 持久化目录，npm 缓存在 Docker 卷 `academiccraft-npm-cache`。
+Jenkins 使用已安装的 JDK 21 和 Maven Wrapper；前端使用 `node:24-bookworm-slim` 构建容器。
+Maven 缓存在 Jenkins 持久化目录，两条任务通过文件锁串行使用该缓存；npm 缓存在 Docker 卷 `academiccraft-npm-cache`。
 
 ## 验证
 
