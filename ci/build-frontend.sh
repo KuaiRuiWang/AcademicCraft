@@ -8,7 +8,7 @@ mkdir -p "$root/artifacts"
 if [[ -f source/src/test/java/com/wkr/aicode/core/handler/AgUiEventAdapterTest.java ]]; then
     (
         cd source
-        bash ../ci/maven.sh '-Dtest=AgUiEventAdapterTest,AgUiToolStreamTest' test
+        bash ../ci/maven.sh '-Dtest=AgUiEventAdapterTest,AgUiToolStreamTest,AgUiControllerTest' test
     )
 fi
 
