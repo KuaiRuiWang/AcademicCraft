@@ -335,7 +335,7 @@ public class AppController {
      */
     @PostMapping(value = "/{appId}/agent/run", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @RateLimit(limitType = RateLimitType.USER, rate = 5, rateInterval = 60, message = "AI 对话请求过于频繁，请稍后再试")
-    public Flux<ServerSentEvent<Map<String, Object>>> runAgent(@PathVariable Long appId,
+    public Flux<ServerSentEvent<String>> runAgent(@PathVariable Long appId,
                                                               @RequestBody AgUiRunRequest input,
                                                               HttpServletRequest request,
                                                               HttpServletResponse response) {
@@ -355,11 +355,12 @@ public class AppController {
         return keepAlive(events, Duration.ofSeconds(15));
     }
 
-    static Flux<ServerSentEvent<Map<String, Object>>> keepAlive(Flux<Map<String, Object>> events, Duration interval) {
+    static Flux<ServerSentEvent<String>> keepAlive(Flux<Map<String, Object>> events, Duration interval) {
+        // 先按 AG-UI 协议序列化，避免全局 Long 转字符串策略改写 timestamp。
         // 架构师设计与构建期间可能没有文本；心跳只写 SSE 注释，不重订阅或重执行生成流。
-        return events.map(event -> ServerSentEvent.<Map<String, Object>>builder().data(event).build())
+        return events.map(event -> ServerSentEvent.<String>builder().data(JSONUtil.toJsonStr(event)).build())
                 .publish(shared -> shared.mergeWith(Flux.interval(interval)
-                        .map(tick -> ServerSentEvent.<Map<String, Object>>builder().comment("keep-alive").build())
+                        .map(tick -> ServerSentEvent.<String>builder().comment("keep-alive").build())
                         .takeUntilOther(shared.ignoreElements())));
     }
 

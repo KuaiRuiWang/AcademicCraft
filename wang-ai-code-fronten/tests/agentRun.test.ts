@@ -182,3 +182,31 @@ test(
     assert.deepEqual(toolStates, ['error', 'success'])
   },
 )
+
+test(
+  '实际 Spring MVC SSE 输出通过官方客户端校验且时间戳保持数字',
+  { skip: !existsSync('../target/ag-ui-http-contract.sse') },
+  async () => {
+    const wire = readFileSync('../target/ag-ui-http-contract.sse', 'utf8')
+    const run = createAgentRun('run')
+    const events: AgUiEvent[] = []
+    const agent = new HttpAgent({
+      url: 'http://localhost/test-agent',
+      threadId: 'app-1',
+      initialMessages: [{ id: 'user', role: 'user', content: '生成待办应用' }],
+      fetch: async () => new Response(wire, { headers: { 'Content-Type': 'text/event-stream' } }),
+    })
+    await agent.runAgent(
+      { runId: 'run' },
+      {
+        onEvent: ({ event }) => {
+          events.push(event as AgUiEvent)
+          applyAgentEvent(run, event as AgUiEvent)
+        },
+      },
+    )
+    assert.equal(run.status, 'success')
+    assert.ok(events.length > 1)
+    assert.ok(events.every((event) => typeof event.timestamp === 'number'))
+  },
+)
