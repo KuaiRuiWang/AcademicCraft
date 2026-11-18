@@ -11,7 +11,7 @@ pipeline {
         booleanParam(name: 'DEPLOY', defaultValue: false, description: '勾选后发布到生产；未勾选时只构建和预检')
     }
     environment {
-        REPOSITORY_URL = 'https://github.com/KuaiRuiWang/AcademicCraft.git'
+        REPOSITORY_URL = 'ssh://git@ssh.github.com:443/KuaiRuiWang/AcademicCraft.git'
         DEPLOY_HOST = '192.168.0.178'
         DEPLOY_PORT = '22'
         JENKINS_HOST_HOME = '/opt/1panel/apps/jenkins/jenkins/data'
@@ -27,7 +27,7 @@ pipeline {
                 sh 'bash ci/validate-branch.sh'
                 dir('source') {
                     checkout scmGit(branches: [[name: "*/${params.SOURCE_BRANCH}"]],
-                        userRemoteConfigs: [[url: env.REPOSITORY_URL]])
+                        userRemoteConfigs: [[url: env.REPOSITORY_URL, credentialsId: 'academiccraft-scm']])
                     script { env.RELEASE = "${sh(script: 'git rev-parse --short=12 HEAD', returnStdout: true).trim()}-${env.BUILD_NUMBER}" }
                 }
             }

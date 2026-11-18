@@ -12,7 +12,8 @@ Jenkins 位于 `192.168.0.107`，入口为 `http://8.134.185.186:18080/`。
 
 两条任务使用 Pipeline from SCM：
 
-- 仓库：`https://github.com/KuaiRuiWang/AcademicCraft.git`
+- 仓库：`ssh://git@ssh.github.com:443/KuaiRuiWang/AcademicCraft.git`
+- 源码只读凭据：`academiccraft-scm`，使用仓库专属的 GitHub Deploy Key。
 - 流水线定义分支：`codex/jenkins-deploy`
 - Script Path：上表对应的文件路径。
 - 应用源码分支：参数 `SOURCE_BRANCH`，默认 `dev`，与流水线定义分支独立。
@@ -20,6 +21,10 @@ Jenkins 位于 `192.168.0.107`，入口为 `http://8.134.185.186:18080/`。
 流水线定义在工作区根目录检出，应用代码在 `source/` 中检出。
 如后续合并流水线分支，可将两个任务的定义分支同时调整到合并后的分支。
 任务默认手动触发。
+
+构建机的 GitHub HTTPS 连接曾出现重置和超时，因此使用 GitHub 官方 SSH 443 入口。
+Git 插件采用手动提供的主机公钥策略，公钥与 GitHub 官方公布的 Ed25519 指纹核对，保留严格校验。
+参考：[GitHub SSH 443 说明](https://docs.github.com/en/authentication/troubleshooting-ssh/using-ssh-over-the-https-port)。
 
 ## 执行与发布
 

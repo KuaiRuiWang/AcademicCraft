@@ -12,7 +12,7 @@ pipeline {
         booleanParam(name: 'MIGRATE_SCHEMA', defaultValue: false, description: '首次升级时补齐全栈和 AG-UI 所需的新增列，不删除现有数据')
     }
     environment {
-        REPOSITORY_URL = 'https://github.com/KuaiRuiWang/AcademicCraft.git'
+        REPOSITORY_URL = 'ssh://git@ssh.github.com:443/KuaiRuiWang/AcademicCraft.git'
         DEPLOY_HOST = '192.168.0.178'
         DEPLOY_PORT = '22'
         MAVEN_USER_HOME = "${JENKINS_HOME}/caches/maven"
@@ -26,7 +26,7 @@ pipeline {
                 sh 'bash ci/validate-branch.sh'
                 dir('source') {
                     checkout scmGit(branches: [[name: "*/${params.SOURCE_BRANCH}"]],
-                        userRemoteConfigs: [[url: env.REPOSITORY_URL]])
+                        userRemoteConfigs: [[url: env.REPOSITORY_URL, credentialsId: 'academiccraft-scm']])
                     script { env.RELEASE = "${sh(script: 'git rev-parse --short=12 HEAD', returnStdout: true).trim()}-${env.BUILD_NUMBER}" }
                 }
             }
