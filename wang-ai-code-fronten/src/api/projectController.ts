@@ -2,7 +2,7 @@
 /* eslint-disable */
 import request from '@/request'
 
-/** 发布项目 登录用户发布一个新项目到商城，支持设置分类、标签、价格、交付方式和介绍图片 POST /project/add */
+/** 发布项目（管理员） 管理员发布新项目到商城，支持设置分类、标签、价格、交付方式和介绍图片 POST /project/add */
 export async function addProject(body: API.ProjectAddRequest, options?: { [key: string]: any }) {
   return request<API.BaseResponseLong>('/project/add', {
     method: 'POST',
@@ -116,7 +116,7 @@ export async function listMyProjectVoByPage(
   })
 }
 
-/** 编辑项目 项目作者编辑自己的项目信息，仅本人可操作 POST /project/update */
+/** 编辑项目 项目作者编辑自己的项目信息，上架需要管理员权限 POST /project/update */
 export async function updateProject(
   body: API.ProjectUpdateRequest,
   options?: { [key: string]: any }

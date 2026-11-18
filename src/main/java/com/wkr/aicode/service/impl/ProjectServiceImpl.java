@@ -5,6 +5,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
+import com.wkr.aicode.constant.UserConstant;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
 import com.wkr.aicode.exception.ThrowUtils;
@@ -110,6 +111,12 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
         if (!oldProject.getAuthorId().equals(loginUser.getId())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限编辑该项目");
         }
+
+        // 校验上架权限
+        ProjectStatusEnum requestedStatus = ProjectStatusEnum.getEnumByValue(updateRequest.getStatus());
+        ThrowUtils.throwIf(requestedStatus == ProjectStatusEnum.PUBLISHED
+                        && !UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole()),
+                ErrorCode.NO_AUTH_ERROR, "仅管理员可以发布项目");
 
         // 更新项目字段
         Project project = new Project();

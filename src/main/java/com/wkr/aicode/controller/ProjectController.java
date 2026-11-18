@@ -48,8 +48,9 @@ public class ProjectController {
     /**
      * 发布项目
      */
-    @Operation(summary = "发布项目", description = "登录用户发布一个新项目到商城，支持设置分类、标签、价格、交付方式和介绍图片")
+    @Operation(summary = "发布项目（管理员）", description = "管理员发布新项目到商城，支持设置分类、标签、价格、交付方式和介绍图片")
     @PostMapping("/add")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Long> addProject(@RequestBody ProjectAddRequest addRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(addRequest == null, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
@@ -60,7 +61,7 @@ public class ProjectController {
     /**
      * 更新项目（仅本人可编辑）
      */
-    @Operation(summary = "编辑项目", description = "项目作者编辑自己的项目信息，仅本人可操作")
+    @Operation(summary = "编辑项目", description = "项目作者编辑自己的项目信息，上架需要管理员权限")
     @PostMapping("/update")
     public BaseResponse<Boolean> updateProject(@RequestBody ProjectUpdateRequest updateRequest, HttpServletRequest request) {
         if (updateRequest == null || updateRequest.getId() == null) {

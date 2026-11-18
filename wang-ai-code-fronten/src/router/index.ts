@@ -97,6 +97,7 @@ const router = createRouter({
       path: '/project/create',
       name: '发布项目',
       component: ProjectEditPage,
+      meta: { requiresAdmin: true },
     },
     {
       path: '/project/:id',
