@@ -7,7 +7,7 @@ cd source
 java -version
 
 # 这些用例使用临时目录、模拟模型和 Mockito，不调用线上模型或业务数据库。
-tests='AgUi*Test,ToolResultTest,AgentWorkspaceTest,JsonMessageStreamHandlerTest,FullstackCodeGenWorkflowTest,FullstackModifyWorkflowTest,FullstackGraphSemanticsTest,AgentStreamPipeTest,ContractCheckNodeTest,FullstackProjectDetectTest,ChatHistoryServiceImplTest'
+tests='RoutingAiModelConfigTest,AgUi*Test,ToolResultTest,AgentWorkspaceTest,JsonMessageStreamHandlerTest,FullstackCodeGenWorkflowTest,FullstackModifyWorkflowTest,FullstackGraphSemanticsTest,AgentStreamPipeTest,ContractCheckNodeTest,FullstackProjectDetectTest,ChatHistoryServiceImplTest'
 bash ../ci/maven.sh "-Dtest=$tests" package
 
 jar='target/ai-code-0.0.1-SNAPSHOT.jar'
