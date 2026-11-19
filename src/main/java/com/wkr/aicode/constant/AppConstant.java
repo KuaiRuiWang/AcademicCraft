@@ -41,4 +41,9 @@ public interface AppConstant {
     static String fullstackProjectDir(Long appId) {
         return CODE_OUTPUT_ROOT_DIR + "/" + FULLSTACK_PROJECT_DIR_PREFIX + appId;
     }
+
+    static String codeOutputDir(String codeGenType, Long appId) {
+        return "fullstack_vue_nodejs".equals(codeGenType) ? fullstackProjectDir(appId)
+                : CODE_OUTPUT_ROOT_DIR + "/" + codeGenType + "_" + appId;
+    }
 }

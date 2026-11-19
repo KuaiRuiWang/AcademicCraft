@@ -20,6 +20,8 @@ const createError = ref('')
 const inputShell = ref<HTMLDivElement | null>(null)
 // 是否同步生成 Node.js 后端（全栈项目）
 const generateBackend = ref(false)
+const generateThesis = ref(true)
+const thesisTitle = ref('')
 
 // 我的作品数据
 const myApps = ref<API.AppVO[]>([])
@@ -61,6 +63,8 @@ const createApp = async () => {
     const res = await addApp({
       initPrompt: userPrompt.value.trim(),
       generateBackend: generateBackend.value,
+      generateThesis: generateThesis.value,
+      thesisTitle: generateThesis.value ? thesisTitle.value.trim() : undefined,
     })
 
     if (res.data.code === 0 && res.data.data) {
@@ -171,6 +175,15 @@ onMounted(() => {
         show-icon
         class="create-error"
       />
+      <div class="thesis-option">
+        <a-checkbox v-model:checked="generateThesis" :disabled="creating">同时生成毕业论文初稿</a-checkbox>
+        <div v-if="generateThesis" class="thesis-title-field">
+          <label for="thesis-title">论文题目（选填）</label>
+          <a-input id="thesis-title" v-model:value="thesisTitle" :maxlength="200" :disabled="creating"
+            placeholder="留空时根据应用名称拟定" />
+          <p>代码生成后自动开始，可分章编辑并下载 Word。</p>
+        </div>
+      </div>
       <p class="use-note">
         用于课程或毕业考核时，请遵守学校的 AI 使用规则，自行完成要求独立完成的部分。
       </p>
@@ -229,6 +242,10 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.thesis-option { margin-top: 1rem; }
+.thesis-title-field { display: grid; gap: .5rem; max-width: 36rem; margin: .75rem 0 0; }
+.thesis-title-field label { color: var(--color-text); font-size: .875rem; }
+.thesis-title-field p { margin: 0; color: var(--color-text-secondary); font-size: .875rem; }
 #createPage {
   background: var(--color-bg);
 }
