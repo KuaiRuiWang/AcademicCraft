@@ -35,6 +35,7 @@ import com.wkr.aicode.service.AppService;
 import com.wkr.aicode.service.ChatHistoryService;
 import com.wkr.aicode.service.ContainerDeployService;
 import com.wkr.aicode.service.ScreenshotService;
+import com.wkr.aicode.service.ThesisService;
 import com.wkr.aicode.service.UserService;
 import com.wkr.aicode.utils.NodeCodeSecurityScanner;
 import jakarta.annotation.Resource;
@@ -67,6 +68,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     private ScreenshotService screenshotService;
 
     @Resource
+    private ThesisService thesisService;
+
+    @Resource
     private AiCodeGenTypeRoutingServiceFactory aiCodeGenTypeRoutingServiceFactory;
 
 
@@ -77,6 +81,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         String initPrompt = appAddRequest.getInitPrompt();
         ThrowUtils.throwIf(StrUtil.isBlank(initPrompt), ErrorCode.PARAMS_ERROR, "初始化 prompt 不能为空");
         AcademicUsePolicy.validate(initPrompt, null);
+        ThrowUtils.throwIf(StrUtil.length(appAddRequest.getThesisTitle()) > 200, ErrorCode.PARAMS_ERROR, "论文题目不能超过 200 字");
         // 勾选生成后端时直接指定全栈类型（跳过 AI 路由），否则使用 AI 智能选择代码生成类型（多例模式）
         CodeGenTypeEnum selectedCodeGenType;
         if (Boolean.TRUE.equals(appAddRequest.getGenerateBackend())) {
@@ -89,6 +94,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         App app = new App();
         BeanUtil.copyProperties(appAddRequest, app);
         app.setGenerateBackend(Boolean.TRUE.equals(appAddRequest.getGenerateBackend()) ? 1 : 0);
+        app.setGenerateThesis(Boolean.TRUE.equals(appAddRequest.getGenerateThesis()) ? 1 : 0);
         app.setUserId(loginUser.getId());
         // 应用名称暂时为 initPrompt 前 12 位
         app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
@@ -241,6 +247,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
     private Flux<String> createGenerationStream(App app, String message, User loginUser) {
         Long appId = app.getId();
+        thesisService.sourceChanging(app);
         // 5. 通过校验后，添加用户消息到对话历史
         chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
         // 6. 设置监控上下文
@@ -387,7 +394,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
             log.error("删除应用关联对话历史失败: {}", e.getMessage());
         }
         // 删除应用
-        return super.removeById(id);
+        boolean removed = super.removeById(id);
+        if (removed) thesisService.deleteForApp(appId);
+        return removed;
     }
 
 

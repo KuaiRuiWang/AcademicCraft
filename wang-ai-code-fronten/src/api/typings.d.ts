@@ -2,6 +2,8 @@ declare namespace API {
   type AppAddRequest = {
     initPrompt?: string
     generateBackend?: boolean
+    generateThesis?: boolean
+    thesisTitle?: string
   }
 
   type AppAdminUpdateRequest = {
@@ -36,6 +38,8 @@ declare namespace API {
   }
 
   type AppVO = {
+    generateThesis?: number
+    thesisTitle?: string
     id?: number
     appName?: string
     cover?: string

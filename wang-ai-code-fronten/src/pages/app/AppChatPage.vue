@@ -152,6 +152,8 @@
       </div>
       <!-- 右侧网页展示区域 -->
       <div class="preview-section">
+        <a-tabs v-model:activeKey="previewTab" class="preview-tabs">
+        <a-tab-pane key="app" tab="应用预览">
         <div class="preview-header">
           <h3>应用预览</h3>
           <div class="preview-actions">
@@ -193,6 +195,11 @@
               @load="onIframeLoad"
           ></iframe>
         </div>
+        </a-tab-pane>
+        <a-tab-pane v-if="isOwner" key="thesis" tab="论文初稿">
+          <ThesisPanel :app-id="String(appId)" :app-generating="isGenerating" />
+        </a-tab-pane>
+        </a-tabs>
       </div>
     </div>
 
@@ -229,6 +236,7 @@ import { CodeGenTypeEnum, formatCodeGenType } from '@/utils/codeGenTypes'
 import request from '@/request'
 
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import ThesisPanel from '@/components/ThesisPanel.vue'
 import AgentRunView from '@/components/agent/AgentRunView.vue'
 import { createAgentRun, restoreAgentRun, type AgentRun } from '@/utils/agentRun'
 import { newRunId, useAgentRun } from '@/composables/useAgentRun'
@@ -281,6 +289,7 @@ const historyLoaded = ref(false)
 
 // 预览相关
 const previewUrl = ref('')
+const previewTab = ref('app')
 const previewReady = ref(false)
 
 // 部署相关
@@ -727,6 +736,10 @@ const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeM
 </script>
 
 <style scoped>
+.preview-tabs { height: 100%; min-height: 0; }
+.preview-tabs :deep(.ant-tabs-nav) { margin: 0; padding-inline: 1rem; }
+.preview-tabs :deep(.ant-tabs-content-holder), .preview-tabs :deep(.ant-tabs-content) { height: 100%; min-height: 0; }
+.preview-tabs :deep(.ant-tabs-tabpane-active) { height: 100%; display: flex; flex-direction: column; }
 #appChatPage {
   height: calc(100vh - 80px);
   height: calc(100dvh - 80px);

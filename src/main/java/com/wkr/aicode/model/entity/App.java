@@ -76,6 +76,12 @@ public class App implements Serializable {
     @Column("generateBackend")
     private Integer generateBackend;
 
+    @Column("generateThesis")
+    private Integer generateThesis;
+
+    @Column("thesisTitle")
+    private String thesisTitle;
+
     /**
      * 全栈应用部署宿主端口
      */

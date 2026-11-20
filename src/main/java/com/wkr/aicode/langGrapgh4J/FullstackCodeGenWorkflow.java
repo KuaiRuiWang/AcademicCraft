@@ -15,6 +15,8 @@ import com.wkr.aicode.langGrapgh4J.state.WorkflowContext;
 import com.wkr.aicode.model.enums.AgentRoleEnum;
 import com.wkr.aicode.monitor.MonitorContext;
 import com.wkr.aicode.monitor.MonitorContextHolder;
+import com.wkr.aicode.service.ThesisService;
+import com.wkr.aicode.utils.SpringContextUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.bsc.langgraph4j.GraphRepresentation;
@@ -138,11 +140,19 @@ public class FullstackCodeGenWorkflow {
                     log.info("全栈工作流图:\n{}", graph.content());
                     pipe.emitAiResponse("开始执行全栈代码生成工作流\n");
                     int stepCounter = 1;
+                    WorkflowContext completedContext = null;
                     for (NodeOutput<MessagesState<String>> step : workflow.stream(
                             Map.of(WorkflowContext.WORKFLOW_CONTEXT_KEY, initialContext), runnableConfig)) {
                         WorkflowContext currentContext = WorkflowContext.getContext(step.state());
+                        completedContext = currentContext;
                         log.info("--- 第 {} 步完成，当前步骤: {} ---", stepCounter++,
                                 currentContext == null ? "unknown" : currentContext.getCurrentStep());
+                    }
+                    if (completedContext != null && completedContext.getErrorMessage() == null
+                            && completedContext.getBuildResultDir() != null
+                            && completedContext.getContractCheckResult() != null
+                            && Boolean.TRUE.equals(completedContext.getContractCheckResult().getIsValid())) {
+                        SpringContextUtil.getBean(ThesisService.class).generationSucceeded(appId);
                     }
                     log.info("全栈代码生成工作流执行完成，appId={}", appId);
                     sink.complete();

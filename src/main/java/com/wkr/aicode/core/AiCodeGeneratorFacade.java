@@ -19,6 +19,7 @@ import com.wkr.aicode.langGrapgh4J.FullstackCodeGenWorkflow;
 import com.wkr.aicode.langGrapgh4J.FullstackModifyWorkflow;
 import com.wkr.aicode.model.enums.AgentRoleEnum;
 import com.wkr.aicode.model.enums.CodeGenTypeEnum;
+import com.wkr.aicode.service.ThesisService;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.service.tool.ToolExecution;
@@ -41,6 +42,9 @@ public class AiCodeGeneratorFacade {
 
     @Resource
     private VueProjectBuilder vueProjectBuilder;
+
+    @Resource
+    private ThesisService thesisService;
 
     /**
      * 统一入口：根据类型生成并保存代码
@@ -198,6 +202,7 @@ public class AiCodeGeneratorFacade {
                             sink.error(new BusinessException(ErrorCode.OPERATION_ERROR, "前端构建失败，可继续对话修复生成的代码"));
                             return;
                         }
+                        thesisService.generationSucceeded(appId);
                         sink.complete();
                     })
                     .onError((Throwable error) -> {
@@ -254,8 +259,10 @@ public class AiCodeGeneratorFacade {
                 // 使用执行器保存代码
                 File savedDir = CodeFileSaverExecutor.executeSaver(parsedResult, codeGenType,appId);
                 log.info("保存成功，路径为：" + savedDir.getAbsolutePath());
+                thesisService.generationSucceeded(appId);
             } catch (Exception e) {
                 log.error("保存失败: {}", e.getMessage(), e);
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "生成代码保存失败，请重试");
             }
         });
     }

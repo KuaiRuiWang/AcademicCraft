@@ -17,5 +17,11 @@ public class AppAddRequest implements Serializable {
      */
     private Boolean generateBackend;
 
+    /** 是否在代码生成后自动生成论文初稿 */
+    private Boolean generateThesis;
+
+    /** 论文题目，留空时使用应用名称 */
+    private String thesisTitle;
+
     private static final long serialVersionUID = 1L;
 }

@@ -11,6 +11,8 @@ import com.wkr.aicode.model.enums.AgentRoleEnum;
 import com.wkr.aicode.model.enums.ModifyScopeEnum;
 import com.wkr.aicode.monitor.MonitorContext;
 import com.wkr.aicode.monitor.MonitorContextHolder;
+import com.wkr.aicode.service.ThesisService;
+import com.wkr.aicode.utils.SpringContextUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.bsc.langgraph4j.GraphRepresentation;
@@ -126,6 +128,7 @@ public class FullstackModifyWorkflow {
                                 currentContext == null ? "unknown" : currentContext.getCurrentStep());
                     }
                     log.info("全栈项目修改工作流执行完成，appId={}", appId);
+                    SpringContextUtil.getBean(ThesisService.class).generationSucceeded(appId);
                     sink.complete();
                 } catch (Exception e) {
                     log.error("全栈项目修改工作流执行失败，appId={}", appId, e);
