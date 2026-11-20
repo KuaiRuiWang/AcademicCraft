@@ -8,6 +8,9 @@ java -version
 
 # 这些用例使用临时目录、模拟模型和 Mockito，不调用线上模型或业务数据库。
 tests='RoutingAiModelConfigTest,AgUi*Test,ToolResultTest,AgentWorkspaceTest,JsonMessageStreamHandlerTest,FullstackCodeGenWorkflowTest,FullstackModifyWorkflowTest,FullstackGraphSemanticsTest,AgentStreamPipeTest,ContractCheckNodeTest,FullstackProjectDetectTest,ChatHistoryServiceImplTest'
+if [[ -f src/test/java/com/wkr/aicode/service/ThesisServiceTest.java ]]; then
+    tests+=',Thesis*Test,ProjectSnapshotServiceTest'
+fi
 bash ../ci/maven.sh "-Dtest=$tests" package
 
 jar='target/ai-code-0.0.1-SNAPSHOT.jar'

@@ -33,7 +33,10 @@ Git 插件采用手动提供的主机公钥策略，公钥与 GitHub 官方公�
 1. 选择 `SOURCE_BRANCH`。
 2. 不勾选 `DEPLOY`：运行构建、测试、归档及生产部署预检，保持线上版本。
 3. 勾选 `DEPLOY`：在构建和预检通过后执行发布。
-4. 后端首次部署 AG-UI 时，同时勾选 `MIGRATE_SCHEMA`；只补齐缺失列，重复执行不会重复新增。
+4. 后端首次部署 AG-UI 或论文模块时，同时勾选 `MIGRATE_SCHEMA`；只补齐缺失表和列，重复执行不会重复新增。
+
+论文模块还需在业务机准备 Python 虚拟环境、Mermaid CLI、Chrome 和中文字体，配置
+`thesis.python-command` 与 `thesis.mermaid-cli`。具体步骤见应用源码的 `agent/应用论文生成接入说明.md`。
 
 首次升级建议先发布后端，再发布前端。后端如果仍缺数据库列且没有勾选迁移，会在替换 JAR 前停止。
 不会运行真实 AI 模型、真实数据库写入等联调用例；具体离线用例列表在 `build-backend.sh`。

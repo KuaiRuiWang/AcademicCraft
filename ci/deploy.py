@@ -35,6 +35,25 @@ COLUMNS = {
     ('app', 'containerName'): "VARCHAR(64) NULL COMMENT '应用容器名'",
     ('app', 'containerStatus'): "VARCHAR(16) NULL COMMENT '应用容器状态'",
     ('chat_history', 'renderData'): "MEDIUMTEXT NULL COMMENT 'AG-UI 展示快照'",
+    ('app', 'generateThesis'): "TINYINT NOT NULL DEFAULT 0 COMMENT '自动生成论文初稿'",
+    ('app', 'thesisTitle'): "VARCHAR(200) NULL COMMENT '论文题目'",
+}
+
+TABLES = {
+    'app_thesis': """CREATE TABLE IF NOT EXISTS app_thesis (
+        appId BIGINT NOT NULL PRIMARY KEY, title VARCHAR(200) NOT NULL,
+        status VARCHAR(24) NOT NULL, stage VARCHAR(100) NOT NULL,
+        revision VARCHAR(36) NOT NULL, sourceVersion VARCHAR(64) NULL,
+        sourceContext MEDIUMTEXT NULL, errorMessage VARCHAR(1000) NULL,
+        createTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updateTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) COLLATE = utf8mb4_unicode_ci""",
+    'app_thesis_chapter': """CREATE TABLE IF NOT EXISTS app_thesis_chapter (
+        id BIGINT NOT NULL PRIMARY KEY, appId BIGINT NOT NULL, chapterNo INT NOT NULL,
+        title VARCHAR(100) NOT NULL, content MEDIUMTEXT NULL, status VARCHAR(24) NOT NULL,
+        sourceVersion VARCHAR(64) NULL, userEdited TINYINT NOT NULL DEFAULT 0,
+        errorMessage VARCHAR(1000) NULL, UNIQUE KEY uk_app_chapter (appId, chapterNo)
+    ) COLLATE = utf8mb4_unicode_ci""",
 }
 
 
@@ -186,15 +205,19 @@ def schema_check(properties, migrate=False):
         raise ValueError('数据库名称无效')
     with mysql_session(properties) as query:
         rows = query("SELECT CONCAT(TABLE_NAME,'.',COLUMN_NAME) FROM information_schema.COLUMNS "
-                     f"WHERE TABLE_SCHEMA='{database}' AND TABLE_NAME IN ('app','chat_history')")
+                     f"WHERE TABLE_SCHEMA='{database}' AND TABLE_NAME IN ('app','chat_history','app_thesis','app_thesis_chapter')")
         existing = set(rows.splitlines())
         missing = [(table, column) for table, column in COLUMNS if f'{table}.{column}' not in existing]
+        existing_tables = {item.split('.', 1)[0] for item in existing}
+        missing_tables = [table for table in TABLES if table not in existing_tables]
         if migrate:
+            for table in missing_tables:
+                query(TABLES[table])
             for table, column in missing:
                 query(f'ALTER TABLE `{table}` ADD COLUMN `{column}` {COLUMNS[(table, column)]}')
-            print(json.dumps({'addedColumns': ['.'.join(item) for item in missing]}), flush=True)
+            print(json.dumps({'addedColumns': ['.'.join(item) for item in missing], 'addedTables': missing_tables}), flush=True)
             return []
-        return ['.'.join(item) for item in missing]
+        return ['.'.join(item) for item in missing] + missing_tables
 
 
 def backend_health():

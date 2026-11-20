@@ -126,6 +126,7 @@ class DeploymentTest(unittest.TestCase):
 
     def test_schema_check_is_read_only_and_migration_adds_only_missing_columns(self):
         existing = {f'{table}.{column}' for table, column in deploy.COLUMNS} - {'chat_history.renderData'}
+        existing.update(f'{table}.appId' for table in deploy.TABLES)
         query = Mock(return_value='\n'.join(existing))
         context = Mock()
         context.__enter__ = Mock(return_value=query)
@@ -137,6 +138,20 @@ class DeploymentTest(unittest.TestCase):
         alterations = [call.args[0] for call in query.call_args_list if call.args[0].startswith('ALTER')]
         self.assertEqual(len(alterations), 1)
         self.assertIn('ADD COLUMN `renderData`', alterations[0])
+
+    def test_thesis_tables_are_reported_and_created_only_when_missing(self):
+        existing = {f'{table}.{column}' for table, column in deploy.COLUMNS}
+        query = Mock(return_value='\n'.join(existing))
+        context = Mock()
+        context.__enter__ = Mock(return_value=query)
+        context.__exit__ = Mock(return_value=False)
+        with patch.object(deploy, 'mysql_session', return_value=context):
+            self.assertEqual(deploy.schema_check({'mysql.database': 'ai_code'}), list(deploy.TABLES))
+            self.assertEqual(query.call_count, 1)
+            self.assertEqual(deploy.schema_check({'mysql.database': 'ai_code'}, True), [])
+        creations = [call.args[0] for call in query.call_args_list if call.args[0].startswith('CREATE')]
+        self.assertEqual(len(creations), 2)
+        self.assertTrue(all('IF NOT EXISTS' in sql for sql in creations))
 
 
 if __name__ == '__main__':

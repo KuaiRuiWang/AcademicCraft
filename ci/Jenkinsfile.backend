@@ -9,7 +9,7 @@ pipeline {
     parameters {
         string(name: 'SOURCE_BRANCH', defaultValue: 'dev', description: '应用代码分支，例如 dev 或 master')
         booleanParam(name: 'DEPLOY', defaultValue: false, description: '勾选后发布到生产；未勾选时只构建和预检')
-        booleanParam(name: 'MIGRATE_SCHEMA', defaultValue: false, description: '首次升级时补齐全栈和 AG-UI 所需的新增列，不删除现有数据')
+        booleanParam(name: 'MIGRATE_SCHEMA', defaultValue: false, description: '首次升级时补齐全栈、AG-UI 和论文模块所需的表与列，不删除现有数据')
     }
     environment {
         REPOSITORY_URL = 'ssh://git@ssh.github.com:443/KuaiRuiWang/AcademicCraft.git'
