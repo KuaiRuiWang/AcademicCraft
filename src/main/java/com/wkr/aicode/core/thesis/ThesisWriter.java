@@ -4,9 +4,10 @@ import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.model.openai.OpenAiChatRequestParameters;
 import jakarta.annotation.Resource;
@@ -16,6 +17,8 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /** 依据冻结资料逐章写作，模型不持有文件工具或其他应用的对话记忆。 */
 @Service
@@ -23,8 +26,8 @@ public class ThesisWriter {
     public static final List<String> CHAPTERS = List.of("摘要", "Abstract", "第一章 绪论", "第二章 相关技术",
             "第三章 需求分析", "第四章 系统设计", "第五章 系统实现", "第六章 系统测试", "第七章 总结与展望", "参考文献与待补材料");
 
-    @Resource(name = "openAiChatModel")
-    private ChatModel chatModel;
+    @Resource(name = "streamingChatModelPrototype")
+    private StreamingChatModel chatModel;
 
     public String writeChapter(String title, String chapter, String context, String previousSummary) {
         String system;
@@ -33,12 +36,19 @@ public class ThesisWriter {
         } catch (IOException e) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "论文提示词加载失败");
         }
-        // 分章写作只需要正文，关闭模型默认深度思考，避免非流式响应在长时间推理后被截断。
-        ChatResponse response = chatModel.chat(ChatRequest.builder().messages(List.of(SystemMessage.from(system), UserMessage.from(
+        // 章节只需正文；通过已验证的流式接口收齐响应，避免上游非流式响应截断。
+        ChatRequest request = ChatRequest.builder().messages(List.of(SystemMessage.from(system), UserMessage.from(
                 "论文题目：" + title + "\n本次只写：" + chapter + "\n完整提纲：" + String.join("、", CHAPTERS)
                         + "\n前文摘要（仅用于术语衔接，不是新增证据）：\n" + previousSummary
                         + "\n<project_sources>\n" + context + "\n</project_sources>")))
-                .parameters(OpenAiChatRequestParameters.builder().reasoningEffort("none").build()).build());
+                .parameters(OpenAiChatRequestParameters.builder().reasoningEffort("none").build()).build();
+        CompletableFuture<ChatResponse> completed = new CompletableFuture<>();
+        chatModel.chat(request, new StreamingChatResponseHandler() {
+            @Override public void onPartialResponse(String text) { }
+            @Override public void onCompleteResponse(ChatResponse response) { completed.complete(response); }
+            @Override public void onError(Throwable error) { completed.completeExceptionally(error); }
+        });
+        ChatResponse response = completed.orTimeout(180, TimeUnit.SECONDS).join();
         String text = response.aiMessage().text();
         if (response.finishReason() == FinishReason.LENGTH || text == null || text.isBlank()) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "章节输出不完整，请重试该章节");
