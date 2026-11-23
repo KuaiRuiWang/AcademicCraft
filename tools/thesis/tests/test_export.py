@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -12,6 +13,29 @@ from docx import Document
 
 
 class ExportTest(unittest.TestCase):
+    def test_exports_new_svg_figures_alongside_legacy_mermaid(self):
+        payload = {
+            'version': 1,
+            'source': Path(__file__).with_name('sample_diagram.mmd').read_text(encoding='utf-8'),
+            'svg': Path(__file__).with_name('sample_diagram.svg').read_text(encoding='utf-8'),
+            'caption': '图4.2 应用系统架构',
+        }
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / 'mixed.md'
+            content = Path(__file__).with_name('sample.md').read_text(encoding='utf-8')
+            second = {**payload, 'caption': '图4.3 第二张连续配图'}
+            source.write_text(content + '\n\n```diagram-design\n' + json.dumps(payload, ensure_ascii=False) + '\n```\n\n```diagram-design\n' + json.dumps(second, ensure_ascii=False) + '\n```\n\n### 后续说明\n三张配图均应保留。', encoding='utf-8')
+            target = Path(folder) / 'mixed.docx'
+            export(source, target)
+            document = Document(target)
+            self.assertEqual(len(document.inline_shapes), 3)
+            text = '\n'.join(p.text for p in document.paragraphs)
+            self.assertEqual(text.count('图4.2 应用系统架构'), 1)
+            self.assertEqual(text.count('图4.3 第二张连续配图'), 1)
+            self.assertIn('三张配图均应保留', text)
+            self.assertNotIn('diagram-design', text)
+            self.assertNotIn('<svg', text)
+
     def test_rejects_external_resources_before_starting_browser(self):
         with tempfile.TemporaryDirectory() as folder, patch("export_thesis.subprocess.run") as run:
             with self.assertRaisesRegex(ValueError, "external resources"):

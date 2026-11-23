@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test:agent": "node --experimental-strip-types --test tests/agentRun.test.ts",
+    "test:thesis": "node --experimental-strip-types --test tests/thesisDiagram.test.ts",
     "dev": "vite",
     "pure-build": "vite build",
     "build": "run-p type-check \"build-only {@}\" --",

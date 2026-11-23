@@ -1,0 +1,11 @@
+erDiagram
+ USER ||--o{ TASK : owns
+ USER {
+ int id PK
+ string name
+ }
+ TASK {
+ int id PK
+ int ownerId FK
+ string title
+ }

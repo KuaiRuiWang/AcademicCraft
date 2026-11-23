@@ -4,7 +4,9 @@ import com.mybatisflex.core.mybatis.FlexConfiguration;
 import com.mybatisflex.spring.FlexSqlSessionFactoryBean;
 import com.wkr.aicode.core.thesis.ProjectSnapshotService;
 import com.wkr.aicode.core.thesis.ThesisWriter;
+import com.wkr.aicode.core.thesis.ThesisDiagramService;
 import com.wkr.aicode.exception.BusinessException;
+import com.wkr.aicode.exception.ErrorCode;
 import com.wkr.aicode.mapper.AppMapper;
 import com.wkr.aicode.mapper.AppThesisChapterMapper;
 import com.wkr.aicode.mapper.AppThesisMapper;
@@ -38,6 +40,7 @@ class ThesisServiceTest {
     AppMapper apps;
     ProjectSnapshotService snapshots;
     ThesisWriter writer;
+    ThesisDiagramService diagrams;
     final User owner = User.builder().id(2L).build();
     final App app = App.builder().id(1L).userId(2L).appName("图书管理").initPrompt("管理图书").codeGenType("vue_project").generateThesis(1).build();
 
@@ -66,6 +69,8 @@ class ThesisServiceTest {
         service = new ThesisService();
         snapshots = mock(ProjectSnapshotService.class);
         writer = mock(ThesisWriter.class);
+        diagrams = mock(ThesisDiagramService.class);
+        when(diagrams.renderChapter(anyLong(), anyString(), anyInt(), anyString())).thenAnswer(call -> call.getArgument(3));
         when(snapshots.capture(any())).thenReturn(new ProjectSnapshotService.Snapshot("version-1", "真实源码版本一"));
         when(writer.writeChapter(anyString(), anyString(), anyString(), anyString())).thenAnswer(call -> call.getArgument(1) + "的正文");
         ReflectionTestUtils.setField(service, "appMapper", apps);
@@ -73,6 +78,7 @@ class ThesisServiceTest {
         ReflectionTestUtils.setField(service, "chapterMapper", session.getMapper(AppThesisChapterMapper.class));
         ReflectionTestUtils.setField(service, "snapshotService", snapshots);
         ReflectionTestUtils.setField(service, "thesisWriter", writer);
+        ReflectionTestUtils.setField(service, "diagramService", diagrams);
         ReflectionTestUtils.setField(service, "transactionTemplate", new TransactionTemplate(new DataSourceTransactionManager(dataSource)));
     }
 
@@ -196,6 +202,37 @@ class ThesisServiceTest {
         service.generationSucceeded(1L);
         assertEquals("stale", service.getThesis(1L, owner).getStatus());
         verify(writer, times(1)).writeChapter(anyString(), eq("摘要"), anyString(), anyString());
+    }
+
+    @Test void diagramFailureKeepsFinishedChaptersAndRetryContinuesAtTheFailedChapter() throws Exception {
+        AtomicBoolean failed = new AtomicBoolean();
+        when(diagrams.renderChapter(anyLong(), anyString(), anyInt(), anyString())).thenAnswer(call -> {
+            if (Integer.valueOf(6).equals(call.getArgument(2)) && !failed.getAndSet(true))
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "invalid diagram layout");
+            return call.getArgument(3);
+        });
+        service.generate(1L, owner);
+        await("failed");
+        var failedThesis = service.getThesis(1L, owner);
+        assertEquals("ready", failedThesis.getChapters().get(4).getStatus());
+        assertEquals("failed", failedThesis.getChapters().get(5).getStatus());
+        service.generate(1L, owner);
+        await("ready");
+        verify(writer, times(1)).writeChapter(anyString(), eq("摘要"), anyString(), anyString());
+        verify(writer, times(2)).writeChapter(anyString(), eq("第四章 系统设计"), anyString(), anyString());
+    }
+
+    @Test void invalidEditedFigureDoesNotReplaceTheSavedChapter() throws Exception {
+        service.generate(1L, owner);
+        await("ready");
+        var thesis = service.getThesis(1L, owner);
+        var input = new ThesisChapterUpdateRequest();
+        input.setRevision(thesis.getRevision());
+        input.setOriginalContent(thesis.getChapters().get(0).getContent());
+        input.setContent("```diagram-design\ninvalid\n```");
+        doThrow(new BusinessException(ErrorCode.PARAMS_ERROR, "invalid SVG")).when(diagrams).validateChapter(1L, input.getContent());
+        assertThrows(BusinessException.class, () -> service.saveChapter(1L, 1, input, owner));
+        assertEquals(input.getOriginalContent(), service.getThesis(1L, owner).getChapters().get(0).getContent());
     }
 
     private void await(String status) throws Exception {

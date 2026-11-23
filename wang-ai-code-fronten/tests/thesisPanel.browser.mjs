@@ -6,6 +6,12 @@ import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 const toolRequire = createRequire(new URL('../../tools/thesis/package.json', import.meta.url))
 const { default: puppeteer } = await import(pathToFileURL(toolRequire.resolve('puppeteer')).href)
+const diagram = {
+  version: 1,
+  source: await fs.readFile(new URL('../../tools/thesis/tests/sample_diagram.mmd', import.meta.url), 'utf8'),
+  svg: await fs.readFile(new URL('../../tools/thesis/tests/sample_diagram.svg', import.meta.url), 'utf8'),
+  caption: '图4.1 应用系统架构',
+}
 
 const titles = [
   '摘要',
@@ -36,6 +42,7 @@ let thesis = {
     sourceVersion: 'v1',
   })),
 }
+thesis.chapters[5].content += '\n\n```diagram-design\n' + JSON.stringify(diagram) + '\n```'
 let saved
 let created
 let generateCalls = 0
@@ -140,6 +147,24 @@ try {
   await page.goto('http://127.0.0.1:5179/app/chat/1?view=1', { waitUntil: 'networkidle0' })
   await clickText('论文初稿')
   await page.waitForSelector('.thesis-content .markdown-content')
+  await (await page.$$('.thesis-chapters button'))[5].click()
+  await page.waitForFunction(() => document.querySelector('.thesis-diagram img')?.naturalWidth > 0)
+  assert.equal(await page.$eval('.thesis-diagram figcaption', element => element.textContent), diagram.caption)
+  assert.equal((await page.$$('.thesis-diagram svg')).length, 0, 'SVG must remain in an image document')
+  await clickText('编辑本章')
+  const editable = await page.$eval('#thesis-chapter-content', element => element.value)
+  assert.ok(editable.includes('<!-- 保留配图 1 -->'))
+  assert.ok(!editable.includes('<svg'))
+  await page.$eval('#thesis-chapter-content', element => {
+    element.value = element.value.replace('本系统提供', '作者修改后提供')
+    element.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await clickText('保存本章')
+  await page.waitForFunction(() => document.querySelector('.thesis-diagram img')?.naturalWidth > 0)
+  assert.ok(saved.content.includes('作者修改后提供'))
+  assert.ok(saved.content.includes('```diagram-design'))
+  assert.ok(saved.content.includes(JSON.stringify(diagram)))
+  await (await page.$$('.thesis-chapters button'))[0].click()
   await clickText('编辑本章')
   await page.$eval('#thesis-chapter-content', (el) => {
     el.value = '作者手动修订的摘要，更新论文时必须保留。'
@@ -195,6 +220,11 @@ try {
   await page.waitForNetworkIdle()
   await clickText('论文初稿')
   await page.waitForSelector('.thesis-content .markdown-content')
+  await (await page.$$('.thesis-chapters button'))[5].click()
+  await page.waitForFunction(() => document.querySelector('.thesis-diagram img')?.naturalWidth > 0)
+  await page.focus('.thesis-diagram-canvas')
+  await page.keyboard.press('ArrowRight')
+  await page.waitForFunction(() => document.querySelector('.thesis-diagram-canvas').scrollLeft > 0)
   await page.waitForNetworkIdle()
   await page.screenshot({ path: '../tmp/thesis-ui-check/mobile.png', fullPage: true })
   assert.ok(
@@ -210,7 +240,7 @@ try {
   assert.equal(created.thesisTitle, '图书管理系统设计与实现')
   assert.deepEqual(errors, [])
   console.log(
-    'PASS: create, chapter editing, conflict preservation, source update, failure retry, desktop/mobile layout',
+    'PASS: create, diagrams, figure-preserving edits, conflict preservation, source update, failure retry, desktop/mobile keyboard scrolling',
   )
 } finally {
   await browser.close()

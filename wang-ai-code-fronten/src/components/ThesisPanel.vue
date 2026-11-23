@@ -4,6 +4,7 @@ import { onBeforeRouteLeave } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { DownloadOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import { createChapterDraft, restoreChapterDraft } from '@/utils/thesisDiagram'
 import {
   exportThesis,
   generateThesis,
@@ -23,6 +24,8 @@ const chapterNo = ref(1)
 const editing = ref(false)
 const draft = ref('')
 const original = ref<string | null>(null)
+const originalDraft = ref('')
+const draftFigures = ref<{ marker: string; block: string }[]>([])
 const editRevision = ref<string>()
 let timer: ReturnType<typeof setTimeout> | undefined
 let disposed = false
@@ -34,7 +37,7 @@ const generating = computed(() => thesis.value?.status === 'generating')
 const completed = computed(
   () => thesis.value?.chapters.filter((item) => item.status === 'ready').length || 0,
 )
-const dirty = computed(() => editing.value && draft.value !== (original.value || ''))
+const dirty = computed(() => editing.value && draft.value !== originalDraft.value)
 const manualReviewCount = computed(
   () =>
     thesis.value?.chapters.filter(
@@ -84,7 +87,10 @@ async function generate() {
 
 function edit() {
   original.value = chapter.value?.content ?? null
-  draft.value = original.value || ''
+  const editable = createChapterDraft(original.value || '')
+  draft.value = editable.text
+  originalDraft.value = editable.text
+  draftFigures.value = editable.figures
   editRevision.value = thesis.value?.revision
   editing.value = true
 }
@@ -94,7 +100,7 @@ async function save() {
   saving.value = true
   try {
     const response = await saveThesisChapter(props.appId, chapter.value.chapterNo, {
-      content: draft.value,
+      content: restoreChapterDraft(draft.value, draftFigures.value),
       originalContent: original.value,
       revision: editRevision.value,
     })
@@ -240,6 +246,7 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
         </div>
         <form v-if="editing" @submit.prevent="save" class="chapter-editor">
           <label for="thesis-chapter-content">章节正文（Markdown）</label>
+          <p v-if="draftFigures.length" class="diagram-edit-note">配图以占位行显示，保存时保留原图；删除占位行可移除对应配图。</p>
           <a-textarea
             id="thesis-chapter-content"
             v-model:value="draft"
@@ -258,7 +265,7 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
             <a-button @click="editing = false" :disabled="saving">取消编辑</a-button>
           </div>
         </form>
-        <MarkdownRenderer v-else-if="chapter?.content" :content="chapter.content" />
+        <MarkdownRenderer v-else-if="chapter?.content" :content="chapter.content" diagrams />
         <p v-else class="chapter-pending">
           {{
             chapter?.status === 'failed'
@@ -396,6 +403,13 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
 .chapter-editor label {
   font-weight: 650;
   font-size: 0.87rem;
+}
+
+.diagram-edit-note {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.6;
 }
 
 .chapter-editor textarea {

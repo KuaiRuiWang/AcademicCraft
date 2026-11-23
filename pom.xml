@@ -207,8 +207,14 @@
                 <targetPath>thesis</targetPath>
                 <includes>
                     <include>export_thesis.py</include>
+                    <include>diagram_design.py</include>
+                    <include>render_svg.mjs</include>
                     <include>vendor/lunwen/*.py</include>
                     <include>vendor/lunwen/LICENSE</include>
+                    <include>vendor/diagram-design/LICENSE</include>
+                    <include>vendor/diagram-design/scripts/*.py</include>
+                    <include>vendor/diagram-design/references/*.md</include>
+                    <include>vendor/diagram-design/assets/*.html</include>
                     <include>NOTICE.md</include>
                 </includes>
             </resource>

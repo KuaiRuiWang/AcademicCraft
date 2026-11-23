@@ -6,12 +6,14 @@
 import { computed } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
+import { renderThesisDiagram } from '@/utils/thesisDiagram'
 
 // 引入代码高亮样式
 import 'highlight.js/styles/github.css'
 
 interface Props {
   content: string
+  diagrams?: boolean
 }
 
 const props = defineProps<Props>()
@@ -38,6 +40,14 @@ const md: MarkdownIt = new MarkdownIt({
   },
 })
 
+const originalFence = md.renderer.rules.fence!
+md.renderer.rules.fence = (tokens, index, options, env, renderer) => {
+  const token = tokens[index]!
+  if (props.diagrams && token.info.trim() === 'diagram-design')
+    return renderThesisDiagram(token.content, md.utils.escapeHtml)
+  return originalFence(tokens, index, options, env, renderer)
+}
+
 // 计算渲染后的 Markdown
 const renderedMarkdown = computed(() => {
   return md.render(props.content)
@@ -49,6 +59,49 @@ const renderedMarkdown = computed(() => {
   line-height: 1.6;
   color: var(--color-text);
   word-wrap: break-word;
+}
+
+.markdown-content :deep(.thesis-diagram) {
+  margin: 1.5em 0;
+  min-width: 0;
+}
+
+.markdown-content :deep(.thesis-diagram-canvas) {
+  overflow: auto;
+  max-width: 100%;
+  border: 1px solid var(--color-border);
+  background: white;
+}
+
+.markdown-content :deep(.thesis-diagram img) {
+  display: block;
+  max-width: none;
+}
+
+.markdown-content :deep(.thesis-diagram details) {
+  margin-top: 8px;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
+
+.markdown-content :deep(.thesis-diagram-hint) {
+  margin: 6px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+}
+
+.markdown-content :deep(.thesis-diagram summary) {
+  cursor: pointer;
+  padding-block: 6px;
+}
+
+.markdown-content :deep(.thesis-diagram figcaption) {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.markdown-content :deep(.thesis-diagram-error) {
+  color: var(--color-error);
 }
 
 /* 全局样式，影响 v-html 内容 */

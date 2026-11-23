@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.wkr.aicode.core.thesis.ProjectSnapshotService;
 import com.wkr.aicode.core.thesis.ThesisWriter;
+import com.wkr.aicode.core.thesis.ThesisDiagramService;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
 import com.wkr.aicode.exception.ThrowUtils;
@@ -41,6 +42,7 @@ public class ThesisService {
     @Resource private AppThesisChapterMapper chapterMapper;
     @Resource private ProjectSnapshotService snapshotService;
     @Resource private ThesisWriter thesisWriter;
+    @Resource private ThesisDiagramService diagramService;
     @Resource private TransactionTemplate transactionTemplate;
 
     private final ExecutorService executor = Executors.newFixedThreadPool(2, Thread.ofVirtual().name("thesis-", 0).factory());
@@ -171,8 +173,9 @@ public class ThesisService {
                 try {
                     String content = thesisWriter.writeChapter(thesis.getTitle(), chapter.getTitle(),
                             thesis.getSourceContext(), previous.toString());
+                    String illustrated = diagramService.renderChapter(appId, revision, chapter.getChapterNo(), content);
                     if (!withCurrent(appId, revision, current -> {
-                        chapter.setContent(content);
+                        chapter.setContent(illustrated);
                         chapter.setSourceVersion(current.getSourceVersion());
                         chapter.setStatus("ready");
                         chapterMapper.update(chapter);
@@ -225,6 +228,7 @@ public class ThesisService {
         authorizedApp(appId, user);
         ThrowUtils.throwIf(request == null || StrUtil.isBlank(request.getContent()) || request.getContent().length() > 100_000,
                 ErrorCode.PARAMS_ERROR, "正文不能为空，且不能超过 10 万字");
+        diagramService.validateChapter(appId, request.getContent());
         transactionTemplate.executeWithoutResult(status -> {
             AppThesis thesis = thesisMapper.selectForUpdate(appId);
             ThrowUtils.throwIf(thesis == null, ErrorCode.NOT_FOUND_ERROR, "论文不存在");

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" role="img" aria-labelledby="figure-title figure-desc">
+  <title id="figure-title">图4.3 上线验证配图</title>
+  <desc id="figure-desc">实体关系图，展示 USER 实体与 TASK 实体之间的一对多 owns 关系</desc>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#2d3142"/>
+    </marker>
+  </defs>
+  <rect width="720" height="360" fill="white"/>
+  <g font-family="Noto Sans CJK SC, Microsoft YaHei, sans-serif" fill="#2d3142">
+    <g data-edge-id="e1" data-from="USER" data-to="TASK">
+      <line x1="260" y1="180" x2="460" y2="180" stroke="#2d3142" stroke-width="1.5"/>
+      <rect x="330" y="148" width="60" height="22" fill="white"/>
+      <text x="360" y="164" text-anchor="middle" font-size="16" fill="#2d3142">owns</text>
+      <rect x="258" y="148" width="24" height="22" fill="white"/>
+      <text x="270" y="164" text-anchor="middle" font-size="18" fill="#2d3142">1</text>
+      <rect x="410" y="148" width="52" height="22" fill="white"/>
+      <text x="436" y="164" text-anchor="middle" font-size="18" fill="#2d3142">0..*</text>
+    </g>
+    <g data-node-id="USER">
+      <rect x="90" y="100" width="170" height="100" fill="white" stroke="#2d3142" stroke-width="1.5"/>
+      <rect x="90" y="100" width="170" height="36" fill="#2e5aa8"/>
+      <text x="175" y="123" text-anchor="middle" font-size="18" font-weight="600" fill="white">USER</text>
+      <text x="105" y="158" font-size="16" fill="#2d3142">int id PK</text>
+      <text x="105" y="184" font-size="16" fill="#2d3142">string name</text>
+    </g>
+    <g data-node-id="TASK">
+      <rect x="460" y="100" width="170" height="126" fill="white" stroke="#2d3142" stroke-width="1.5"/>
+      <rect x="460" y="100" width="170" height="36" fill="#2e5aa8"/>
+      <text x="545" y="123" text-anchor="middle" font-size="18" font-weight="600" fill="white">TASK</text>
+      <text x="475" y="158" font-size="16" fill="#2d3142">int id PK</text>
+      <text x="475" y="184" font-size="16" fill="#2d3142">int ownerId FK</text>
+      <text x="475" y="210" font-size="16" fill="#2d3142">string title</text>
+    </g>
+  </g>
+</svg>
