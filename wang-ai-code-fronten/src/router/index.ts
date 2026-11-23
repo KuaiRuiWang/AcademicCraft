@@ -82,6 +82,7 @@ const router = createRouter({
       path: '/app/chat/:id',
       name: '应用对话',
       component: () => import('@/pages/app/AppChatPage.vue'),
+      meta: { layout: 'workspace' },
     },
     {
       path: '/app/edit/:id',

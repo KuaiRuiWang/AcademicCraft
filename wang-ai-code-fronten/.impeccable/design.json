@@ -153,7 +153,7 @@
         "value": "620px"
       },
       {
-        "name": "compact-navigation-and-workspace",
+        "name": "compact-navigation-and-forms",
         "value": "760px"
       },
       {
@@ -161,8 +161,8 @@
         "value": "800px"
       },
       {
-        "name": "thesis-chapters-horizontal",
-        "value": "920px"
+        "name": "chat-workspace-split",
+        "value": "960px"
       }
     ]
   },
