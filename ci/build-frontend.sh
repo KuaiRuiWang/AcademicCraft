@@ -23,6 +23,7 @@ export VITE_API_BASE_URL=/api
     if node -e 'process.exit(require("./package.json").scripts["test:agent"] ? 0 : 1)'; then
         npm run test:agent
     fi
+    npm run --if-present test:thesis
     npm run build
 )
 
