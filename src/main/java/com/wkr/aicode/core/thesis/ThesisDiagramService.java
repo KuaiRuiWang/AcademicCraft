@@ -4,6 +4,7 @@ import cn.hutool.json.JSONUtil;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +18,7 @@ import java.util.regex.Pattern;
 
 /** 使用 Diagram Design 保留图的语义，单独生成并校验 SVG。 */
 @Service
+@Slf4j
 public class ThesisDiagramService {
     private static final Pattern MERMAID = Pattern.compile("(?m)^```mermaid[ \\t]*\\R(.*?)^```[ \\t]*(?:\\R[ \\t]*)*(图\\s*\\d[^\\r\\n]*)?", Pattern.DOTALL);
     @Resource private ThesisTools tools;
@@ -46,18 +48,25 @@ public class ThesisDiagramService {
             // 2. 模型只重排源图；不完整或错位时带校验反馈修正一次。
             for (int attempt = 0; attempt < 2; attempt++) {
                 String svg = writer.drawDiagram(digest, reference, caption, feedback);
-                figure = JSONUtil.toJsonStr(Map.of("version", 1, "source", source, "svg", svg, "caption", caption));
-                Path payload = write(directory.resolve("figure.json"), figure);
+                String candidate = JSONUtil.toJsonStr(Map.of("version", 1, "source", source, "svg", svg, "caption", caption));
+                Path payload = write(directory.resolve("figure.json"), candidate);
                 try {
                     tools.run("diagram_design.py", directory, 60, "validate", payload.toAbsolutePath().toString());
-                    feedback = "";
+                    figure = candidate;
                     break;
                 } catch (BusinessException error) {
-                    if (attempt == 1) throw error;
+                    if (attempt == 1) {
+                        // 排版优化失败时保留语义草图，避免阻断整篇论文。
+                        log.warn("配图排版未通过校验，保留原图，appId={}，chapterNo={}，figure={}，原因={}",
+                                appId, chapterNo, index, error.getMessage());
+                        break;
+                    }
                     feedback = "上一版 SVG：\n" + svg + "\n校验反馈（仅用于修正布局，不可改变源图语义）：\n" + error.getMessage();
                 }
             }
-            String block = "```diagram-design\n" + figure + "\n```\n\n";
+            String block = figure == null
+                    ? matches.group(0) + "\n\n> 配图自动排版未通过校验，已保留原始结构图；Word 导出仍会绘制该图。\n\n"
+                    : "```diagram-design\n" + figure + "\n```\n\n";
             matches.appendReplacement(result, Matcher.quoteReplacement(block));
         } while (matches.find());
         matches.appendTail(result);

@@ -41,7 +41,7 @@ class ThesisDiagramServiceTest {
         verify(tools).run(eq("diagram_design.py"), any(), eq(60), eq("validate"), anyString());
     }
 
-    @Test void retriesLayoutOnceWithValidationFeedbackAndPropagatesFailure() {
+    @Test void retriesLayoutOnceAndPreservesTheSourceWhenLayoutStillFails() {
         ThesisTools tools = mock(ThesisTools.class);
         ThesisWriter writer = mock(ThesisWriter.class);
         when(tools.root()).thenReturn(temporary);
@@ -52,10 +52,37 @@ class ThesisDiagramServiceTest {
         ThesisDiagramService service = new ThesisDiagramService();
         ReflectionTestUtils.setField(service, "tools", tools);
         ReflectionTestUtils.setField(service, "writer", writer);
-        assertThrows(BusinessException.class, () -> service.renderChapter(1L, "r1", 6, "```mermaid\nflowchart TD\nA-->B\n```"));
+        String result = service.renderChapter(1L, "r1", 6, "```mermaid\nflowchart TD\nA-->B\n```\n\n图4.1 系统流程");
+        assertTrue(result.contains("```mermaid\nflowchart TD\nA-->B\n```\n\n图4.1 系统流程"));
+        assertTrue(result.contains("已保留原始结构图"));
+        assertFalse(result.contains("```diagram-design"));
+        assertFalse(result.contains("<svg/>"));
         verify(writer).drawDiagram(anyString(), anyString(), anyString(), eq(""));
         verify(writer).drawDiagram(anyString(), anyString(), anyString(), contains("Missing source edge e1"));
         verify(writer, times(2)).drawDiagram(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test void continuesDrawingTheNextFigureAfterKeepingAnUnrenderableSketch() {
+        ThesisTools tools = mock(ThesisTools.class);
+        ThesisWriter writer = mock(ThesisWriter.class);
+        when(tools.root()).thenReturn(temporary);
+        when(tools.run(eq("diagram_design.py"), any(), anyInt(), eq("extract"), anyString())).thenReturn("{\"type\":\"flowchart\"}");
+        when(tools.run(eq("diagram_design.py"), any(), anyInt(), eq("validate"), anyString()))
+                .thenThrow(new BusinessException(ErrorCode.OPERATION_ERROR, "Clipped text"))
+                .thenThrow(new BusinessException(ErrorCode.OPERATION_ERROR, "Clipped text")).thenReturn("{}");
+        when(writer.drawDiagram(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn("<svg>failed</svg>", "<svg>failed</svg>", "<svg>validated</svg>");
+        ThesisDiagramService service = new ThesisDiagramService();
+        ReflectionTestUtils.setField(service, "tools", tools);
+        ReflectionTestUtils.setField(service, "writer", writer);
+        String result = service.renderChapter(1L, "r1", 6,
+                "```mermaid\nflowchart TD\nA-->B\n```\n\n图4.1 流程\n\n```mermaid\nflowchart TD\nC-->D\n```\n\n图4.2 架构");
+        assertEquals(1, result.split("```mermaid", -1).length - 1);
+        assertEquals(1, result.split("```diagram-design", -1).length - 1);
+        assertTrue(result.contains("validated"));
+        assertFalse(result.contains("failed</svg>"));
+        assertTrue(result.contains("图4.1 流程"));
+        assertTrue(result.contains("图4.2 架构"));
     }
 
     @Test void plainChaptersDoNotStartPythonOrCallTheModel() {
