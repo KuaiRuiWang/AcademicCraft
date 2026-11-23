@@ -45,6 +45,13 @@ class DiagramDesignTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     validate_svg(SOURCE, replacement, Path(folder))
 
+    def test_inert_label_metadata_does_not_replace_visible_source_labels(self):
+        annotated = SVG.replace('data-node-id="C"', 'data-node-id="C" data-label="数据存储"')
+        with tempfile.TemporaryDirectory() as folder:
+            validate_svg(SOURCE, annotated, Path(folder))
+            with self.assertRaisesRegex(ValueError, 'Missing visible source label or field'):
+                validate_svg(SOURCE, annotated.replace('>数据存储</text>', '>其他</text>'), Path(folder))
+
     def test_rejects_active_and_external_svg_before_starting_browser(self):
         for fragment in ['<script>alert(1)</script>', '<image href="http://169.254.169.254/"/>', '<foreignObject/>', '<style>@import "https://example.com";</style>']:
             with tempfile.TemporaryDirectory() as folder, patch('diagram_design.render_svg') as render:

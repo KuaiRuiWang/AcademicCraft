@@ -22,7 +22,7 @@ SVG_NS = "http://www.w3.org/2000/svg"
 FIGURE_RE = re.compile(r"^```diagram-design[ \t]*\r?\n(.*?)^```[ \t]*\r?$", re.MULTILINE | re.DOTALL)
 TYPES = {"flowchart": "architecture", "sequenceDiagram": "sequence", "erDiagram": "er", "stateDiagram-v2": "state", "stateDiagram": "state"}
 TAGS = {"svg", "title", "desc", "defs", "marker", "g", "rect", "text", "tspan", "path", "line", "circle", "ellipse", "polygon", "polyline"}
-ATTRS = set("id viewBox width height x y x1 y1 x2 y2 cx cy r rx ry d points fill fill-opacity stroke stroke-opacity opacity stroke-width stroke-linecap stroke-linejoin stroke-dasharray font-family font-size font-weight font-style text-anchor dominant-baseline dy dx transform marker-start marker-end markerWidth markerHeight refX refY orient markerUnits role aria-labelledby data-node-id data-edge-id data-from data-to".split())
+ATTRS = set("id viewBox width height x y x1 y1 x2 y2 cx cy r rx ry d points fill fill-opacity stroke stroke-opacity opacity stroke-width stroke-linecap stroke-linejoin stroke-dasharray font-family font-size font-weight font-style text-anchor dominant-baseline dy dx transform marker-start marker-end markerWidth markerHeight refX refY orient markerUnits role aria-labelledby data-node-id data-edge-id data-from data-to data-label".split())
 NUMBER = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)"
 
 
