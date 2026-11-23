@@ -50,7 +50,7 @@ const highlighted = computed(() => {
 .code-snippet {
   min-width: 0;
   background: var(--color-surface-soft);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 pre {

@@ -33,7 +33,8 @@ myAxios.interceptors.response.use(
         !window.location.pathname.includes('/user/login')
       ) {
         message.warning('请先登录')
-        window.location.href = `/user/login?redirect=${window.location.href}`
+        const { pathname, search, hash } = window.location
+        window.location.href = `/user/login?redirect=${encodeURIComponent(pathname + search + hash)}`
       }
     }
     return response

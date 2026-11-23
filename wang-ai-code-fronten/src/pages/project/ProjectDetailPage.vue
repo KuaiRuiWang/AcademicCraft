@@ -1,342 +1,117 @@
-<template>
-  <div id="projectDetailPage">
-    <a-spin :spinning="loading">
-      <template v-if="project.id">
-        <div class="container">
-          <!-- 返回按钮 -->
-          <div class="breadcrumb">
-            <a-button type="link" @click="$router.push('/project')">
-              <LeftOutlined /> 返回模板库
-            </a-button>
-          </div>
-
-          <header class="project-heading">
-            <h1>{{ project.name }}</h1>
-            <p>{{ project.description }}</p>
-          </header>
-          <a-row :gutter="[24, 24]">
-            <!-- 左侧：主要信息 -->
-            <a-col :xs="24" :lg="17">
-              <!-- 项目图片 -->
-              <a-card class="detail-card cover-card" :bordered="false">
-                <img
-                  :src="project.coverImage || defaultCover"
-                  :alt="project.name"
-                  class="detail-cover"
-                  @error="
-                    (e: any) => {
-                      e.target.src = defaultCover
-                    }
-                  "
-                />
-              </a-card>
-
-              <!-- 项目信息 -->
-              <a-card class="detail-card" :bordered="false" title="模板详情">
-                <template #extra>
-                  <a-space :size="4" wrap>
-                    <a-tag v-for="tag in parseTags(project.techTags)" :key="tag" class="tech-tag">
-                      {{ tag }}
-                    </a-tag>
-                  </a-space>
-                </template>
-                <div class="detail-content" v-html="renderedContent"></div>
-                <div v-if="!project.detailContent" class="detail-content">
-                  <p>{{ project.description || '暂无详细描述' }}</p>
-                </div>
-              </a-card>
-
-              <!-- 项目截图 -->
-              <a-card
-                v-if="project.images && project.images.length > 0"
-                class="detail-card"
-                :bordered="false"
-                title="项目截图"
-              >
-                <div class="screenshot-grid">
-                  <a-image
-                    v-for="(img, idx) in project.images"
-                    :key="idx"
-                    :src="img.imageUrl"
-                    :width="200"
-                    class="screenshot-item"
-                  />
-                </div>
-              </a-card>
-
-              <!-- 评价区域 -->
-              <a-card class="detail-card" :bordered="false" title="用户评价">
-                <template #extra>
-                  <a-space>
-                    <StarFilled style="color: #faad14" />
-                    <span
-                      >{{ project.avgRating ? project.avgRating.toFixed(1) : '-' }} ({{
-                        reviews.length
-                      }}
-                      条评价)</span
-                    >
-                  </a-space>
-                </template>
-
-                <!-- 评价列表 -->
-                <div v-if="reviews.length > 0">
-                  <div v-for="review in reviews" :key="review.id" class="review-item">
-                    <div class="review-header">
-                      <a-space>
-                        <a-avatar :src="review.user?.userAvatar" :size="32" />
-                        <div>
-                          <div class="review-author">{{ review.user?.userName || '匿名' }}</div>
-                          <a-rate :value="review.rating" disabled :style="{ fontSize: '12px' }" />
-                        </div>
-                      </a-space>
-                      <span class="review-time">{{ review.createTime }}</span>
-                    </div>
-                    <p class="review-content">{{ review.content }}</p>
-                  </div>
-                </div>
-                <a-empty v-else description="暂无评价" />
-
-                <!-- 发表评价 -->
-                <a-divider v-if="claim?.downloadAvailable && !myReview" />
-                <div v-if="claim?.downloadAvailable && !myReview" class="review-form">
-                  <h4>发表评价</h4>
-                  <div class="rating-row">
-                    <span>评分：</span>
-                    <a-rate v-model:value="reviewForm.rating" />
-                  </div>
-                  <a-textarea
-                    v-model:value="reviewForm.content"
-                    placeholder="分享你的使用体验..."
-                    :rows="3"
-                    :maxlength="500"
-                    class="review-textarea"
-                  />
-                  <a-button
-                    type="primary"
-                    :loading="submittingReview"
-                    @click="submitReview"
-                    style="margin-top: 12px"
-                  >
-                    提交评价
-                  </a-button>
-                </div>
-              </a-card>
-            </a-col>
-
-            <!-- 右侧：授权信息与源码 -->
-            <a-col :xs="24" :lg="7">
-              <div class="sidebar">
-                <a-card class="detail-card purchase-card" :bordered="false">
-                  <div class="price-block">
-                    <span class="price-value">免费模板</span>
-                  </div>
-
-                  <a-divider />
-
-                  <div class="info-rows">
-                    <div class="info-row">
-                      <TagOutlined /> 分类：{{ project.categoryName || '-' }}
-                    </div>
-                    <div class="info-row"><FireOutlined /> 领取：{{ project.salesCount || 0 }}</div>
-                    <div class="info-row"><EyeOutlined /> 浏览：{{ project.viewCount || 0 }}</div>
-                    <div class="info-row">
-                      <StarFilled style="color: #faad14" />
-                      评分：{{ project.avgRating ? project.avgRating.toFixed(1) : '暂无' }}
-                    </div>
-                    <div class="info-row">
-                      <ClockCircleOutlined /> 上架时间：{{ project.createTime }}
-                    </div>
-                  </div>
-
-                  <a-divider />
-
-                  <a-descriptions
-                    :column="1"
-                    size="small"
-                    layout="vertical"
-                    class="license-details"
-                  >
-                    <a-descriptions-item label="来源">{{
-                      project.sourceAttribution
-                    }}</a-descriptions-item>
-                    <a-descriptions-item label="使用许可">{{
-                      project.licenseTerms
-                    }}</a-descriptions-item>
-                  </a-descriptions>
-
-                  <!-- 按钮组 -->
-                  <a-space direction="vertical" style="width: 100%" :size="12">
-                    <a-button
-                      v-if="claim?.downloadAvailable && claim.id"
-                      :href="getTemplateDownloadUrl(claim.id)"
-                      target="_blank"
-                      rel="noopener"
-                      type="primary"
-                      size="large"
-                      block
-                    >
-                      <DownloadOutlined aria-hidden="true" /> 下载源码
-                    </a-button>
-                    <a-button
-                      v-else-if="!isAuthor"
-                      type="primary"
-                      size="large"
-                      block
-                      :loading="claiming"
-                      @click="handleClaim"
-                    >
-                      免费领取
-                    </a-button>
-                    <a-button
-                      v-if="project.demoUrl"
-                      :href="project.demoUrl"
-                      target="_blank"
-                      rel="noopener"
-                      size="large"
-                      block
-                    >
-                      <LinkOutlined aria-hidden="true" /> 查看演示
-                    </a-button>
-                  </a-space>
-                </a-card>
-
-                <!-- 作者信息 -->
-                <a-card class="detail-card author-card" :bordered="false" title="作者">
-                  <div class="author-info">
-                    <a-space>
-                      <a-avatar :src="project.author?.userAvatar" :size="48" />
-                      <div>
-                        <div class="author-name">{{ project.author?.userName || '匿名' }}</div>
-                        <div class="author-bio">
-                          {{ project.author?.userProfile || '暂无简介' }}
-                        </div>
-                      </div>
-                    </a-space>
-                  </div>
-                </a-card>
-              </div>
-            </a-col>
-          </a-row>
-        </div>
-      </template>
-
-      <!-- 项目不存在 -->
-      <div v-else-if="!loading" class="not-found">
-        <a-result status="404" title="模板暂未开放" sub-title="可能已下架或链接有误">
-          <template #extra>
-            <a-button type="primary" @click="$router.push('/project')">返回模板库</a-button>
-          </template>
-        </a-result>
-      </div>
-    </a-spin>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
-import { marked } from 'marked'
 import {
-  LeftOutlined,
-  StarFilled,
-  FireOutlined,
-  EyeOutlined,
-  ClockCircleOutlined,
+  ArrowLeftOutlined,
+  ArrowUpOutlined,
   DownloadOutlined,
-  LinkOutlined,
-  TagOutlined,
+  ExportOutlined,
 } from '@ant-design/icons-vue'
-import { useLoginUserStore } from '@/stores/loginUser.ts'
-import { getProjectVoById } from '@/api/projectController.ts'
-import { createOrder, getTemplateDownloadUrl, listMyOrders } from '@/api/projectOrderController.ts'
-import { addReview, listReviews } from '@/api/projectReviewController.ts'
+import { message } from 'ant-design-vue'
+import { useLoginUserStore } from '@/stores/loginUser'
+import { getProjectVoById } from '@/api/projectController'
+import { createOrder, getTemplateDownloadUrl, listMyOrders } from '@/api/projectOrderController'
+import { addReview, listReviews } from '@/api/projectReviewController'
+import { starterTemplates } from '@/config/starterTemplates'
+import { formatTime } from '@/utils/time'
+import TemplateArtwork from '@/components/TemplateArtwork.vue'
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import PageHeading from '@/components/PageHeading.vue'
 
 const route = useRoute()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
-
-const defaultCover =
-  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2YwZjJmNSIvPjx0ZXh0IHg9IjQwMCIgeT0iMjEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjI0IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+'
-
-const loading = ref(true)
-const claiming = ref(false)
-const claim = ref<API.ProjectOrderVO>()
-const submittingReview = ref(false)
+const id = route.params.id as string
+const starter = starterTemplates.find((template) => template.id === id)
+const loading = ref(!starter)
+const loadError = ref('')
 const project = ref<API.ProjectVO>({})
+const claim = ref<API.ProjectOrderVO>()
+const claiming = ref(false)
 const reviews = ref<API.ProjectReviewVO[]>([])
-const myReview = ref<API.ProjectReviewVO | null>(null)
+const reviewError = ref(false)
+const submittingReview = ref(false)
+const reviewForm = reactive({ rating: 5, content: '' })
 
-const reviewForm = reactive<API.ProjectReviewAddRequest>({
-  projectId: undefined,
-  rating: 5,
-  content: '',
-})
+const isAuthor = computed(() =>
+  Boolean(
+    loginUserStore.loginUser.id &&
+      String(loginUserStore.loginUser.id) === String(project.value.authorId),
+  ),
+)
+const hasReviewed = computed(() =>
+  reviews.value.some((review) => String(review.userId) === String(loginUserStore.loginUser.id)),
+)
+const tags = computed(() =>
+  (project.value.techTags || '')
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean),
+)
+const name = computed(() => starter?.name || project.value.name || '未命名模板')
+const description = computed(() => starter?.description || project.value.description)
+const category = computed(() => starter?.category || project.value.categoryName)
+const cloneLocation = { path: '/create', query: { template: id } }
 
-// 判断当前用户是否作者
-const isAuthor = computed(() => {
-  return loginUserStore.loginUser.id && loginUserStore.loginUser.id === project.value.authorId
-})
-
-// 渲染 markdown 内容
-const renderedContent = computed(() => {
-  if (!project.value.detailContent) return ''
+const demoUrl = computed(() => {
+  if (starter) return starter.url
+  if (!project.value.demoUrl) return ''
   try {
-    return marked.parse(project.value.detailContent) as string
+    const url = new URL(project.value.demoUrl, window.location.origin)
+    if (url.protocol === 'http:' || url.protocol === 'https:') return url.href
   } catch {
-    return project.value.detailContent
+    // 没有可访问的演示地址时，详情展示已登记的资料和截图。
   }
+  return ''
 })
 
-// 加载项目详情
-const loadProject = async () => {
+async function loadProject() {
   loading.value = true
+  loadError.value = ''
   try {
-    // 不使用 Number()，避免 JS 大数精度丢失。后端已配置 Long → String 序列化
-    const id = route.params.id as string
     const res = await getProjectVoById({ id: id as unknown as number })
     if (res.data.code === 0 && res.data.data) {
       project.value = res.data.data
-      reviewForm.projectId = id as unknown as number
       await Promise.all([loadReviews(), loadClaim()])
+    } else {
+      loadError.value = res.data.message || '模板暂未开放，可能已下架或链接有误。'
     }
   } catch {
-    message.error('加载项目失败')
+    loadError.value = '暂时无法读取模板，请检查网络后重试。'
   } finally {
     loading.value = false
   }
 }
 
-// 加载评价
-const loadReviews = async () => {
+async function loadReviews() {
+  reviewError.value = false
   try {
-    const id = route.params.id as string
     const res = await listReviews({ projectId: id as unknown as number })
-    if (res.data.code === 0 && res.data.data) {
-      reviews.value = res.data.data
-      // 查找我的评价
-      myReview.value = res.data.data.find((r) => r.userId === loginUserStore.loginUser.id) || null
-    }
+    if (res.data.code !== 0) throw new Error(res.data.message)
+    reviews.value = res.data.data || []
   } catch {
-    // ignore
+    reviewError.value = true
   }
 }
 
-const loadClaim = async () => {
+async function loadClaim() {
   const projectId = project.value.id
   if (!loginUserStore.loginUser.id || !projectId || isAuthor.value) return
-  const res = await listMyOrders({ projectId })
-  if (res.data.code === 0) {
-    claim.value = res.data.data?.records?.find((record) => record.downloadAvailable)
+  try {
+    const res = await listMyOrders({ projectId })
+    if (res.data.code === 0) {
+      claim.value = res.data.data?.records?.find((record) => record.downloadAvailable)
+    }
+  } catch {
+    message.warning('暂时无法读取领取记录，可在个人区重试。')
   }
 }
 
-const handleClaim = async () => {
+async function handleClaim() {
   if (!loginUserStore.loginUser.id) {
-    router.push({ path: '/user/login', query: { redirect: route.fullPath } })
+    await router.push({ path: '/user/login', query: { redirect: route.fullPath } })
     return
   }
-
   claiming.value = true
   try {
     const res = await createOrder({ projectId: project.value.id })
@@ -353,10 +128,10 @@ const handleClaim = async () => {
   }
 }
 
-// 提交评价
-const submitReview = async () => {
+async function submitReview() {
   if (!claim.value?.id || !claim.value.downloadAvailable) return
-  if (!reviewForm.content?.trim()) {
+  const content = reviewForm.content.trim()
+  if (!content) {
     message.warning('请输入评价内容')
     return
   }
@@ -364,289 +139,344 @@ const submitReview = async () => {
   submittingReview.value = true
   try {
     const res = await addReview({
-      ...reviewForm,
+      projectId: project.value.id,
       orderId: claim.value.id,
-      content: reviewForm.content.trim(),
+      rating: reviewForm.rating,
+      content,
     })
     if (res.data.code === 0) {
-      message.success('评价成功')
-      reviewForm.rating = 5
+      message.success('评价已发表')
       reviewForm.content = ''
-      loadReviews()
+      await loadReviews()
     } else {
-      message.error(res.data.message || '评价失败')
+      message.error(res.data.message || '评价发表失败')
     }
   } catch {
-    message.error('评价失败')
+    message.error('评价发表失败，请稍后重试')
   } finally {
     submittingReview.value = false
   }
 }
 
-// 解析标签
-const parseTags = (tags?: string): string[] => {
-  if (!tags) return []
-  return tags
-    .split(',')
-    .filter(Boolean)
-    .map((t) => t.trim())
-}
-
 onMounted(() => {
-  loadProject()
+  if (!starter) void loadProject()
 })
 </script>
 
+<template>
+  <div class="page-shell">
+    <RouterLink to="/project" class="back-link"
+      ><ArrowLeftOutlined aria-hidden="true" /> 模板目录</RouterLink
+    >
+
+    <div v-if="loading" aria-busy="true" class="paper-panel">
+      <a-skeleton active :paragraph="{ rows: 6 }" />
+    </div>
+    <template v-else-if="starter || project.id">
+      <header class="detail-lead">
+        <div class="detail-title">
+          <h1>{{ name }}</h1>
+          <p v-if="description">{{ description }}</p>
+          <div class="detail-tags">
+            <a-tag v-if="category">{{ category }}</a-tag>
+            <a-tag>{{ starter ? 'MIT 许可' : '免费模板' }}</a-tag>
+            <a-tag v-for="tag in tags" :key="tag">{{ tag }}</a-tag>
+          </div>
+          <div class="folio-actions">
+            <a-button type="primary" @click="router.push(cloneLocation)">
+              用此模板创建 <ArrowUpOutlined class="diagonal-arrow" aria-hidden="true" />
+            </a-button>
+            <a-button v-if="starter" :href="starter.url" :download="starter.id + '.html'">
+              <DownloadOutlined aria-hidden="true" /> 下载示例源码
+            </a-button>
+            <a-button
+              v-else-if="claim?.downloadAvailable && claim.id"
+              :href="getTemplateDownloadUrl(claim.id)"
+              target="_blank"
+              rel="noopener"
+            >
+              <DownloadOutlined aria-hidden="true" /> 下载源码
+            </a-button>
+            <a-button v-else-if="!isAuthor" :loading="claiming" @click="handleClaim">
+              免费领取
+            </a-button>
+          </div>
+        </div>
+        <TemplateArtwork
+          class="detail-art"
+          :illustration="starter?.id"
+          :cover="project.coverImage"
+        />
+      </header>
+
+      <div class="detail-body">
+        <div>
+          <section v-if="demoUrl" aria-labelledby="demo-title">
+            <header class="section-heading">
+              <h2 id="demo-title">在线试用</h2>
+              <a class="folio-link" :href="demoUrl" target="_blank" rel="noopener">
+                独立打开 <ExportOutlined aria-hidden="true" />
+              </a>
+            </header>
+            <iframe
+              class="demo-frame"
+              :title="name + '在线试用'"
+              :src="demoUrl"
+              sandbox="allow-scripts allow-forms"
+              referrerpolicy="no-referrer"
+            ></iframe>
+          </section>
+          <section v-if="project.detailContent" class="detail-material paper-panel">
+            <h2>模板详情</h2>
+            <MarkdownRenderer :content="project.detailContent" />
+          </section>
+          <section v-if="project.images?.length" class="detail-material">
+            <header class="section-heading"><h2>项目截图</h2></header>
+            <div class="screenshot-grid">
+              <a-image
+                v-for="(img, index) in project.images"
+                :key="img.imageUrl || index"
+                :src="img.imageUrl"
+                :alt="name + '项目截图'"
+              />
+            </div>
+          </section>
+        </div>
+
+        <aside class="detail-aside">
+          <section class="paper-panel">
+            <h2>模板说明</h2>
+            <p v-if="starter">{{ starter.prompt }}</p>
+            <p v-else-if="project.author?.userProfile" class="author-note">
+              {{ project.author.userProfile }}
+            </p>
+            <dl class="folio-spec">
+              <template v-if="starter">
+                <div>
+                  <dt>作者</dt>
+                  <dd>百夜应用工坊</dd>
+                </div>
+                <div>
+                  <dt>源码</dt>
+                  <dd>单文件 HTML</dd>
+                </div>
+                <div>
+                  <dt>使用许可</dt>
+                  <dd>MIT，保留版权及许可声明</dd>
+                </div>
+              </template>
+              <template v-else>
+                <div>
+                  <dt>作者</dt>
+                  <dd>{{ project.author?.userName || '匿名' }}</dd>
+                </div>
+                <div>
+                  <dt>来源</dt>
+                  <dd>{{ project.sourceAttribution || '未填写' }}</dd>
+                </div>
+                <div>
+                  <dt>使用许可</dt>
+                  <dd>{{ project.licenseTerms || '未填写' }}</dd>
+                </div>
+                <div>
+                  <dt>领取次数</dt>
+                  <dd>{{ project.salesCount || 0 }}</dd>
+                </div>
+                <div>
+                  <dt>浏览次数</dt>
+                  <dd>{{ project.viewCount || 0 }}</dd>
+                </div>
+                <div v-if="project.createTime">
+                  <dt>上架时间</dt>
+                  <dd>{{ formatTime(project.createTime) }}</dd>
+                </div>
+              </template>
+            </dl>
+          </section>
+
+          <section v-if="!starter" class="paper-panel reviews">
+            <h2>用户评价</h2>
+            <p v-if="project.avgRating" class="review-score">
+              平均 {{ project.avgRating.toFixed(1) }} 分
+            </p>
+            <div v-if="reviewError">
+              <p>评价暂时无法读取。</p>
+              <a-button size="small" @click="loadReviews">重试</a-button>
+            </div>
+            <ul v-else-if="reviews.length" class="paper-list">
+              <li v-for="review in reviews" :key="review.id" class="review">
+                <strong>{{ review.user?.userName || '匿名' }}</strong>
+                <span>{{ review.rating }} / 5 分</span>
+                <p>{{ review.content }}</p>
+                <small v-if="review.createTime">{{ formatTime(review.createTime) }}</small>
+              </li>
+            </ul>
+            <p v-else class="review-score">还没有评价。</p>
+
+            <form
+              v-if="claim?.downloadAvailable && !reviewError && !hasReviewed"
+              class="review-form"
+              @submit.prevent="submitReview"
+            >
+              <h3>发表评价</h3>
+              <label for="review-rating">评分</label>
+              <a-select
+                id="review-rating"
+                v-model:value="reviewForm.rating"
+                :options="[5, 4, 3, 2, 1].map((value) => ({ value, label: value + ' 分' }))"
+              />
+              <label for="review-content">使用感受</label>
+              <a-textarea
+                id="review-content"
+                v-model:value="reviewForm.content"
+                :rows="3"
+                :maxlength="500"
+              />
+              <a-button type="primary" html-type="submit" :loading="submittingReview"
+                >发表评价</a-button
+              >
+            </form>
+          </section>
+        </aside>
+      </div>
+    </template>
+    <template v-else>
+      <PageHeading title="模板无法打开" :description="loadError" />
+      <a-button @click="loadProject">重新读取</a-button>
+    </template>
+  </div>
+</template>
+
 <style scoped>
-#projectDetailPage {
-  min-height: 60dvh;
-  background: var(--color-bg);
+.detail-lead,
+.detail-body {
+  display: grid;
+  gap: clamp(22px, 3vw, 36px);
 }
 
-.container {
-  max-width: calc(var(--page-width) + var(--page-gutter) * 2);
-  margin: 0 auto;
-  padding: 24px var(--page-gutter) 64px;
+.detail-lead {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.57fr);
+  align-items: center;
+  margin-bottom: 32px;
 }
 
-.breadcrumb {
-  margin-bottom: 16px;
+.detail-title h1 {
+  font-size: clamp(2rem, 4vw, 3.6rem);
 }
 
-/* 卡片通用 */
-.detail-card {
-  border-radius: 14px;
-  margin-bottom: 16px;
-  border: 1px solid var(--color-border);
+.detail-title p {
+  max-width: 60ch;
+  margin: 10px 0 16px;
+  color: var(--color-text-secondary);
 }
 
-.detail-card :deep(.ant-card-head) {
-  border-bottom: 1px solid var(--color-border);
-  font-weight: 600;
-}
-
-/* 封面 */
-.cover-card {
-  padding: 0;
-  overflow: hidden;
-}
-
-.cover-card :deep(.ant-card-body) {
-  padding: 0;
-}
-
-.detail-cover {
-  width: 100%;
-  display: block;
-  aspect-ratio: 16 / 9;
-  max-height: 440px;
-  object-fit: cover;
-}
-
-/* 技术标签 */
-.tech-tag {
-  background: rgba(15, 118, 110, 0.08);
-  color: var(--color-primary);
-  border: none;
-  border-radius: 999px;
-  font-size: 12px;
-  padding-inline: 10px;
-  line-height: 22px;
-}
-
-/* 详情内容 */
-.detail-content {
-  line-height: 1.8;
-  color: var(--color-text);
-  font-size: 15px;
-  overflow-wrap: anywhere;
-}
-
-.detail-content :deep(h1),
-.detail-content :deep(h2),
-.detail-content :deep(h3) {
-  margin-top: 16px;
-  margin-bottom: 8px;
-}
-
-.detail-content :deep(pre) {
-  background: var(--color-surface-soft);
-  border: 1px solid var(--color-border);
-  padding: 16px;
-  border-radius: 10px;
-  overflow-x: auto;
-}
-
-.detail-content :deep(code) {
-  background: var(--color-surface-soft);
-  border: 1px solid var(--color-border);
-  padding: 2px 6px;
-  border-radius: 6px;
-  font-size: 13px;
-}
-
-.detail-content :deep(img) {
-  max-width: 100%;
-  border-radius: 10px;
-}
-
-/* 截图 */
-.screenshot-grid {
+.detail-tags {
   display: flex;
-  gap: 12px;
   flex-wrap: wrap;
+  gap: 6px 9px;
+  margin-bottom: 22px;
 }
 
-.screenshot-item {
-  border-radius: 10px;
-  cursor: pointer;
+.detail-tags :deep(.ant-tag) {
+  margin: 0;
+  padding: 2px 8px;
 }
 
-/* 侧边栏 */
-.sidebar {
-  position: sticky;
-  top: calc(var(--header-height) + 24px);
+.diagonal-arrow {
+  rotate: 45deg;
 }
 
-.purchase-card {
-  text-align: center;
+.detail-art {
+  height: clamp(150px, 16vw, 230px);
 }
 
-.price-block {
-  padding: 8px 0;
+.detail-body {
+  grid-template-columns: minmax(0, 2.25fr) minmax(0, 1fr);
+  align-items: start;
 }
 
-.price-value {
-  font-size: 34px;
-  font-weight: 700;
-  color: var(--color-primary);
-  letter-spacing: -0.02em;
+.detail-aside {
+  display: grid;
+  gap: 20px;
 }
 
-.info-rows {
-  text-align: left;
-}
-
-.info-row {
-  padding: 6px 0;
-  font-size: 14px;
+.detail-aside p {
   color: var(--color-text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.license-details {
-  margin-bottom: 16px;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-/* 作者 */
-.author-card :deep(.ant-card-head) {
-  font-weight: 600;
+.detail-material:not(:first-child) {
+  margin-top: 24px;
 }
 
-.author-name {
-  font-size: 16px;
-  font-weight: 600;
+.demo-frame {
+  display: block;
+  width: 100%;
+  height: clamp(370px, 43vw, 600px);
+  border: 1px solid var(--color-border);
+  background: white;
 }
 
-.author-bio {
-  font-size: 13px;
-  color: var(--color-text-tertiary);
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.screenshot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 12px;
 }
 
-/* 评价 */
-.review-item {
-  padding: 16px 0;
-  border-bottom: 1px solid var(--color-border);
+.screenshot-grid :deep(img) {
+  height: 148px;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
 }
 
-.review-item:last-child {
-  border-bottom: none;
+.review {
+  padding-block: 10px;
+  overflow-wrap: anywhere;
 }
 
-.review-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 8px;
-}
-
-.review-author {
-  font-weight: 600;
-  font-size: 14px;
-  margin-bottom: 2px;
-}
-
-.review-time {
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-}
-
-.review-content {
-  font-size: 14px;
+.review span,
+.review small {
   color: var(--color-text-secondary);
-  line-height: 1.6;
-  margin: 0;
+  font-size: 0.8rem;
 }
 
-.review-form h4 {
-  margin: 0 0 12px;
+.review span {
+  margin-inline-start: 8px;
 }
 
-.rating-row {
-  display: flex;
-  align-items: center;
+.review p {
+  margin: 5px 0;
+  white-space: pre-wrap;
+}
+
+.review-form {
+  display: grid;
+  justify-items: start;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-top: 22px;
 }
 
-.review-textarea {
-  margin-top: 8px;
+.review-form :deep(.ant-select) {
+  width: 112px;
 }
 
-/* 404 */
-.not-found {
-  padding: 120px 16px;
+.review-form :deep(textarea) {
+  width: 100%;
 }
-.project-heading {
-  margin-bottom: 28px;
-}
-.project-heading h1 {
-  margin: 0 0 12px;
-  font-size: clamp(1.75rem, 1rem + 2vw, 2.25rem);
-  line-height: 1.5;
-  color: var(--color-text);
-}
-.project-heading p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  max-width: 70ch;
-}
-.detail-content :deep(pre code) {
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-@media (max-width: 700px) {
-  .detail-card :deep(.ant-card-head-wrapper) {
-    flex-wrap: wrap;
-    gap: 10px;
-    padding-block: 14px;
+
+@media (max-width: 800px) {
+  .detail-body {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .detail-card :deep(.ant-card-extra) {
-    margin-inline-start: 0;
+}
+
+@media (max-width: 600px) {
+  .detail-lead {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .review-header {
-    flex-wrap: wrap;
-    gap: 8px;
+
+  .detail-art {
+    height: 132px;
   }
 }
 </style>

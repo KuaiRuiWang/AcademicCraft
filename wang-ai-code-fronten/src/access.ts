@@ -8,7 +8,7 @@ let firstFetchLoginUser = true
 /**
  * 全局权限校验
  */
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to) => {
   const loginUserStore = useLoginUserStore()
   let loginUser = loginUserStore.loginUser
   // 确保页面刷新，首次加载时，能够等后端返回用户信息后再校验权限
@@ -22,13 +22,12 @@ router.beforeEach(async (to, from, next) => {
     loginUser = loginUserStore.loginUser
     firstFetchLoginUser = false
   }
-  const toUrl = to.fullPath
-  if (toUrl.startsWith('/admin') || to.meta.requiresAdmin === true) {
-    if (!loginUser || loginUser.userRole !== 'admin') {
-      message.error('没有权限')
-      next(`/user/login?redirect=${to.fullPath}`)
-      return
-    }
+  const requiresAdmin = to.meta.layout === 'admin' || to.meta.requiresAdmin === true
+  if (!loginUser.id && (to.meta.requiresLogin || requiresAdmin)) {
+    return { path: '/user/login', query: { redirect: to.fullPath } }
   }
-  next()
+  if (requiresAdmin && loginUser.userRole !== 'admin') {
+    message.error('此页面仅对管理员开放')
+    return { path: to.meta.layout === 'admin' ? '/' : '/my/projects' }
+  }
 })

@@ -1,228 +1,5 @@
-<template>
-  <div id="appChatPage">
-    <!-- 顶部栏 -->
-    <div class="header-bar">
-      <div class="header-left">
-        <h1 class="app-name">{{ appInfo?.appName || '网站生成器' }}</h1>
-        <a-tag v-if="appInfo?.codeGenType" class="code-gen-type-tag">
-          {{ formatCodeGenType(appInfo.codeGenType) }}
-        </a-tag>
-      </div>
-      <div class="header-right">
-        <a-button type="default" @click="showAppDetail">
-          <template #icon>
-            <InfoCircleOutlined />
-          </template>
-          应用详情
-        </a-button>
-        <a-button
-            type="primary"
-            ghost
-            @click="downloadCode"
-            :loading="downloading"
-            :disabled="!isOwner"
-        >
-          <template #icon>
-            <DownloadOutlined />
-          </template>
-          下载代码
-        </a-button>
-        <a-button type="primary" @click="deployApp" :loading="deploying">
-          <template #icon>
-            <CloudUploadOutlined />
-          </template>
-          部署
-        </a-button>
-      </div>
-    </div>
-
-    <!-- 主要内容区域 -->
-    <div class="main-content">
-      <!-- 左侧对话区域 -->
-      <div class="chat-section">
-        <!-- 消息区域 -->
-        <div class="messages-container" ref="messagesContainer" @scroll.passive="handleChatScroll">
-          <!-- 加载更多按钮 -->
-          <div v-if="hasMoreHistory" class="load-more-container">
-            <a-button type="link" @click="loadMoreHistory" :loading="loadingHistory" size="small">
-              加载更多历史消息
-            </a-button>
-          </div>
-          <div v-for="chatMessage in messages" :key="chatMessage.id" class="message-item">
-            <div v-if="chatMessage.type === 'user'" class="user-message">
-              <div class="message-content">{{ chatMessage.content }}</div>
-              <div class="message-avatar">
-                <a-avatar :src="loginUserStore.loginUser.userAvatar" />
-              </div>
-            </div>
-            <div v-else class="ai-message" :class="{ 'has-agent-run': chatMessage.run }">
-              <div class="message-avatar">
-                <a-avatar :src="aiAvatar" />
-              </div>
-              <div class="message-content" :class="{ 'structured-message': chatMessage.run }">
-                <AgentRunView v-if="chatMessage.run" :run="chatMessage.run" :fullstack="appInfo?.codeGenType === CodeGenTypeEnum.FULLSTACK_VUE_NODEJS" />
-                <MarkdownRenderer v-else-if="chatMessage.content" :content="chatMessage.content" />
-                <div v-if="chatMessage.loading && !chatMessage.run" class="loading-indicator">
-                  <a-spin size="small" />
-                  <span>AI 正在思考...</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="hasNewOutput" class="new-output-notice" aria-live="polite">
-          <a-button size="small" @click="scrollToBottom(true)">有新输出 · 回到底部</a-button>
-        </div>
-
-        <!-- 选中元素信息展示 -->
-        <a-alert
-            v-if="selectedElementInfo"
-            class="selected-element-alert"
-            type="info"
-            closable
-            @close="clearSelectedElement"
-        >
-          <template #message>
-            <div class="selected-element-info">
-              <div class="element-header">
-                <span class="element-tag">
-                  选中元素：{{ selectedElementInfo.tagName.toLowerCase() }}
-                </span>
-                <span v-if="selectedElementInfo.id" class="element-id">
-                  #{{ selectedElementInfo.id }}
-                </span>
-                <span v-if="selectedElementInfo.className" class="element-class">
-                  .{{ selectedElementInfo.className.split(' ').join('.') }}
-                </span>
-              </div>
-              <div class="element-details">
-                <div v-if="selectedElementInfo.textContent" class="element-item">
-                  内容: {{ selectedElementInfo.textContent.substring(0, 50) }}
-                  {{ selectedElementInfo.textContent.length > 50 ? '...' : '' }}
-                </div>
-                <div v-if="selectedElementInfo.pagePath" class="element-item">
-                  页面路径: {{ selectedElementInfo.pagePath }}
-                </div>
-                <div class="element-item">
-                  选择器:
-                  <code class="element-selector-code">{{ selectedElementInfo.selector }}</code>
-                </div>
-              </div>
-            </div>
-          </template>
-        </a-alert>
-
-        <!-- 用户消息输入框 -->
-        <div class="input-container">
-          <div class="input-wrapper">
-            <a-tooltip v-if="!isOwner" title="无法在别人的作品下对话哦~" placement="top">
-              <a-textarea
-                  v-model:value="userInput"
-                  :placeholder="getInputPlaceholder()"
-                  :rows="4"
-                  :maxlength="1000"
-                  @keydown.enter.prevent="sendMessage"
-                  :disabled="isGenerating || !isOwner"
-              />
-            </a-tooltip>
-            <a-textarea
-                v-else
-                v-model:value="userInput"
-                :placeholder="getInputPlaceholder()"
-                :rows="4"
-                :maxlength="1000"
-                @keydown.enter.prevent="sendMessage"
-                :disabled="isGenerating"
-            />
-            <div class="input-actions">
-              <a-button
-                  type="primary"
-                  @click="sendMessage"
-                  :loading="isGenerating"
-                  :disabled="!isOwner"
-              >
-                <template #icon>
-                  <SendOutlined />
-                </template>
-              </a-button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- 右侧网页展示区域 -->
-      <div class="preview-section">
-        <a-tabs v-model:activeKey="previewTab" class="preview-tabs">
-        <a-tab-pane key="app" tab="应用预览">
-        <div class="preview-header">
-          <h3>应用预览</h3>
-          <div class="preview-actions">
-            <a-button
-                v-if="isOwner && previewUrl"
-                type="link"
-                :danger="isEditMode"
-                @click="toggleEditMode"
-                :class="{ 'edit-mode-active': isEditMode }"
-                style="padding: 0; height: auto; margin-right: 12px"
-            >
-              <template #icon>
-                <EditOutlined />
-              </template>
-              {{ isEditMode ? '退出编辑' : '编辑模式' }}
-            </a-button>
-            <a-button v-if="previewUrl" type="link" @click="openInNewTab">
-              <template #icon>
-                <ExportOutlined />
-              </template>
-              新窗口打开
-            </a-button>
-          </div>
-        </div>
-        <div class="preview-content">
-          <div v-if="!previewUrl && !isGenerating" class="preview-placeholder">
-            <div class="placeholder-icon">🌐</div>
-            <p>网站文件生成完成后将在这里展示</p>
-          </div>
-          <div v-else-if="isGenerating" class="preview-loading">
-            <a-spin size="large" />
-            <p>正在生成网站...</p>
-          </div>
-          <iframe
-              v-else
-              :src="previewUrl"
-              class="preview-iframe"
-              frameborder="0"
-              @load="onIframeLoad"
-          ></iframe>
-        </div>
-        </a-tab-pane>
-        <a-tab-pane v-if="isOwner" key="thesis" tab="论文初稿">
-          <ThesisPanel :app-id="String(appId)" :app-generating="isGenerating" />
-        </a-tab-pane>
-        </a-tabs>
-      </div>
-    </div>
-
-    <!-- 应用详情弹窗 -->
-    <AppDetailModal
-        v-model:open="appDetailVisible"
-        :app="appInfo"
-        :show-actions="isOwner || isAdmin"
-        @edit="editApp"
-        @delete="deleteApp"
-    />
-
-    <!-- 部署成功弹窗 -->
-    <DeploySuccessModal
-        v-model:open="deployModalVisible"
-        :deploy-url="deployUrl"
-        @open-site="openDeployedSite"
-    />
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, reactive, onMounted, nextTick, onUnmounted, computed } from 'vue'
+import { ref, reactive, onMounted, nextTick, onUnmounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
@@ -230,19 +7,19 @@ import {
   getAppVoById,
   deployApp as deployAppApi,
   deleteApp as deleteAppApi,
+  deleteAppByAdmin,
 } from '@/api/appController'
 import { listAppChatHistory } from '@/api/chatHistoryController'
-import { CodeGenTypeEnum, formatCodeGenType } from '@/utils/codeGenTypes'
-import request from '@/request'
+import { CodeGenTypeEnum } from '@/utils/codeGenTypes'
 
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import ThesisPanel from '@/components/ThesisPanel.vue'
 import AgentRunView from '@/components/agent/AgentRunView.vue'
 import { createAgentRun, restoreAgentRun, type AgentRun } from '@/utils/agentRun'
 import { newRunId, useAgentRun } from '@/composables/useAgentRun'
+import PageHeading from '@/components/PageHeading.vue'
 import AppDetailModal from '@/components/AppDetailModal.vue'
 import DeploySuccessModal from '@/components/DeploySuccessModal.vue'
-import aiAvatar from '@/assets/aiAvatar.svg'
 import { API_BASE_URL, getDeployUrl, getStaticPreviewUrl, toRelativeDeployUrl } from '@/config/env'
 import { VisualEditor, type ElementInfo } from '@/utils/visualEditor'
 
@@ -250,7 +27,6 @@ import {
   CloudUploadOutlined,
   SendOutlined,
   ExportOutlined,
-  InfoCircleOutlined,
   DownloadOutlined,
   EditOutlined,
 } from '@ant-design/icons-vue'
@@ -261,7 +37,10 @@ const loginUserStore = useLoginUserStore()
 
 // 应用信息
 const appInfo = ref<API.AppVO>()
-const appId = ref<any>()
+const appId = ref('')
+const loadingApp = ref(true)
+const appError = ref('')
+const previewFrame = ref<HTMLIFrameElement>()
 
 // 对话相关
 interface Message {
@@ -289,7 +68,18 @@ const historyLoaded = ref(false)
 
 // 预览相关
 const previewUrl = ref('')
-const previewTab = ref('app')
+const previewTab = ref(route.query.tab === 'thesis' ? 'thesis' : 'app')
+const compactMedia = window.matchMedia('(max-width: 760px)')
+const compactLayout = ref(compactMedia.matches)
+const previewFirst = computed(
+  () => compactLayout.value && (Boolean(previewUrl.value) || previewTab.value === 'thesis'),
+)
+watch(
+  () => route.query.tab,
+  (tab) => {
+    previewTab.value = tab === 'thesis' ? 'thesis' : 'app'
+  },
+)
 const previewReady = ref(false)
 
 // 部署相关
@@ -311,7 +101,10 @@ const visualEditor = new VisualEditor({
 
 // 权限相关
 const isOwner = computed(() => {
-  return appInfo.value?.userId === loginUserStore.loginUser.id
+  return Boolean(
+    loginUserStore.loginUser.id &&
+      String(appInfo.value?.userId) === String(loginUserStore.loginUser.id),
+  )
 })
 
 const isAdmin = computed(() => {
@@ -332,7 +125,7 @@ const loadChatHistory = async (isLoadMore = false) => {
   loadingHistory.value = true
   try {
     const params: API.listAppChatHistoryParams = {
-      appId: appId.value,
+      appId: appId.value as unknown as number,
       pageSize: 10,
     }
     // 如果是加载更多，传递最后一条消息的创建时间作为游标
@@ -345,14 +138,14 @@ const loadChatHistory = async (isLoadMore = false) => {
       if (chatHistories.length > 0) {
         // 将对话历史转换为消息格式，并按时间正序排列（老消息在前）
         const historyMessages: Message[] = chatHistories
-            .map((chat) => ({
-              id: `history-${chat.id}`,
-              type: (chat.messageType === 'user' ? 'user' : 'ai') as 'user' | 'ai',
-              content: chat.message || '',
-              createTime: chat.createTime,
-              run: chat.messageType === 'ai' ? restoreAgentRun(chat.renderData) : undefined,
-            }))
-            .reverse() // 反转数组，让老消息在前
+          .map((chat) => ({
+            id: `history-${chat.id}`,
+            type: (chat.messageType === 'user' ? 'user' : 'ai') as 'user' | 'ai',
+            content: chat.message || '',
+            createTime: chat.createTime,
+            run: chat.messageType === 'ai' ? restoreAgentRun(chat.renderData) : undefined,
+          }))
+          .reverse() // 反转数组，让老消息在前
         if (isLoadMore) {
           // 加载更多时，将历史消息添加到开头
           messages.value.unshift(...historyMessages)
@@ -397,6 +190,7 @@ const fetchAppInfo = async () => {
   }
 
   appId.value = id
+  appError.value = ''
 
   try {
     const res = await getAppVoById({ id: id as unknown as number })
@@ -407,27 +201,26 @@ const fetchAppInfo = async () => {
       await loadChatHistory()
       scrollToBottom(true)
       // 如果有至少2条对话记录，展示对应的网站
-      if (messages.value.length >= 2) {
+      if (appInfo.value.deployKey || messages.value.length >= 2) {
         updatePreview()
       }
       // 检查是否需要自动发送初始提示词
       // 只有在是自己的应用且没有对话历史时才自动发送
       if (
-          appInfo.value.initPrompt &&
-          isOwner.value &&
-          messages.value.length === 0 &&
-          historyLoaded.value
+        appInfo.value.initPrompt &&
+        isOwner.value &&
+        messages.value.length === 0 &&
+        historyLoaded.value
       ) {
         await sendInitialMessage(appInfo.value.initPrompt)
       }
     } else {
-      message.error('获取应用信息失败')
-      router.push('/')
+      appError.value = res.data.message || '无法读取应用。'
     }
-  } catch (error) {
-    console.error('获取应用信息失败：', error)
-    message.error('获取应用信息失败')
-    router.push('/')
+  } catch {
+    appError.value = '无法读取应用，请检查网络后重试。'
+  } finally {
+    loadingApp.value = false
   }
 }
 
@@ -459,7 +252,7 @@ const sendInitialMessage = async (prompt: string) => {
 
 // 发送消息
 const sendMessage = async () => {
-  if (!userInput.value.trim() || isGenerating.value) {
+  if (!isOwner.value || !userInput.value.trim() || isGenerating.value) {
     return
   }
 
@@ -543,11 +336,12 @@ const updatePreview = () => {
     const deployKey = appInfo.value?.deployKey
     // 全栈应用带 Node.js 后端，静态产物预览里页面内 ./api 请求没有后端可服务，
     // 已部署过则直接预览部署地址（/apps/{deployKey}/），未部署回退到静态产物
-    previewUrl.value =
-        deployKey && codeGenType === CodeGenTypeEnum.FULLSTACK_VUE_NODEJS
-            ? getDeployUrl(deployKey, codeGenType)
-            : getStaticPreviewUrl(codeGenType, appId.value)
-    previewReady.value = true
+    const nextUrl =
+      deployKey && codeGenType === CodeGenTypeEnum.FULLSTACK_VUE_NODEJS
+        ? getDeployUrl(deployKey, codeGenType)
+        : getStaticPreviewUrl(codeGenType, appId.value)
+    if (nextUrl !== previewUrl.value) previewReady.value = false
+    previewUrl.value = nextUrl
   }
 }
 
@@ -579,7 +373,6 @@ const downloadCode = async () => {
   }
   downloading.value = true
   try {
-    const API_BASE_URL = request.defaults.baseURL || ''
     const url = `${API_BASE_URL}/app/download/${appId.value}`
     const response = await fetch(url, {
       method: 'GET',
@@ -587,6 +380,10 @@ const downloadCode = async () => {
     })
     if (!response.ok) {
       throw new Error(`下载失败: ${response.status}`)
+    }
+    if (response.headers.get('Content-Type')?.includes('json')) {
+      const result = (await response.json()) as { message?: string }
+      throw new Error(result.message || '下载失败，请先生成源码')
     }
     // 获取文件名
     const contentDisposition = response.headers.get('Content-Disposition')
@@ -597,13 +394,14 @@ const downloadCode = async () => {
     const link = document.createElement('a')
     link.href = downloadUrl
     link.download = fileName
+    document.body.append(link)
     link.click()
+    link.remove()
     // 清理
-    URL.revokeObjectURL(downloadUrl)
-    message.success('代码下载成功')
+    setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000)
+    message.success('源码已下载')
   } catch (error) {
-    console.error('下载失败：', error)
-    message.error('下载失败，请重试')
+    message.error(error instanceof Error ? error.message : '下载失败，请重试')
   } finally {
     downloading.value = false
   }
@@ -640,24 +438,17 @@ const deployApp = async () => {
   }
 }
 
-// 在新窗口打开预览
-const openInNewTab = () => {
-  if (previewUrl.value) {
-    window.open(previewUrl.value, '_blank')
-  }
-}
-
 // 打开部署的网站
 const openDeployedSite = () => {
   if (deployUrl.value) {
-    window.open(deployUrl.value, '_blank')
+    window.open(deployUrl.value, '_blank', 'noopener')
   }
 }
 
 // iframe加载完成
 const onIframeLoad = () => {
   previewReady.value = true
-  const iframe = document.querySelector('.preview-iframe') as HTMLIFrameElement
+  const iframe = previewFrame.value
   if (iframe) {
     visualEditor.init(iframe)
     visualEditor.onIframeLoad()
@@ -676,7 +467,8 @@ const deleteApp = async () => {
   if (!appInfo.value?.id) return
 
   try {
-    const res = await deleteAppApi({ id: appInfo.value.id })
+    const removeApp = isAdmin.value ? deleteAppByAdmin : deleteAppApi
+    const res = await removeApp({ id: appInfo.value.id })
     if (res.data.code === 0) {
       message.success('删除成功')
       appDetailVisible.value = false
@@ -693,7 +485,7 @@ const deleteApp = async () => {
 // 可视化编辑相关函数
 const toggleEditMode = () => {
   // 检查 iframe 是否已经加载
-  const iframe = document.querySelector('.preview-iframe') as HTMLIFrameElement
+  const iframe = previewFrame.value
   if (!iframe) {
     message.warning('请等待页面加载完成')
     return
@@ -716,11 +508,22 @@ const getInputPlaceholder = () => {
   if (selectedElementInfo.value) {
     return `正在编辑 ${selectedElementInfo.value.tagName.toLowerCase()} 元素，描述您想要的修改...`
   }
-  return '请描述你想生成的网站，越详细效果越好哦'
+  return '描述下一步想调整的地方…'
+}
+
+function onComposerEnter(event: KeyboardEvent) {
+  if (event.isComposing || event.keyCode === 229 || event.shiftKey) return
+  event.preventDefault()
+  void sendMessage()
+}
+
+function updateCompactLayout(event: MediaQueryListEvent) {
+  compactLayout.value = event.matches
 }
 
 // 页面加载时获取应用信息
 onMounted(() => {
+  compactMedia.addEventListener('change', updateCompactLayout)
   fetchAppInfo()
 
   // 监听 iframe 消息
@@ -729,361 +532,390 @@ onMounted(() => {
 
 // 清理资源
 onUnmounted(() => {
+  compactMedia.removeEventListener('change', updateCompactLayout)
   window.removeEventListener('message', handlePreviewMessage)
 })
 
 const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeMessage(event)
 </script>
 
+<template>
+  <div class="page-shell app-workspace">
+    <div v-if="loadingApp && !appInfo" class="paper-panel" aria-busy="true">
+      <a-skeleton active :paragraph="{ rows: 6 }" />
+    </div>
+    <template v-else-if="appError">
+      <PageHeading title="应用无法打开" :description="appError">
+        <a-button @click="fetchAppInfo">重新读取</a-button>
+        <RouterLink class="folio-link" to="/">返回首页</RouterLink>
+      </PageHeading>
+    </template>
+    <template v-else-if="appInfo">
+      <PageHeading :title="appInfo.appName || '对话工作区'">
+        <a-button v-if="isOwner || isAdmin" @click="editApp">应用设置</a-button>
+        <a-button @click="showAppDetail">应用详情</a-button>
+        <a-button
+          v-if="isOwner"
+          :loading="downloading"
+          :disabled="isGenerating"
+          @click="downloadCode"
+        >
+          <DownloadOutlined aria-hidden="true" /> 下载源码
+        </a-button>
+        <a-button v-if="isOwner" :loading="deploying" :disabled="isGenerating" @click="deployApp">
+          <CloudUploadOutlined aria-hidden="true" /> 部署
+        </a-button>
+      </PageHeading>
+
+      <div class="work-grid">
+        <div id="compact-app-output" v-show="previewFirst" class="compact-app-output"></div>
+        <section class="conversation" aria-labelledby="conversation-title">
+          <h2 id="conversation-title">项目对话</h2>
+          <div v-if="loadingHistory && !messages.length" class="history-loading" aria-busy="true">
+            <a-skeleton active :title="false" :paragraph="{ rows: 3 }" />
+          </div>
+          <div
+            v-else-if="messages.length"
+            ref="messagesContainer"
+            class="messages-container"
+            aria-label="对话消息"
+            tabindex="0"
+            @scroll.passive="handleChatScroll"
+          >
+            <div v-if="hasMoreHistory" class="load-more">
+              <a-button type="link" @click="loadMoreHistory" :loading="loadingHistory"
+                >加载更多历史消息</a-button
+              >
+            </div>
+            <article v-for="chatMessage in messages" :key="chatMessage.id" class="message-item">
+              <h3>{{ chatMessage.type === 'user' ? (isOwner ? '你' : '创作者') : '工坊助手' }}</h3>
+              <p v-if="chatMessage.type === 'user'" class="message-text">
+                {{ chatMessage.content }}
+              </p>
+              <div v-else>
+                <AgentRunView
+                  v-if="chatMessage.run"
+                  :run="chatMessage.run"
+                  :fullstack="appInfo.codeGenType === CodeGenTypeEnum.FULLSTACK_VUE_NODEJS"
+                />
+                <MarkdownRenderer v-else-if="chatMessage.content" :content="chatMessage.content" />
+                <div
+                  v-if="chatMessage.loading && !chatMessage.run"
+                  class="loading-indicator"
+                  role="status"
+                >
+                  <a-spin size="small" /> 正在准备生成…
+                </div>
+              </div>
+            </article>
+          </div>
+          <p v-else class="chat-empty">还没有对话消息。</p>
+
+          <div v-if="hasNewOutput" class="new-output-notice" aria-live="polite">
+            <a-button size="small" @click="scrollToBottom(true)">有新输出 · 回到底部</a-button>
+          </div>
+
+          <a-alert
+            v-if="selectedElementInfo"
+            class="element-alert"
+            type="info"
+            closable
+            @close="clearSelectedElement"
+          >
+            <template #message>
+              <div><strong>选中元素</strong> {{ selectedElementInfo.tagName.toLowerCase() }}</div>
+              <div v-if="selectedElementInfo.pagePath">{{ selectedElementInfo.pagePath }}</div>
+              <code>{{ selectedElementInfo.selector }}</code>
+              <div v-if="selectedElementInfo.textContent">
+                {{ selectedElementInfo.textContent.slice(0, 50) }}
+              </div>
+            </template>
+          </a-alert>
+
+          <form v-if="isOwner" class="chat-composer" @submit.prevent="sendMessage">
+            <label for="chat-input">继续修改</label>
+            <a-textarea
+              id="chat-input"
+              v-model:value="userInput"
+              :placeholder="getInputPlaceholder()"
+              :rows="3"
+              :maxlength="1000"
+              :disabled="isGenerating"
+              @keydown.enter="onComposerEnter"
+            />
+            <div class="composer-actions">
+              <a-button
+                type="primary"
+                html-type="submit"
+                :loading="isGenerating"
+                :disabled="!userInput.trim()"
+              >
+                发送 <SendOutlined aria-hidden="true" />
+              </a-button>
+            </div>
+          </form>
+        </section>
+
+        <Teleport defer to="#compact-app-output" :disabled="!previewFirst">
+          <section class="workspace-output" aria-label="应用交付内容">
+            <a-tabs v-model:activeKey="previewTab" class="workspace-tabs">
+              <a-tab-pane key="app" tab="应用预览">
+                <div class="preview-panel">
+                  <div class="preview-toolbar">
+                    <span class="preview-caption" :class="{ ready: previewUrl && !isGenerating }">
+                      {{ isGenerating ? '正在生成' : previewUrl ? '可交互预览' : '等待产物' }}
+                    </span>
+                    <div class="preview-actions">
+                      <a-button
+                        v-if="isOwner && previewUrl"
+                        type="link"
+                        :disabled="isGenerating"
+                        :danger="isEditMode"
+                        @click="toggleEditMode"
+                      >
+                        <EditOutlined aria-hidden="true" />
+                        {{ isEditMode ? '退出编辑' : '编辑模式' }}
+                      </a-button>
+                      <a-button
+                        v-if="previewUrl && !isGenerating"
+                        type="link"
+                        :href="previewUrl"
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        独立打开 <ExportOutlined aria-hidden="true" />
+                      </a-button>
+                    </div>
+                  </div>
+                  <div v-if="isGenerating" class="preview-empty" role="status">
+                    <a-spin />
+                    <p>应用正在生成，可在项目对话中查看进度。</p>
+                  </div>
+                  <iframe
+                    v-else-if="previewUrl"
+                    ref="previewFrame"
+                    :src="previewUrl"
+                    :title="(appInfo.appName || '应用') + '预览'"
+                    class="preview-iframe"
+                    @load="onIframeLoad"
+                  ></iframe>
+                  <div v-else class="preview-empty">网站文件生成后将在此展示。</div>
+                </div>
+              </a-tab-pane>
+              <a-tab-pane v-if="isOwner" key="thesis" tab="论文初稿">
+                <ThesisPanel :app-id="appId" :app-generating="isGenerating" />
+              </a-tab-pane>
+            </a-tabs>
+          </section>
+        </Teleport>
+      </div>
+
+      <AppDetailModal
+        v-model:open="appDetailVisible"
+        :app="appInfo"
+        :show-actions="isOwner || isAdmin"
+        @edit="editApp"
+        @delete="deleteApp"
+      />
+      <DeploySuccessModal
+        v-model:open="deployModalVisible"
+        :deploy-url="deployUrl"
+        @open-site="openDeployedSite"
+      />
+    </template>
+  </div>
+</template>
+
 <style scoped>
-.preview-tabs { height: 100%; min-height: 0; }
-.preview-tabs :deep(.ant-tabs-nav) { margin: 0; padding-inline: 1rem; }
-.preview-tabs :deep(.ant-tabs-content-holder), .preview-tabs :deep(.ant-tabs-content) { height: 100%; min-height: 0; }
-.preview-tabs :deep(.ant-tabs-tabpane-active) { height: 100%; display: flex; flex-direction: column; }
-#appChatPage {
-  height: calc(100vh - 80px);
-  height: calc(100dvh - 80px);
-  min-height: 600px;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  background: var(--color-bg);
+.work-grid {
+  display: grid;
+  grid-template-columns: minmax(245px, 0.8fr) minmax(0, 2fr);
+  gap: clamp(22px, 3vw, 32px);
+  align-items: start;
 }
 
-/* 顶部栏 */
-.header-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.code-gen-type-tag {
-  font-size: 12px;
-}
-
-.app-name {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.header-right {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-/* 主要内容区域 */
-.main-content {
-  flex: 1;
-  display: flex;
-  gap: 16px;
-  padding: 8px;
-  overflow: hidden;
-  min-height: 0;
-}
-
-/* 左侧对话区域 */
-.chat-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
+.conversation,
+.workspace-output {
   min-width: 0;
-  min-height: 0;
-  overflow: hidden;
+}
+
+.compact-app-output {
+  display: contents;
+}
+
+.conversation {
+  border-top: 2px solid var(--color-text);
+  padding-top: 16px;
+}
+
+.conversation h2 {
+  font-size: clamp(1.35rem, 2.15vw, 1.75rem);
+  margin-bottom: 15px;
 }
 
 .messages-container {
-  flex: 1;
-  min-height: 0;
-  padding: 16px;
-  overflow-y: auto;
-  scroll-behavior: auto;
-  overflow-anchor: none;
-  overscroll-behavior: contain;
+  max-height: min(55dvh, 550px);
+  overflow: auto;
+  scrollbar-gutter: stable;
+  border-block: 1px solid var(--color-border);
 }
 
 .message-item {
-  margin-bottom: 24px;
+  padding: 12px 10px 14px 0;
+  overflow-wrap: anywhere;
 }
 
-.user-message {
-  display: flex;
-  justify-content: flex-end;
-  align-items: flex-start;
-  gap: 8px;
+.message-item + .message-item,
+.message-item:first-child:not(:only-child) {
+  border-top: 1px solid var(--color-border);
 }
 
-.ai-message {
-  display: flex;
-  justify-content: flex-start;
-  align-items: flex-start;
-  gap: 8px;
+.message-item h3 {
+  font: 700 0.86rem/1.5 var(--font-body);
+  letter-spacing: 0;
+  margin-bottom: 5px;
 }
 
-.message-content {
-  max-width: 70%;
-  padding: 12px 16px;
-  border-radius: 12px;
-  line-height: 1.5;
-  word-wrap: break-word;
+.message-text {
+  white-space: pre-wrap;
+  color: var(--color-text-secondary);
+  margin: 0;
 }
 
-.user-message .message-content {
-  background: var(--color-primary);
-  color: white;
-}
-
-.ai-message .message-content {
-  background: var(--color-surface-soft);
-  color: var(--color-text);
-  padding: 8px 12px;
-}
-
-.ai-message .message-content.structured-message {
-  flex: 1;
-  min-width: 0;
-  max-width: calc(100% - 40px);
-  padding: 0;
-  background: transparent;
-}
-
-.new-output-notice {
-  padding: 8px;
+.load-more {
+  padding: 4px 0;
   text-align: center;
-  flex-shrink: 0;
-}
-
-.message-avatar {
-  flex-shrink: 0;
 }
 
 .loading-indicator {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #666;
+  gap: 10px;
+  color: var(--color-text-secondary);
 }
 
-/* 加载更多按钮 */
-.load-more-container {
-  text-align: center;
-  padding: 8px 0;
+.new-output-notice,
+.element-alert {
+  margin-top: 10px;
+}
+
+.element-alert code {
+  overflow-wrap: anywhere;
+}
+
+.chat-empty {
+  margin: 0;
+  padding: 12px 0;
+  color: var(--color-text-secondary);
+  border-block-start: 1px solid var(--color-border);
+}
+
+.chat-composer {
+  margin-top: 22px;
+}
+
+.chat-composer label {
+  display: block;
+  margin-bottom: 7px;
+  font-weight: 650;
+}
+
+.composer-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.workspace-tabs :deep(.ant-tabs-nav) {
   margin-bottom: 16px;
 }
 
-/* 输入区域 */
-.input-container {
-  padding: 16px;
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
-  flex-shrink: 0;
+.workspace-tabs :deep(.ant-tabs-tab) {
+  padding: 8px 3px 10px;
 }
 
-.input-wrapper {
-  position: relative;
+.workspace-tabs :deep(.ant-tabs-tab + .ant-tabs-tab) {
+  margin-left: 12px;
 }
 
-.input-wrapper .ant-input {
-  padding-right: 50px;
-}
-
-.input-actions {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-}
-
-/* 右侧预览区域 */
-.preview-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-surface);
+.preview-panel {
   border: 1px solid var(--color-border);
-  border-radius: 14px;
-  min-width: 0;
-  overflow: hidden;
+  background: var(--color-surface);
 }
 
-.preview-header {
+.preview-toolbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid #e8e8e8;
+  justify-content: space-between;
+  gap: 5px 12px;
+  flex-wrap: wrap;
+  min-height: 41px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.85rem;
 }
 
-.preview-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+.preview-caption {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 650;
+}
+
+.preview-caption.ready::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  background: var(--color-primary);
+  border-radius: 50%;
 }
 
 .preview-actions {
   display: flex;
-  gap: 8px;
-}
-
-.preview-content {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-}
-
-.preview-placeholder {
-  display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #666;
+  gap: 0 16px;
 }
 
-.placeholder-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
+.preview-actions :deep(.ant-btn) {
+  min-height: 41px;
+  font-size: 0.85rem;
 }
 
-.preview-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #666;
+.preview-empty {
+  display: grid;
+  place-content: center;
+  min-height: clamp(240px, 38vw, 540px);
+  padding: 24px;
+  text-align: center;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
 }
 
-.preview-loading p {
-  margin-top: 16px;
+.preview-empty p {
+  margin: 12px 0 0;
 }
 
 .preview-iframe {
+  display: block;
   width: 100%;
-  height: 100%;
-  border: none;
+  height: clamp(370px, 44vw, 610px);
+  border: 0;
+  background: white;
 }
 
-.selected-element-alert {
-  margin: 0 16px;
-}
-
-@media (max-width: 480px) {
-  .ai-message.has-agent-run .message-avatar { display: none; }
-  .ai-message .message-content.structured-message { max-width: 100%; }
-}
-
-/* 响应式设计 */
-@media (max-width: 1024px) {
-  #appChatPage { height: auto; min-height: 0; }
-  .main-content {
-    flex-direction: column;
-    overflow: visible;
+@media (max-width: 760px) {
+  .work-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 27px;
   }
 
-  .chat-section,
-  .preview-section {
-    flex: none;
-    height: 70vh;
-    height: 70dvh;
-    min-height: 480px;
-  }
-}
-
-@media (max-width: 768px) {
-  .header-bar {
-    padding: 12px 16px;
+  .messages-container {
+    max-height: clamp(150px, 38dvh, 340px);
   }
 
-  .app-name {
-    font-size: 16px;
-  }
-
-  .main-content {
-    padding: 8px;
-    gap: 8px;
-  }
-
-  .message-content {
-    max-width: 85%;
-  }
-
-  /* 选中元素信息样式 */
-  .selected-element-alert {
-    margin: 0 16px;
-  }
-
-  .selected-element-info {
-    line-height: 1.4;
-  }
-
-  .element-header {
-    margin-bottom: 8px;
-  }
-
-  .element-details {
-    margin-top: 8px;
-  }
-
-  .element-item {
-    margin-bottom: 4px;
-    font-size: 13px;
-  }
-
-  .element-item:last-child {
-    margin-bottom: 0;
-  }
-
-  .element-tag {
-    font-family: 'Monaco', 'Menlo', monospace;
-    font-size: 14px;
-    font-weight: 600;
-    color: #007bff;
-  }
-
-  .element-id {
-    color: #28a745;
-    margin-left: 4px;
-  }
-
-  .element-class {
-    color: #ffc107;
-    margin-left: 4px;
-  }
-
-  .element-selector-code {
-    font-family: 'Monaco', 'Menlo', monospace;
-    background: #f6f8fa;
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-size: 12px;
-    color: #d73a49;
-    border: 1px solid #e1e4e8;
-  }
-
-  /* 编辑模式按钮样式 */
-  .edit-mode-active {
-    background-color: #52c41a !important;
-    border-color: #52c41a !important;
-    color: white !important;
-  }
-
-  .edit-mode-active:hover {
-    background-color: #73d13d !important;
-    border-color: #73d13d !important;
+  .preview-toolbar {
+    padding-inline: 10px;
   }
 }
 </style>

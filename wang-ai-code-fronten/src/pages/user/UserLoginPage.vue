@@ -1,104 +1,87 @@
-<template>
-  <div class="auth-page">
-    <div class="auth-layout">
-      <aside class="auth-intro">
-        <h2 class="auth-display">百夜<span>应用工坊</span></h2>
-        <p>创建 Web 应用，或者从授权模板开始。</p>
-        <RouterLink to="/" class="auth-back"
-          ><ArrowLeftOutlined aria-hidden="true" /> 返回首页</RouterLink
-        >
-      </aside>
-      <section class="auth-card" aria-labelledby="auth-title">
-        <div class="auth-head">
-          <h1 id="auth-title" class="auth-title">欢迎回来</h1>
-          <p class="auth-desc">登录后继续创建应用或领取模板</p>
-        </div>
-        <a-form :model="formState" name="login" layout="vertical" @finish="handleSubmit">
-          <a-form-item
-            label="账号"
-            name="userAccount"
-            :rules="[{ required: true, message: '请输入账号' }]"
-          >
-            <a-input
-              v-model:value="formState.userAccount"
-              size="large"
-              placeholder="请输入账号"
-              autocomplete="username"
-              :disabled="submitting"
-            />
-          </a-form-item>
-          <a-form-item
-            label="密码"
-            name="userPassword"
-            :rules="[
-              { required: true, message: '请输入密码' },
-              { min: 8, message: '密码长度不能小于 8 位' },
-            ]"
-          >
-            <a-input-password
-              v-model:value="formState.userPassword"
-              size="large"
-              placeholder="请输入至少 8 位密码"
-              autocomplete="current-password"
-              :disabled="submitting"
-            />
-          </a-form-item>
-          <a-form-item class="auth-submit-row"
-            ><a-button type="primary" html-type="submit" size="large" block :loading="submitting"
-              >登录 <ArrowRightOutlined aria-hidden="true" /></a-button
-          ></a-form-item>
-          <div class="auth-tips">没有账号？<RouterLink to="/user/register">去注册</RouterLink></div>
-        </a-form>
-      </section>
-    </div>
-  </div>
-</template>
-<script lang="ts" setup>
-import { reactive, ref } from 'vue'
-import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons-vue'
-import { userLogin } from '@/api/userController.ts'
-import { useLoginUserStore } from '@/stores/loginUser.ts'
+<script setup lang="ts">
+import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ArrowRightOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
-
-const submitting = ref(false)
-
-const formState = reactive<API.UserLoginRequest>({
-  userAccount: '',
-  userPassword: '',
-})
+import { userLogin } from '@/api/userController'
+import { useLoginUserStore } from '@/stores/loginUser'
+import AuthLayout from '@/layouts/AuthLayout.vue'
 
 const router = useRouter()
 const route = useRoute()
 const loginUserStore = useLoginUserStore()
+const submitting = ref(false)
+const error = ref('')
+const form = reactive({ userAccount: '', userPassword: '' })
+const registerLocation = computed(() => ({
+  path: '/user/register',
+  query: { redirect: route.query.redirect },
+}))
 
-/**
- * 提交表单
- * @param values
- */
-const handleSubmit = async (values: API.UserLoginRequest) => {
+async function handleSubmit() {
   submitting.value = true
+  error.value = ''
   try {
-    const res = await userLogin(values)
-    // 登录成功，把登录态保存到全局状态中
+    const res = await userLogin({ ...form, userAccount: form.userAccount.trim() })
     if (res.data.code === 0 && res.data.data) {
-      await loginUserStore.fetchLoginUser()
+      loginUserStore.setLoginUser(res.data.data)
       message.success('登录成功')
       const redirect = route.query.redirect
       const nextPath =
         typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
           ? redirect
           : '/'
-      router.replace(nextPath)
+      await router.replace(nextPath)
     } else {
-      message.error('登录失败，' + res.data.message)
+      error.value = res.data.message || '登录失败，请核对账号和密码'
     }
   } catch {
-    message.error('登录失败，请检查网络后重试')
+    error.value = '登录失败，请检查网络后重试'
   } finally {
     submitting.value = false
   }
 }
 </script>
 
-<style src="@/assets/auth.css"></style>
+<template>
+  <AuthLayout title="登录工坊" description="登录后即可继续创作、领取模板和管理项目。">
+    <a-form :model="form" name="login" layout="vertical" @finish="handleSubmit">
+      <a-form-item
+        label="账号"
+        name="userAccount"
+        :rules="[{ required: true, message: '请输入账号' }]"
+      >
+        <a-input
+          v-model:value="form.userAccount"
+          autocomplete="username"
+          placeholder="请输入账号"
+          :disabled="submitting"
+        />
+      </a-form-item>
+      <a-form-item
+        label="密码"
+        name="userPassword"
+        :rules="[
+          { required: true, message: '请输入密码' },
+          { min: 8, message: '密码长度至少为 8 位' },
+        ]"
+      >
+        <a-input-password
+          v-model:value="form.userPassword"
+          autocomplete="current-password"
+          placeholder="请输入密码"
+          :disabled="submitting"
+        />
+      </a-form-item>
+      <a-alert v-if="error" :message="error" type="error" class="auth-error" show-icon />
+      <a-button type="primary" html-type="submit" :loading="submitting">
+        登录 <ArrowRightOutlined aria-hidden="true" />
+      </a-button>
+    </a-form>
+    <p class="auth-next">
+      <RouterLink :to="registerLocation" class="folio-link">
+        还没有账号，去注册 <ArrowRightOutlined aria-hidden="true" />
+      </RouterLink>
+    </p>
+  </AuthLayout>
+</template>

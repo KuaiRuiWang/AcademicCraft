@@ -1,146 +1,28 @@
-<template>
-  <div id="myProjectsPage" class="workspace-page">
-    <div class="container">
-      <div class="page-header">
-        <h1 class="page-title">我的项目</h1>
-        <a-button
-          v-if="canPublishProject"
-          type="primary"
-          size="large"
-          @click="$router.push('/project/create')"
-        >
-          <PlusOutlined /> 发布模板
-        </a-button>
-      </div>
-
-      <a-spin :spinning="loading">
-        <template v-if="projects.length > 0">
-          <a-table
-            :data-source="projects"
-            :pagination="pagination"
-            :scroll="{ x: 1120 }"
-            row-key="id"
-            @change="handleTableChange"
-          >
-            <a-table-column title="项目" key="name" :width="300">
-              <template #default="{ record }">
-                <a-space>
-                  <a-image
-                    :src="record.coverImage || defaultCover"
-                    :width="60"
-                    :height="40"
-                    :preview="false"
-                    style="border-radius: 4px; object-fit: cover"
-                  />
-                  <div>
-                    <a-typography-link v-if="record.status === 1" @click="$router.push(`/project/${record.id}`)">
-                      {{ record.name }}
-                    </a-typography-link>
-                    <span v-else>{{ record.name }}</span>
-                    <div style="font-size: 12px; color: var(--color-text-tertiary)">
-                      #{{ record.id }}
-                    </div>
-                  </div>
-                </a-space>
-              </template>
-            </a-table-column>
-
-            <a-table-column title="分类" data-index="categoryName" :width="100">
-              <template #default="{ record }">
-                <a-tag>{{ record.categoryName || '-' }}</a-tag>
-              </template>
-            </a-table-column>
-
-            <a-table-column title="原标价" data-index="price" :width="100" align="center">
-              <template #default="{ record }">
-                <span style="color: var(--color-primary-strong); font-weight: 600">
-                  {{ record.price ? `¥${record.price}` : '免费' }}
-                </span>
-              </template>
-            </a-table-column>
-
-            <a-table-column title="获取次数" data-index="salesCount" :width="100" align="center" />
-
-            <a-table-column title="评分" :width="100" align="center">
-              <template #default="{ record }">
-                <span v-if="record.avgRating">
-                  <StarFilled style="color: #faad14; margin-right: 4px" />
-                  {{ record.avgRating.toFixed(1) }}
-                </span>
-                <span v-else class="text-muted">-</span>
-              </template>
-            </a-table-column>
-
-            <a-table-column title="状态" :width="80" align="center">
-              <template #default="{ record }">
-                <a-tag :color="record.status === 1 ? 'green' : 'orange'">
-                  {{ record.status === 1 ? '已上架' : record.status === 0 ? '草稿' : '已下架' }}
-                </a-tag>
-              </template>
-            </a-table-column>
-
-            <a-table-column title="创建时间" data-index="createTime" :width="170" />
-
-            <a-table-column title="操作" key="action" :width="180" align="center" fixed="right">
-              <template #default="{ record }">
-                <a-space>
-                  <a-button
-                    type="link"
-                    size="small"
-                    @click="$router.push(`/project/${record.id}/edit`)"
-                  >
-                    <EditOutlined /> 编辑
-                  </a-button>
-                  <a-popconfirm
-                    title="确定删除此项目？"
-                    ok-text="确定"
-                    cancel-text="取消"
-                    @confirm="handleDelete(record.id)"
-                  >
-                    <a-button type="link" size="small" danger> <DeleteOutlined /> 删除 </a-button>
-                  </a-popconfirm>
-                </a-space>
-              </template>
-            </a-table-column>
-          </a-table>
-        </template>
-
-        <a-empty v-else description="还没有发布过项目" class="empty-state">
-          <a-button v-if="canPublishProject" type="primary" @click="$router.push('/project/create')">
-            <PlusOutlined /> 发布第一个项目
-          </a-button>
-        </a-empty>
-      </a-spin>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { computed, ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { PlusOutlined, EditOutlined, DeleteOutlined, StarFilled } from '@ant-design/icons-vue'
-import type { TablePaginationConfig } from 'ant-design-vue'
-import { listMyProjectVoByPage, deleteProject } from '@/api/projectController.ts'
+import { PlusOutlined } from '@ant-design/icons-vue'
+import { listMyProjectVoByPage, deleteProject } from '@/api/projectController'
 import { useLoginUserStore } from '@/stores/loginUser'
+import { formatDate } from '@/utils/time'
+import PageHeading from '@/components/PageHeading.vue'
+import PersonalNav from '@/components/PersonalNav.vue'
+import TemplateArtwork from '@/components/TemplateArtwork.vue'
 
+const router = useRouter()
 const loginUserStore = useLoginUserStore()
 const canPublishProject = computed(() => loginUserStore.loginUser.userRole === 'admin')
-
-const defaultCover =
-  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjZjBmMmY1Ii8+PHRleHQgeD0iMzAiIHk9IjIzIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjgiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIj5Ob25lPC90ZXh0Pjwvc3ZnPg=='
-
-const loading = ref(false)
+const loading = ref(true)
+const loadError = ref(false)
 const projects = ref<API.ProjectVO[]>([])
-const pagination = reactive({
-  current: 1,
-  pageSize: 10,
-  total: 0,
-  showTotal: (total: number) => `共 ${total} 个项目`,
-  showSizeChanger: false,
-})
+const pagination = reactive({ current: 1, pageSize: 10, total: 0 })
 
-const loadProjects = async () => {
+const statusLabels: Record<number, string> = { 0: '草稿', 1: '已上架', 2: '已下架' }
+
+async function loadProjects() {
   loading.value = true
+  loadError.value = false
   try {
     const res = await listMyProjectVoByPage({
       pageNum: pagination.current,
@@ -151,64 +33,93 @@ const loadProjects = async () => {
     if (res.data.code === 0 && res.data.data) {
       projects.value = res.data.data.records || []
       pagination.total = res.data.data.totalRow || 0
+    } else {
+      loadError.value = true
     }
   } catch {
-    message.error('加载失败')
+    loadError.value = true
   } finally {
     loading.value = false
   }
 }
 
-const handleTableChange = (pag: TablePaginationConfig) => {
-  pagination.current = pag.current || 1
-  loadProjects()
-}
-
-const handleDelete = async (id?: number) => {
+async function handleDelete(id?: number) {
   if (!id) return
   try {
     const res = await deleteProject({ id })
     if (res.data.code === 0) {
-      message.success('删除成功')
-      loadProjects()
+      message.success('模板已删除')
+      if (projects.value.length === 1 && pagination.current > 1) pagination.current--
+      await loadProjects()
     } else {
       message.error(res.data.message || '删除失败')
     }
   } catch {
-    message.error('删除失败')
+    message.error('删除失败，请稍后重试')
   }
 }
 
-onMounted(() => {
-  loadProjects()
-})
+onMounted(loadProjects)
 </script>
 
-<style scoped>
-.text-muted,
-.order-id {
-  color: var(--color-text-tertiary);
-  font-size: 12px;
-}
-.project-name {
-  font-weight: 600;
-  font-size: 14px;
-}
-.price {
-  color: var(--color-primary-strong);
-  font-weight: 650;
-}
-.pagination-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-top: 24px;
-}
-:deep(.ant-table) {
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-}
-:deep(.ant-table-thead > tr > th) {
-  background: var(--color-surface-soft);
-  font-weight: 600;
-}
-</style>
+<template>
+  <div class="page-shell">
+    <PageHeading title="我的项目" description="管理已发布的模板和还在准备的草稿。">
+      <a-button v-if="canPublishProject" type="primary" @click="router.push('/project/create')">
+        <PlusOutlined aria-hidden="true" /> 发布模板
+      </a-button>
+    </PageHeading>
+    <PersonalNav />
+    <a-skeleton v-if="loading" active :title="false" :paragraph="{ rows: 3 }" />
+    <a-alert v-else-if="loadError" type="error" message="项目列表加载失败" show-icon>
+      <template #action><a-button size="small" @click="loadProjects">重试</a-button></template>
+    </a-alert>
+    <ul v-else-if="projects.length" class="paper-list">
+      <li v-for="project in projects" :key="project.id" class="collection-entry">
+        <TemplateArtwork class="collection-art" :cover="project.coverImage" />
+        <div class="collection-copy">
+          <span>{{ project.categoryName || '应用模板' }}</span>
+          <h2>
+            <RouterLink v-if="project.status === 1" :to="'/project/' + project.id">
+              {{ project.name }}
+            </RouterLink>
+            <template v-else>{{ project.name }}</template>
+          </h2>
+          <p class="collection-meta tabular">
+            <a-tag :color="project.status === 1 ? 'success' : undefined">{{
+              statusLabels[project.status ?? 0] || '已下架'
+            }}</a-tag>
+            <span>{{ project.price ? '¥' + project.price : '免费' }}</span>
+            <span>领取 {{ project.salesCount || 0 }} 次</span>
+            <span v-if="project.avgRating">{{ project.avgRating.toFixed(1) }} 分</span>
+            <time v-if="project.createTime">{{ formatDate(project.createTime) }}</time>
+          </p>
+        </div>
+        <div class="folio-actions collection-actions">
+          <a-button @click="router.push('/project/' + project.id + '/edit')">编辑模板</a-button>
+          <a-popconfirm
+            title="删除这份模板？"
+            ok-text="删除"
+            cancel-text="取消"
+            @confirm="handleDelete(project.id)"
+          >
+            <a-button danger type="link">删除</a-button>
+          </a-popconfirm>
+        </div>
+      </li>
+    </ul>
+    <div v-else class="folio-empty">
+      <p>还没有发布过模板。</p>
+      <RouterLink class="folio-link" to="/project">浏览模板目录</RouterLink>
+    </div>
+    <div v-if="pagination.total > pagination.pageSize" class="pagination-wrapper">
+      <a-pagination
+        v-model:current="pagination.current"
+        :page-size="pagination.pageSize"
+        :total="pagination.total"
+        :show-size-changer="false"
+        @change="loadProjects"
+      />
+    </div>
+  </div>
+</template>

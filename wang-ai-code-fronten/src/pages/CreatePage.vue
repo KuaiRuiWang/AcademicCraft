@@ -1,59 +1,61 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ArrowUpOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { addApp, listMyAppVoByPage } from '@/api/appController'
-import { getDeployUrl } from '@/config/env'
+import { getProjectVoById } from '@/api/projectController'
 import { starterTemplates } from '@/config/starterTemplates'
 import AppCard from '@/components/AppCard.vue'
-import { ArrowRightOutlined, CodeOutlined, InboxOutlined } from '@ant-design/icons-vue'
+import PageHeading from '@/components/PageHeading.vue'
+import folioArtwork from '@/assets/folio.webp'
 
 const router = useRouter()
 const route = useRoute()
 const loginUserStore = useLoginUserStore()
-
-// 用户提示词
+const promptField = ref<HTMLTextAreaElement>()
 const userPrompt = ref('')
 const creating = ref(false)
 const createError = ref('')
-const inputShell = ref<HTMLDivElement | null>(null)
-// 是否同步生成 Node.js 后端（全栈项目）
+const templateError = ref('')
 const generateBackend = ref(false)
 const generateThesis = ref(true)
 const thesisTitle = ref('')
+const draftKey = 'baiye:create-after-login'
 
-// 我的作品数据
 const myApps = ref<API.AppVO[]>([])
 const myAppsLoading = ref(false)
-const myAppsPage = reactive({
-  current: 1,
-  pageSize: 6,
-  total: 0,
-})
+const myAppsError = ref(false)
+const myAppsPage = reactive({ current: 1, pageSize: 6, total: 0 })
 
-// 设置提示词
-const setPrompt = (prompt: string) => {
+function setPrompt(prompt: string) {
   userPrompt.value = prompt
   createError.value = ''
-  scrollToInput()
+  templateError.value = ''
+  promptField.value?.focus()
 }
 
-// 滚动到输入区
-const scrollToInput = () => {
-  inputShell.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-}
-
-// 创建应用
-const createApp = async () => {
+async function createApp() {
+  if (creating.value) return
   createError.value = ''
-  if (!userPrompt.value.trim()) {
-    message.warning('请输入应用描述')
+  const initPrompt = userPrompt.value.trim()
+  if (!initPrompt) {
+    createError.value = '请填写项目需求'
+    promptField.value?.focus()
     return
   }
-
   if (!loginUserStore.loginUser.id) {
-    message.warning('请先登录')
+    sessionStorage.setItem(
+      draftKey,
+      JSON.stringify({
+        prompt: userPrompt.value,
+        backend: generateBackend.value,
+        thesis: generateThesis.value,
+        title: thesisTitle.value,
+      }),
+    )
+    message.warning('登录后即可继续生成')
     await router.push({ path: '/user/login', query: { redirect: route.fullPath } })
     return
   }
@@ -61,35 +63,27 @@ const createApp = async () => {
   creating.value = true
   try {
     const res = await addApp({
-      initPrompt: userPrompt.value.trim(),
+      initPrompt,
       generateBackend: generateBackend.value,
       generateThesis: generateThesis.value,
       thesisTitle: generateThesis.value ? thesisTitle.value.trim() : undefined,
     })
-
     if (res.data.code === 0 && res.data.data) {
-      message.success('应用创建成功')
-      // 跳转到对话页面，确保ID是字符串类型
-      const appId = String(res.data.data)
-      await router.push(`/app/chat/${appId}`)
+      message.success('应用已创建')
+      await router.push('/app/chat/' + String(res.data.data))
     } else {
       createError.value = res.data.message || '创建失败，请重试'
     }
-  } catch (error) {
-    console.error('创建应用失败：', error)
-    createError.value = '创建失败，请重试'
+  } catch {
+    createError.value = '创建失败，请检查网络后重试'
   } finally {
     creating.value = false
   }
 }
 
-// 加载我的作品
-const loadMyApps = async () => {
-  if (!loginUserStore.loginUser.id) {
-    return
-  }
-
+async function loadMyApps() {
   myAppsLoading.value = true
+  myAppsError.value = false
   try {
     const res = await listMyAppVoByPage({
       pageNum: myAppsPage.current,
@@ -97,396 +91,365 @@ const loadMyApps = async () => {
       sortField: 'createTime',
       sortOrder: 'desc',
     })
-
     if (res.data.code === 0 && res.data.data) {
       myApps.value = res.data.data.records || []
       myAppsPage.total = res.data.data.totalRow || 0
+    } else {
+      myAppsError.value = true
     }
-  } catch (error) {
-    console.error('加载我的作品失败：', error)
+  } catch {
+    myAppsError.value = true
   } finally {
     myAppsLoading.value = false
   }
 }
 
-// 查看对话
-const viewChat = (appId: string | number | undefined) => {
-  if (appId) {
-    router.push(`/app/chat/${appId}?view=1`)
+async function loadTemplatePrompt() {
+  const template = route.query.template
+  if (typeof template !== 'string') return
+  const starter = starterTemplates.find((item) => item.id === template)
+  if (starter) {
+    userPrompt.value = starter.prompt
+    return
   }
-}
+  if (!/^\d+$/.test(template)) return
 
-// 查看作品
-const viewWork = (app: API.AppVO) => {
-  if (app.deployKey) {
-    const url = getDeployUrl(app.deployKey, app.codeGenType)
-    window.open(url, '_blank')
+  try {
+    const res = await getProjectVoById({ id: template as unknown as number })
+    const project = res.data.data
+    if (res.data.code !== 0 || !project?.name) throw new Error('模板暂不可用')
+    if (!userPrompt.value) {
+      userPrompt.value = ['创建一个「' + project.name + '」应用。', project.description]
+        .filter(Boolean)
+        .join('\n')
+        .slice(0, 1000)
+    }
+  } catch {
+    if (!userPrompt.value) templateError.value = '无法读取原模板。你可以直接填写项目需求。'
   }
 }
 
 onMounted(() => {
-  const template = starterTemplates.find((item) => item.id === route.query.template)
-  if (template) userPrompt.value = template.prompt
-  loadMyApps()
+  const savedDraft = sessionStorage.getItem(draftKey)
+  if (savedDraft) {
+    sessionStorage.removeItem(draftKey)
+    try {
+      const draft = JSON.parse(savedDraft)
+      userPrompt.value = draft.prompt
+      generateBackend.value = draft.backend
+      generateThesis.value = draft.thesis
+      thesisTitle.value = draft.title
+    } catch {
+      void loadTemplatePrompt()
+    }
+  } else {
+    void loadTemplatePrompt()
+  }
+  if (loginUserStore.loginUser.id) void loadMyApps()
 })
 </script>
 
 <template>
-  <div id="createPage">
-    <div class="container">
-      <!-- 页面头部 -->
-      <div class="hero-section">
-        <h1 class="hero-title">用 AI <span class="accent">创建 Web 应用</span></h1>
-        <p class="hero-description">
-          支持 Vue 网站与全栈应用（Node.js + MySQL），生成后可直接部署上线
-        </p>
-      </div>
+  <div class="page-shell">
+    <PageHeading
+      title="起草一个应用"
+      description="写下使用场景、主要功能，以及你希望得到的结果。"
+    />
 
-      <div ref="inputShell" class="input-shell">
-        <label for="project-prompt" class="prompt-label"
-          ><CodeOutlined aria-hidden="true" /> 描述你的项目需求</label
-        >
-        <a-textarea
-          id="project-prompt"
-          v-model:value="userPrompt"
-          placeholder="例如，做一个带库存提醒的台账…"
-          :auto-size="{ minRows: 4, maxRows: 10 }"
-          :maxlength="1000"
-          :disabled="creating"
-          class="prompt-input"
+    <form class="brief-grid" @submit.prevent="createApp">
+      <section class="brief-sheet" aria-labelledby="brief-title">
+        <h2 id="brief-title">创作简报</h2>
+        <a-alert
+          v-if="templateError"
+          class="brief-alert"
+          type="warning"
+          :message="templateError"
+          show-icon
         />
-        <div class="composer-footer">
-          <span class="prompt-count">{{ userPrompt.length }} / 1000</span>
-          <a-button type="primary" size="large" :loading="creating" @click="createApp"
-            >开始生成 <ArrowRightOutlined aria-hidden="true"
-          /></a-button>
+        <label class="field-label" for="project-prompt">项目需求</label>
+        <textarea
+          id="project-prompt"
+          ref="promptField"
+          v-model="userPrompt"
+          class="ant-input brief-textarea"
+          placeholder="例如，为工作室做一个库存台账，帮我看见哪些物品需要补货。"
+          rows="6"
+          maxlength="1000"
+          required
+          :disabled="creating"
+          aria-describedby="prompt-count"
+        ></textarea>
+        <div id="prompt-count" class="prompt-count tabular">{{ userPrompt.length }} / 1000</div>
+        <div class="brief-examples">
+          <span>试用示例</span>
+          <a-button
+            v-for="template in starterTemplates"
+            :key="template.id"
+            size="small"
+            :disabled="creating"
+            @click="setPrompt(template.prompt)"
+          >
+            {{ template.name }}
+          </a-button>
         </div>
-      </div>
-      <div class="fullstack-option">
-        <a-checkbox v-model:checked="generateBackend" :disabled="creating"
-          >同步生成 Node.js 后端 + MySQL（全栈项目）</a-checkbox
-        >
-        <span class="fullstack-hint">勾选后同时生成前后端与数据库，作为完整项目部署</span>
-      </div>
-      <a-alert
-        v-if="createError"
-        :message="createError"
-        type="error"
-        show-icon
-        class="create-error"
-      />
-      <div class="thesis-option">
-        <a-checkbox v-model:checked="generateThesis" :disabled="creating">同时生成毕业论文初稿</a-checkbox>
-        <div v-if="generateThesis" class="thesis-title-field">
-          <label for="thesis-title">论文题目（选填）</label>
-          <a-input id="thesis-title" v-model:value="thesisTitle" :maxlength="200" :disabled="creating"
-            placeholder="留空时根据应用名称拟定" />
-          <p>代码生成后自动开始，可分章编辑并下载 Word。</p>
-        </div>
-      </div>
-      <p class="use-note">
-        用于课程或毕业考核时，请遵守学校的 AI 使用规则，自行完成要求独立完成的部分。
-      </p>
 
-      <!-- 快捷示例 -->
-      <div class="quick-actions">
-        <span class="examples-label">试试这些想法</span>
-        <a-button
-          v-for="template in starterTemplates"
-          :key="template.id"
-          class="quick-pill"
-          @click="setPrompt(template.prompt)"
-        >
-          {{ template.name }}
-        </a-button>
-      </div>
-
-      <!-- 我的作品 -->
-      <div v-if="loginUserStore.loginUser.id" class="section">
-        <h2 class="section-title">我的作品</h2>
-        <div v-if="myAppsLoading" class="app-grid">
-          <div v-for="i in 3" :key="i" class="skeleton-card">
-            <div class="skel-media"></div>
-            <div class="skel-body">
-              <a-skeleton active :title="{ width: '60%' }" :paragraph="{ rows: 1 }" />
+        <fieldset class="brief-options">
+          <legend>输出内容</legend>
+          <div class="brief-option">
+            <div>
+              <label id="backend-label" for="generate-backend">全栈项目</label>
+              <small id="backend-note">Vue 前端、Node.js 后端与 MySQL 数据库</small>
             </div>
+            <a-switch
+              id="generate-backend"
+              v-model:checked="generateBackend"
+              :disabled="creating"
+              aria-labelledby="backend-label"
+              aria-describedby="backend-note"
+            />
           </div>
-        </div>
-        <div v-else-if="myApps.length" class="app-grid">
-          <AppCard
-            v-for="app in myApps"
-            :key="app.id"
-            :app="app"
-            @view-chat="viewChat"
-            @view-work="viewWork"
-          />
-        </div>
-        <div v-else class="empty-state">
-          <InboxOutlined class="empty-icon" aria-hidden="true" />
-          <p class="empty-text">还没有作品，描述一个想法开始吧</p>
-          <a-button type="primary" shape="round" @click="scrollToInput">创建第一个应用</a-button>
-        </div>
-        <div v-if="myAppsPage.total > myAppsPage.pageSize" class="pagination-wrapper">
-          <a-pagination
-            v-model:current="myAppsPage.current"
-            v-model:page-size="myAppsPage.pageSize"
-            :total="myAppsPage.total"
-            :show-size-changer="false"
-            :show-total="(total: number) => `共 ${total} 个应用`"
-            @change="loadMyApps"
-          />
-        </div>
+          <div class="brief-option">
+            <div>
+              <label id="thesis-label" for="generate-thesis">毕业论文初稿</label>
+              <small id="thesis-note">分章编辑，导出 Word 文档</small>
+            </div>
+            <a-switch
+              id="generate-thesis"
+              v-model:checked="generateThesis"
+              :disabled="creating"
+              aria-labelledby="thesis-label"
+              aria-describedby="thesis-note"
+            />
+          </div>
+          <div v-if="generateThesis" class="title-field">
+            <label class="field-label" for="thesis-title">论文题目 <small>选填</small></label>
+            <a-input
+              id="thesis-title"
+              v-model:value="thesisTitle"
+              :maxlength="200"
+              :disabled="creating"
+              aria-describedby="thesis-use-note"
+              placeholder="留空时根据应用名称拟定"
+            />
+            <small id="thesis-use-note">用于课程考核时，请遵守学校的 AI 使用规则。</small>
+          </div>
+        </fieldset>
+      </section>
+
+      <aside class="delivery-list" aria-labelledby="delivery-title">
+        <h2 id="delivery-title">交付清单</h2>
+        <dl class="folio-spec">
+          <div>
+            <dt>应用</dt>
+            <dd>{{ generateBackend ? 'Vue 网站' : 'Web 网站' }}</dd>
+          </div>
+          <div>
+            <dt>后端</dt>
+            <dd>{{ generateBackend ? 'Node.js + MySQL' : '仅前端' }}</dd>
+          </div>
+          <div>
+            <dt>文档</dt>
+            <dd>{{ generateThesis ? '论文初稿' : '仅源码' }}</dd>
+          </div>
+        </dl>
+        <a-alert
+          v-if="createError"
+          class="brief-alert"
+          :message="createError"
+          type="error"
+          show-icon
+        />
+        <a-button type="primary" html-type="submit" :loading="creating" block>
+          开始生成 <ArrowUpOutlined class="diagonal-arrow" aria-hidden="true" />
+        </a-button>
+        <img :src="folioArtwork" alt="" />
+      </aside>
+    </form>
+
+    <section
+      v-if="loginUserStore.loginUser.id"
+      id="my-apps"
+      class="my-apps"
+      aria-labelledby="my-apps-title"
+    >
+      <header class="section-heading"><h2 id="my-apps-title">我的应用</h2></header>
+      <a-skeleton v-if="myAppsLoading" active :title="false" :paragraph="{ rows: 3 }" />
+      <a-alert v-else-if="myAppsError" message="应用列表加载失败" type="error" show-icon>
+        <template #action><a-button size="small" @click="loadMyApps">重试</a-button></template>
+      </a-alert>
+      <ul v-else-if="myApps.length" class="paper-list">
+        <AppCard v-for="app in myApps" :key="app.id" :app="app" />
+      </ul>
+      <p v-else class="folio-empty">还没有应用。写下第一个需求即可开始创作。</p>
+      <div v-if="myAppsPage.total > myAppsPage.pageSize" class="pagination-wrapper">
+        <a-pagination
+          v-model:current="myAppsPage.current"
+          :page-size="myAppsPage.pageSize"
+          :total="myAppsPage.total"
+          :show-size-changer="false"
+          @change="loadMyApps"
+        />
       </div>
-    </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.thesis-option { margin-top: 1rem; }
-.thesis-title-field { display: grid; gap: .5rem; max-width: 36rem; margin: .75rem 0 0; }
-.thesis-title-field label { color: var(--color-text); font-size: .875rem; }
-.thesis-title-field p { margin: 0; color: var(--color-text-secondary); font-size: .875rem; }
-#createPage {
-  background: var(--color-bg);
+.brief-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(225px, 0.39fr);
+  gap: clamp(24px, 5vw, 80px);
+  align-items: start;
 }
-.container {
-  max-width: calc(var(--page-width) + var(--page-gutter) * 2);
-  margin-inline: auto;
-  padding: 0 var(--page-gutter) 64px;
+
+.brief-grid h2 {
+  font-size: clamp(1.3rem, 2.2vw, 1.75rem);
+  margin-bottom: 20px;
 }
-.hero-section {
-  text-align: center;
-  max-width: 880px;
-  margin-inline: auto;
-  padding-block: 60px 32px;
+
+.field-label,
+.brief-option label {
+  display: block;
+  font-weight: 650;
 }
-.hero-title {
-  margin: 0 0 16px;
-  font-size: clamp(1.875rem, 1.125rem + 2.5vw, 2.75rem);
-  line-height: 1.4;
-  font-weight: 750;
-  color: var(--color-text);
+
+.field-label {
+  margin-bottom: 8px;
 }
-.accent {
-  color: var(--color-primary);
-}
-.hero-description {
-  margin: 0 auto;
-  font-size: 15px;
-  line-height: 1.8;
-  color: var(--color-text-secondary);
-}
-.input-shell {
-  max-width: 820px;
-  margin: 12px auto 20px;
-  background: var(--color-surface);
+
+.brief-textarea {
+  display: block;
+  width: 100%;
+  min-height: 182px;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
-  padding: 24px;
-  transition: border-color 0.2s;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 16px 18px;
+  resize: vertical;
 }
-.input-shell:focus-within {
+
+.brief-textarea:hover {
   border-color: var(--color-primary);
 }
-.prompt-label {
+
+.prompt-count {
+  margin: 6px 0 12px;
+  text-align: end;
+  font-size: 0.73rem;
+  color: var(--color-text-secondary);
+}
+
+.brief-examples {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin-bottom: 12px;
+  gap: 7px;
+  font-size: 0.83rem;
 }
-.prompt-label :deep(svg) {
-  color: var(--color-primary);
+
+.brief-examples > span {
+  margin-right: 4px;
+  color: var(--color-text-secondary);
 }
-.prompt-input {
-  border: none;
-  padding: 0;
-  border-radius: 0;
+
+.brief-examples :deep(.ant-btn) {
+  min-height: 36px;
+  padding-inline: 11px;
   background: transparent;
-  font-size: 16px;
-  line-height: 1.8;
-  resize: vertical;
-  box-shadow: none;
+  font-size: 0.8rem;
 }
-.prompt-input:focus {
-  box-shadow: none;
-  outline: 2px solid var(--color-primary);
-  outline-offset: 4px;
-  border-radius: 2px;
+
+.brief-options {
+  min-width: 0;
+  margin: 30px 0 0;
+  padding: 0;
+  border: 0;
 }
-.composer-footer {
+
+.brief-options legend {
+  margin-bottom: 12px;
+  font-size: 1.05rem;
+  font-weight: 720;
+}
+
+.brief-option {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding-top: 20px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.brief-option label {
+  cursor: pointer;
+}
+
+.brief-option small,
+.title-field small {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
+
+.brief-option small {
+  display: block;
+  margin-top: 3px;
+}
+
+.title-field {
   margin-top: 16px;
-  border-top: 1px solid var(--color-border);
 }
-.prompt-count {
-  color: var(--color-text-tertiary);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
+
+.title-field .field-label small {
+  margin-inline-start: 4px;
+  font-weight: 400;
 }
-.fullstack-option {
-  max-width: 820px;
-  margin: 0 auto 28px;
-  display: flex;
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 6px;
-  padding-inline: 4px;
+
+.title-field input {
+  margin-bottom: 5px;
 }
-.fullstack-option :deep(.ant-checkbox-wrapper) {
-  min-height: 28px;
+
+.delivery-list {
+  padding-top: 16px;
+  border-top: 3px solid var(--color-primary);
 }
-.fullstack-hint {
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-  padding-inline-start: 24px;
-}
-.create-error,
-.use-note {
-  max-width: 860px;
-  margin: 0 auto 18px;
-}
-.use-note {
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  line-height: 1.6;
-}
-.quick-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  max-width: 860px;
-  margin: 0 auto 64px;
-}
-.examples-label {
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-  margin-inline-end: 8px;
-}
-.quick-pill {
-  height: auto;
-  min-height: 40px;
-  padding: 6px 14px;
-  border-radius: 6px;
-  background: transparent;
-  border-color: var(--color-border);
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  box-shadow: none;
-}
-.quick-pill:hover {
+
+.delivery-list h2 {
   color: var(--color-primary);
-  border-color: var(--color-primary-muted);
-  background: var(--color-primary-soft);
 }
-.section {
-  margin-top: 48px;
-  padding-top: 32px;
-  border-top: 1px solid var(--color-border);
+
+.delivery-list .folio-spec {
+  margin-bottom: 22px;
 }
-.section-title {
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1.5;
-  color: var(--color-text);
-  margin: 0 0 24px;
+
+.delivery-list img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2.45;
+  object-fit: cover;
+  margin-top: 26px;
 }
-.app-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
+
+.brief-alert {
+  margin-bottom: 14px;
 }
-.skeleton-card {
-  overflow: hidden;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
+
+.diagonal-arrow {
+  rotate: 45deg;
 }
-.skel-media {
-  aspect-ratio: 16 / 10;
-  background: var(--color-primary-soft);
+
+.my-apps {
+  margin-top: 54px;
 }
-.skel-body {
-  padding: 20px;
-}
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 48px 24px;
-  background: var(--color-surface);
-  border: 1px dashed var(--color-border);
-  border-radius: 12px;
-  text-align: center;
-}
-.empty-icon {
-  font-size: 36px;
-  color: var(--color-primary);
-  margin-bottom: 16px;
-}
-.empty-text {
-  margin: 0 0 20px;
-  color: var(--color-text-secondary);
-}
-.pagination-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-top: 32px;
-}
-@media (max-width: 1000px) {
-  .app-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 700px) {
-  .hero-section {
-    padding-block: 36px 24px;
-    text-align: left;
-  }
-  .hero-title {
-    font-size: 30px;
-  }
-  .hero-description {
-    font-size: 14px;
-  }
-  .input-shell {
-    padding: 20px;
-    margin-top: 0;
-  }
-  .prompt-input {
-    font-size: 16px;
-  }
-  .fullstack-option :deep(.ant-checkbox-wrapper) {
-    min-height: 44px;
-    align-items: center;
-  }
-  .fullstack-hint {
-    padding-inline-start: 0;
-  }
-  .quick-actions {
-    justify-content: flex-start;
-    gap: 8px;
-    margin-bottom: 24px;
-  }
-  .examples-label {
-    flex-basis: 100%;
-    margin-bottom: 4px;
-  }
-  .quick-pill {
-    min-height: 44px;
-  }
-}
-@media (max-width: 520px) {
-  .app-grid {
+
+@media (max-width: 760px) {
+  .brief-grid {
     grid-template-columns: minmax(0, 1fr);
+    gap: 30px;
+  }
+
+  .delivery-list img {
+    display: none;
   }
 }
 </style>

@@ -1,183 +1,82 @@
-<template>
-  <div id="projectMarketPage">
-    <div class="container">
-      <header class="page-header">
-        <div>
-          <h1 class="page-title">模板库</h1>
-          <p class="page-desc">预览免费模板，按使用许可下载和修改源码。</p>
-        </div>
-        <RouterLink to="/create" class="custom-link"
-          >创建应用 <ThunderboltOutlined aria-hidden="true"
-        /></RouterLink>
-      </header>
-      <section class="starter-library" aria-labelledby="starter-library-title">
-        <h2 id="starter-library-title">入门模板</h2>
-        <StarterTemplateCards />
-      </section>
-      <h2 id="published-templates-title">已上架模板</h2>
-      <a-button
-        class="filter-toggle"
-        :aria-expanded="filtersOpen"
-        aria-controls="market-filters"
-        @click="filtersOpen = !filtersOpen"
-        ><FilterOutlined aria-hidden="true" /> {{ filtersOpen ? '收起筛选' : '筛选模板' }}</a-button
-      >
-      <div class="market-layout">
-        <aside
-          id="market-filters"
-          class="filter-panel"
-          :class="{ 'is-open': filtersOpen }"
-          aria-label="筛选模板"
-        >
-          <div class="filter-heading">
-            <h2>筛选模板</h2>
-            <a-button type="text" size="small" @click="resetFilters">重置</a-button>
-          </div>
-          <div class="filter-section">
-            <label class="filter-title" for="project-search"
-              ><SearchOutlined aria-hidden="true" /> 搜索</label
-            >
-            <a-input-search
-              id="project-search"
-              v-model:value="query.name"
-              placeholder="搜索模板名称…"
-              allow-clear
-              @search="handleSearch"
-            />
-          </div>
-          <div class="filter-section">
-            <h3 class="filter-title"><AppstoreOutlined aria-hidden="true" /> 分类</h3>
-            <a-radio-group
-              v-model:value="query.categoryId"
-              class="category-list"
-              aria-label="模板分类"
-              @change="handleSearch"
-            >
-              <a-radio :value="undefined" class="category-item">全部</a-radio>
-              <a-radio
-                v-for="cat in categories"
-                :key="cat.id"
-                :value="cat.id"
-                class="category-item"
-                >{{ cat.name }}</a-radio
-              >
-            </a-radio-group>
-          </div>
-        </aside>
-        <section
-          class="market-results"
-          aria-labelledby="published-templates-title"
-          :aria-busy="loading"
-        >
-          <div class="toolbar">
-            <span class="result-count">{{ loadError ? '模板列表' : `共 ${total} 个模板` }}</span>
-            <div class="sort-controls">
-              <a-radio-group
-                v-model:value="query.sortField"
-                button-style="solid"
-                size="small"
-                aria-label="模板排序"
-                @change="handleSearch"
-              >
-                <a-radio-button value="createTime">最新</a-radio-button
-                ><a-radio-button value="salesCount">领取次数</a-radio-button
-                ><a-radio-button value="avgRating">评分</a-radio-button>
-              </a-radio-group>
-            </div>
-          </div>
-          <div v-if="loading" class="project-grid">
-            <div v-for="i in 6" :key="i" class="skeleton-card">
-              <div class="skel-cover"></div>
-              <div class="skel-body">
-                <a-skeleton active :title="{ width: '70%' }" :paragraph="{ rows: 2 }" />
-              </div>
-            </div>
-          </div>
-          <div v-else-if="loadError" class="empty-state" role="status">
-            <DisconnectOutlined class="empty-icon" aria-hidden="true" />
-            <h3>模板暂时无法加载</h3>
-            <p>请检查网络连接，稍后重试。</p>
-            <a-button @click="loadProjects"
-              ><ReloadOutlined aria-hidden="true" /> 重新加载</a-button
-            >
-          </div>
-          <div v-else-if="projects.length === 0" class="empty-state">
-            <InboxOutlined class="empty-icon" aria-hidden="true" />
-            <h3>暂时没有符合条件的模板</h3>
-            <p>可以调整筛选条件，或试试上方的入门模板。</p>
-            <a-button @click="resetFilters">重置筛选</a-button>
-          </div>
-          <div v-else class="project-grid">
-            <ProjectCard v-for="project in projects" :key="project.id" :project="project" />
-          </div>
-          <div v-if="!loading && !loadError && total > 0" class="pagination-wrapper">
-            <a-pagination
-              v-model:current="query.pageNum"
-              :page-size="query.pageSize"
-              :total="total"
-              :show-size-changer="false"
-              :show-total="(t: number) => `共 ${t} 个模板`"
-              @change="loadProjects"
-            />
-          </div>
-        </section>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import {
-  SearchOutlined,
-  AppstoreOutlined,
-  ThunderboltOutlined,
-  FilterOutlined,
-  ReloadOutlined,
-  InboxOutlined,
-  DisconnectOutlined,
-} from '@ant-design/icons-vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { listProjectVoByPage } from '@/api/projectController'
 import { listCategories } from '@/api/projectCategoryController'
+import { starterTemplates } from '@/config/starterTemplates'
+import PageHeading from '@/components/PageHeading.vue'
 import ProjectCard from '@/components/ProjectCard.vue'
 import StarterTemplateCards from '@/components/StarterTemplateCards.vue'
 
-const router = useRouter()
 const route = useRoute()
-
-const loading = ref(false)
+const loading = ref(true)
 const loadError = ref(false)
-const filtersOpen = ref(false)
 const projects = ref<API.ProjectVO[]>([])
 const categories = ref<API.ProjectCategory[]>([])
 const total = ref(0)
+const selectedCategory = ref('')
+const readCategoryId = () =>
+  typeof route.query.categoryId === 'string' ? route.query.categoryId : undefined
+const linkedCategoryId = ref(readCategoryId())
+const categoryName = computed(() =>
+  linkedCategoryId.value
+    ? categories.value.find((category) => String(category.id) === linkedCategoryId.value)?.name ||
+      ''
+    : selectedCategory.value,
+)
+const searchInput = ref('')
+const appliedSearch = ref('')
+let requestNumber = 0
 
-const query = reactive<API.ProjectQueryRequest>({
+const query = reactive({
   pageNum: 1,
   pageSize: 12,
   sortField: 'createTime',
   sortOrder: 'desc',
 })
 
-// 加载分类
-const loadCategories = async () => {
-  try {
-    const res = await listCategories()
-    if (res.data.code === 0 && res.data.data) {
-      categories.value = res.data.data
-    }
-  } catch {
-    // ignore
-  }
-}
+const categoryNames = computed(() => [
+  ...new Set([
+    ...starterTemplates.map((template) => template.category),
+    ...categories.value.flatMap((category) => (category.name ? [category.name] : [])),
+  ]),
+])
 
-// 加载项目列表
-const loadProjects = async () => {
+const visibleStarters = computed(() => {
+  if (query.pageNum !== 1 || (linkedCategoryId.value && !categoryName.value)) return []
+  const needle = appliedSearch.value.toLowerCase()
+  return starterTemplates.filter(
+    (template) =>
+      (!categoryName.value || categoryName.value === template.category) &&
+      [template.name, template.description, template.category]
+        .join(' ')
+        .toLowerCase()
+        .includes(needle),
+  )
+})
+
+async function loadProjects() {
+  const currentRequest = ++requestNumber
   loading.value = true
   loadError.value = false
+  const matchingCategory = categories.value.find((category) => category.name === categoryName.value)
+  const categoryId = linkedCategoryId.value
+    ? (linkedCategoryId.value as unknown as number)
+    : matchingCategory?.id
+  if (categoryName.value && !categoryId) {
+    projects.value = []
+    total.value = 0
+    loading.value = false
+    return
+  }
+
   try {
-    const res = await listProjectVoByPage(query)
+    const res = await listProjectVoByPage({
+      ...query,
+      name: appliedSearch.value || undefined,
+      categoryId,
+    })
+    if (currentRequest !== requestNumber) return
     if (res.data.code === 0 && res.data.data) {
       projects.value = res.data.data.records || []
       total.value = res.data.data.totalRow || 0
@@ -185,295 +84,205 @@ const loadProjects = async () => {
       loadError.value = true
     }
   } catch {
-    loadError.value = true
+    if (currentRequest === requestNumber) loadError.value = true
   } finally {
-    loading.value = false
+    if (currentRequest === requestNumber) loading.value = false
   }
 }
 
-// 搜索
-const handleSearch = () => {
+function search() {
+  appliedSearch.value = searchInput.value.trim()
   query.pageNum = 1
-  loadProjects()
+  void loadProjects()
 }
 
-const resetFilters = () => {
-  query.name = undefined
-  query.categoryId = undefined
-  if (route.query.categoryId) {
-    router.replace({ query: { ...route.query, categoryId: undefined } })
-  } else {
-    handleSearch()
-  }
+function selectCategory(name: string) {
+  selectedCategory.value = name
+  linkedCategoryId.value = undefined
+  search()
 }
 
-// 从路由 query 同步分类筛选。
-// 分类 id 是雪花 Long，字符串传递避免精度丢失，同时与单选组 value 类型一致
-const applyRouteCategory = () => {
-  const raw = route.query.categoryId
-  query.categoryId = typeof raw === 'string' && raw !== '' ? (raw as unknown as number) : undefined
+function resetFilters() {
+  searchInput.value = ''
+  query.sortField = 'createTime'
+  selectCategory('')
 }
 
-// 模板分类变化后重新加载列表。
 watch(
   () => route.query.categoryId,
   () => {
-    applyRouteCategory()
-    handleSearch()
+    linkedCategoryId.value = readCategoryId()
+    selectedCategory.value = ''
+    search()
   },
 )
 
-onMounted(() => {
-  applyRouteCategory()
-  loadCategories()
-  loadProjects()
+onMounted(async () => {
+  try {
+    const res = await listCategories()
+    if (res.data.code === 0) categories.value = res.data.data || []
+  } catch {
+    // 远程分类暂不可用时，入门模板仍可按分类检索。
+  }
+  void loadProjects()
 })
 </script>
 
+<template>
+  <div class="page-shell">
+    <PageHeading
+      title="模板目录"
+      description="在线试用免费模板，按使用许可领取源码，或从模板介绍起草新应用。"
+    />
+
+    <div class="catalog-tools">
+      <div class="category-chips" role="group" aria-label="模板分类">
+        <a-button
+          v-for="name in ['', ...categoryNames]"
+          :key="name"
+          :class="{ 'is-selected': categoryName === name }"
+          :aria-pressed="categoryName === name"
+          @click="selectCategory(name)"
+        >
+          {{ name || '全部' }}
+        </a-button>
+      </div>
+      <a-input-search
+        v-model:value="searchInput"
+        aria-label="搜索模板"
+        placeholder="搜索模板"
+        allow-clear
+        class="catalog-search"
+        @search="search"
+      />
+    </div>
+
+    <section aria-label="模板结果" :aria-busy="loading">
+      <ul class="catalog-list">
+        <StarterTemplateCards :templates="visibleStarters" />
+        <template v-if="!loading && !loadError">
+          <ProjectCard
+            v-for="project in projects"
+            :key="project.id"
+            :to="'/project/' + project.id"
+            :title="project.name"
+            :category="project.categoryName"
+            :description="project.description"
+            :cover="project.coverImage"
+          />
+        </template>
+      </ul>
+
+      <a-skeleton
+        v-if="loading"
+        class="catalog-skeleton"
+        active
+        :title="false"
+        :paragraph="{ rows: 3 }"
+      />
+      <a-alert
+        v-else-if="loadError"
+        class="catalog-skeleton"
+        type="error"
+        message="已发布模板加载失败"
+        show-icon
+      >
+        <template #action
+          ><a-button size="small" @click="loadProjects">重新加载</a-button></template
+        >
+      </a-alert>
+      <div v-else-if="!visibleStarters.length && !projects.length" class="folio-empty">
+        <p>没有找到匹配的模板。</p>
+        <a-button @click="resetFilters">重置筛选</a-button>
+      </div>
+      <div
+        v-if="!loading && !loadError && (total || query.sortField !== 'createTime')"
+        class="catalog-bottom"
+      >
+        <label for="catalog-sort">已发布模板排序</label>
+        <a-select
+          id="catalog-sort"
+          v-model:value="query.sortField"
+          :options="[
+            { value: 'createTime', label: '最新' },
+            { value: 'salesCount', label: '领取次数' },
+            { value: 'avgRating', label: '评分' },
+          ]"
+          @change="search"
+        />
+        <span>共 {{ total }} 个</span>
+      </div>
+      <div v-if="!loading && !loadError && total > query.pageSize" class="pagination-wrapper">
+        <a-pagination
+          v-model:current="query.pageNum"
+          :page-size="query.pageSize"
+          :total="total"
+          :show-size-changer="false"
+          @change="loadProjects"
+        />
+      </div>
+    </section>
+  </div>
+</template>
+
 <style scoped>
-#projectMarketPage {
-  background: var(--color-bg);
-}
-.container {
-  max-width: calc(var(--page-width) + var(--page-gutter) * 2);
-  margin-inline: auto;
-  padding: 44px var(--page-gutter) 72px;
-}
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 24px;
-  padding-bottom: 32px;
-  margin-bottom: 32px;
-  border-bottom: 1px solid var(--color-border);
-}
-.starter-library {
-  margin-bottom: 36px;
-}
-.starter-library h2,
-#published-templates-title {
-  margin: 0 0 16px;
-  font-size: 24px;
-}
-.page-title {
-  margin: 0 0 10px;
-  font-size: clamp(1.75rem, 1.25rem + 1.5vw, 2.25rem);
-  font-weight: 750;
-  color: var(--color-text);
-  line-height: 1.4;
-}
-.page-desc {
-  margin: 0;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-}
-.custom-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--color-primary);
-  font-size: 13px;
-  min-height: 44px;
-}
-.market-layout {
-  display: grid;
-  grid-template-columns: 228px minmax(0, 1fr);
-  gap: 32px;
-  align-items: start;
-}
-.filter-panel {
-  position: sticky;
-  top: calc(var(--header-height) + 24px);
-  padding: 20px;
-  border-radius: 12px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-}
-.filter-heading {
+.catalog-tools {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px 18px;
   margin-bottom: 20px;
 }
-.filter-heading h2 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 650;
-}
-.filter-heading :deep(.ant-btn) {
-  color: var(--color-text-tertiary);
-}
-.filter-section + .filter-section {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid var(--color-border);
-}
-.filter-title {
+
+.category-chips {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0 0 12px;
-  color: var(--color-text-secondary);
 }
-.category-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.category-item {
-  display: flex;
-  align-items: center;
-  min-height: 38px;
-  margin: 0;
-  font-size: 13px;
-}
-.market-results {
-  min-width: 0;
-}
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-  min-height: 40px;
-  margin-bottom: 20px;
-}
-.result-count {
-  font-size: 13px;
-  color: var(--color-text-tertiary);
-}
-.sort-controls {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.sort-controls :deep(.ant-radio-button-wrapper) {
+
+.category-chips :deep(.ant-btn) {
   min-height: 36px;
   height: auto;
-  line-height: 34px;
-  font-size: 12px;
-  padding-inline: 14px;
+  padding: 5px 11px;
+  background: transparent;
+  font-size: 0.84rem;
 }
-.project-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
+
+.category-chips :deep(.is-selected),
+.category-chips :deep(.is-selected:hover) {
+  color: var(--color-surface);
+  border-color: var(--color-text);
+  background-color: var(--color-text);
 }
-.skeleton-card {
-  overflow: hidden;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
+
+.catalog-search {
+  width: min(100%, 240px);
 }
-.skel-cover {
-  aspect-ratio: 16 / 10;
-  background: var(--color-primary-soft);
-}
-.skel-body {
-  padding: 20px;
-}
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 380px;
-  padding: 36px 20px;
-  background: var(--color-surface);
-  border: 1px dashed var(--color-border);
-  border-radius: 12px;
-  text-align: center;
-}
-.empty-icon {
-  font-size: 36px;
-  color: var(--color-primary);
-  margin-bottom: 20px;
-}
-.empty-state h3 {
+
+.catalog-list {
   margin: 0;
-  font-size: 19px;
-  line-height: 1.5;
+  padding: 0;
+  border-top: 1px solid var(--color-text);
 }
-.empty-state p {
-  margin: 10px 0 24px;
-  color: var(--color-text-secondary);
-  font-size: 13px;
+
+.catalog-skeleton,
+.catalog-bottom {
+  margin-top: 20px;
 }
-.pagination-wrapper {
+
+.catalog-bottom {
   display: flex;
-  justify-content: center;
-  margin-top: 32px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
 }
-.filter-toggle {
-  display: none;
-}
-@media (max-width: 1100px) {
-  .project-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .market-layout {
-    grid-template-columns: 210px minmax(0, 1fr);
-    gap: 24px;
-  }
-}
-@media (max-width: 760px) {
-  .container {
-    padding-block: 32px 48px;
-  }
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    padding-bottom: 20px;
-    margin-bottom: 24px;
-  }
-  .market-layout {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
-  }
-  .filter-toggle {
-    display: inline-flex;
-    align-items: center;
-    margin-bottom: 20px;
-    min-height: 44px;
-  }
-  .filter-panel {
-    display: none;
-    position: static;
-  }
-  .filter-panel.is-open {
-    display: block;
-  }
-  .category-list {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 4px 16px;
-  }
-  .category-item {
-    min-height: 44px;
-  }
-  .toolbar {
-    gap: 12px;
-  }
-  .sort-controls :deep(.ant-radio-button-wrapper) {
-    min-height: 44px;
-    line-height: 42px;
-  }
-  .empty-state {
-    min-height: 300px;
-  }
-}
+
 @media (max-width: 520px) {
-  .project-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .pagination-wrapper :deep(.ant-pagination-total-text) {
-    display: none;
+  .catalog-search {
+    width: 100%;
   }
 }
 </style>

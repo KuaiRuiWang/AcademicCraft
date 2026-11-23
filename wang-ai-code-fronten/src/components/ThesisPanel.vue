@@ -121,8 +121,11 @@ async function download() {
     const anchor = document.createElement('a')
     anchor.href = url
     anchor.download = `论文初稿-${props.appId}.docx`
+    document.body.append(anchor)
     anchor.click()
+    anchor.remove()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
+    message.success('Word 已导出')
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : 'Word 导出失败，请重试'
   } finally {
@@ -145,11 +148,13 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
 </script>
 
 <template>
-  <section class="thesis-panel" aria-label="论文初稿">
+  <section class="paper-panel thesis-panel" aria-label="论文初稿">
     <div class="thesis-toolbar">
       <div>
         <h3>{{ thesis?.title || '论文初稿' }}</h3>
-        <p role="status" aria-live="polite">{{ thesis?.stage || '正在读取论文…' }}</p>
+        <p role="status" aria-live="polite">
+          {{ thesis?.stage || (loading ? '正在读取论文…' : '等待生成论文初稿') }}
+        </p>
       </div>
       <div class="thesis-actions">
         <a-button
@@ -160,7 +165,6 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
           <template #icon><ReloadOutlined /></template>{{ generateLabel }}
         </a-button>
         <a-button
-          type="primary"
           @click="download"
           :loading="downloading"
           :disabled="thesis?.status !== 'ready' || editing || appGenerating"
@@ -200,11 +204,11 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
         :show-info="false"
       />
     </div>
-    <div v-if="loading" class="thesis-empty"><a-spin tip="读取论文中" /></div>
+    <div v-if="loading" class="thesis-empty">
+      <a-skeleton active :title="false" :paragraph="{ rows: 4 }" />
+    </div>
     <div v-else-if="!thesis?.chapters.length" class="thesis-empty">
-      <h4>让论文与应用内容对应</h4>
-      <p>应用代码生成完成后，可依据实际实现生成提纲、正文和设计图，并导出 Word 初稿。</p>
-      <p>已勾选同步生成时会自动开始，也可以点击上方按钮手动生成。</p>
+      <p>应用代码生成后，可根据实际实现生成分章初稿并导出 Word。</p>
     </div>
     <div v-else class="thesis-workspace">
       <nav class="thesis-chapters" aria-label="论文章节">
@@ -217,7 +221,9 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
           @click="chapterNo = item.chapterNo"
         >
           <span>{{ item.title }}</span>
-          <small>{{ statusLabels[item.status] }}{{ item.userEdited ? ' · 已编辑' : '' }}</small>
+          <small v-if="thesis.status !== 'ready' || item.status !== 'ready' || item.userEdited">
+            {{ item.userEdited ? '已编辑' : statusLabels[item.status] }}
+          </small>
         </button>
       </nav>
       <article class="thesis-content" :aria-label="chapter?.title">
@@ -237,7 +243,7 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
           <a-textarea
             id="thesis-chapter-content"
             v-model:value="draft"
-            :rows="20"
+            :rows="10"
             :maxlength="100000"
             :disabled="saving"
           />
@@ -270,163 +276,181 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
 
 <style scoped>
 .thesis-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
   color: var(--color-text);
 }
+
 .thesis-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 12px 18px;
   align-items: start;
   justify-content: space-between;
-  padding: 1.25rem;
-  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 18px;
 }
+
 .thesis-toolbar h3 {
-  margin: 0 0 0.5rem;
-  font-size: 1.125rem;
+  margin-bottom: 6px;
+  font-size: clamp(1.22rem, 1.8vw, 1.55rem);
 }
+
 .thesis-toolbar p,
 .thesis-footnote {
   margin: 0;
-  font-size: 0.875rem;
   color: var(--color-text-secondary);
+  font-size: 0.84rem;
 }
+
 .thesis-actions,
 .editor-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 8px;
 }
-.thesis-notice {
-  margin: 0.75rem 1rem 0;
-}
+
+.thesis-notice + .thesis-notice,
+.thesis-workspace,
 .thesis-progress {
-  padding: 0.75rem 1.25rem;
+  margin-top: 14px;
+}
+
+.thesis-progress {
   color: var(--color-text-secondary);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
 }
+
 .thesis-workspace {
-  flex: 1;
-  min-height: 0;
   display: grid;
-  grid-template-columns: 10rem minmax(0, 1fr);
+  grid-template-columns: minmax(126px, 25%) minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
 }
+
 .thesis-chapters {
-  overflow: auto;
-  padding: 0.75rem 0.5rem;
-  border-right: 1px solid var(--color-border);
+  min-width: 0;
+  border-inline-start: 1px solid var(--color-border);
 }
+
 .thesis-chapters button {
   width: 100%;
-  min-height: 3rem;
-  padding: 0.75rem;
-  text-align: left;
+  display: block;
+  min-height: 37px;
+  padding: 7px 9px;
   border: 0;
+  border-inline-start: 2px solid transparent;
   background: transparent;
-  color: var(--color-text);
+  color: var(--color-text-secondary);
   cursor: pointer;
-  border-radius: 6px;
+  font-family: var(--font-display);
+  text-align: start;
+  overflow-wrap: anywhere;
 }
+
 .thesis-chapters button:hover,
 .thesis-chapters button[aria-current] {
-  background: var(--color-primary-soft);
+  background: var(--color-surface-soft);
+  color: var(--color-primary);
 }
+
 .thesis-chapters button[aria-current] {
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 0.25em;
+  border-inline-start-color: currentColor;
+  font-weight: 650;
 }
+
 .thesis-chapters button:disabled {
   cursor: default;
-  opacity: 0.65;
+  opacity: 0.74;
 }
+
 .thesis-chapters small {
   display: block;
-  margin-top: 0.25rem;
-  font-size: 0.75rem;
+  margin-top: 2px;
   color: var(--color-text-secondary);
+  font: 0.72rem/1.45 var(--font-body);
 }
+
 .thesis-content {
-  overflow: auto;
   min-width: 0;
-  padding: 1.25rem;
+  overflow-wrap: anywhere;
 }
+
 .chapter-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
 }
+
 .chapter-toolbar h4 {
   margin: 0;
-  font-size: 1rem;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
 }
+
 .chapter-editor {
   display: grid;
-  gap: 0.75rem;
+  gap: 10px;
 }
+
+.chapter-editor label {
+  font-weight: 650;
+  font-size: 0.87rem;
+}
+
 .chapter-editor textarea {
-  font: inherit;
+  color: var(--color-text);
+  background: var(--color-bg);
+  font: 1.02rem/1.9 var(--font-display);
   resize: vertical;
 }
-.chapter-pending {
-  color: var(--color-text-secondary);
+
+.editor-actions {
+  justify-content: end;
 }
+
+.chapter-pending,
 .thesis-empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  padding: 2rem;
-  text-align: center;
+  padding: 16px;
   color: var(--color-text-secondary);
+  background: var(--color-bg);
+  border-block: 1px solid var(--color-border);
 }
-.thesis-empty h4 {
-  color: var(--color-text);
-  font-size: 1.125rem;
-}
+
 .thesis-empty p {
-  max-width: 32rem;
-  line-height: 1.7;
+  margin: 0;
 }
+
 .thesis-footnote {
-  padding: 0.75rem 1.25rem;
+  margin-top: 20px;
+  padding-top: 12px;
   border-top: 1px solid var(--color-border);
-  line-height: 1.6;
 }
-@media (max-width: 800px) {
-  .thesis-panel {
-    overflow-y: auto;
-  }
+
+@media (max-width: 920px) {
   .thesis-workspace {
-    display: flex;
-    flex-direction: column;
-    flex: none;
+    grid-template-columns: minmax(0, 1fr);
   }
+
   .thesis-chapters {
     display: flex;
-    flex: none;
-    border-right: 0;
+    gap: 5px;
+    overflow-x: auto;
+    padding: 5px 4px;
+    border-inline-start: 0;
     border-bottom: 1px solid var(--color-border);
   }
+
   .thesis-chapters button {
     width: auto;
-    flex: none;
-    min-width: 7rem;
+    min-height: 44px;
+    white-space: nowrap;
+    border-inline-start: 0;
+    border-bottom: 2px solid transparent;
   }
-  .thesis-content {
-    flex: none;
-    overflow: visible;
-    min-height: 15rem;
-  }
-  .thesis-footnote {
-    flex-shrink: 0;
+
+  .thesis-chapters button[aria-current] {
+    border-bottom-color: currentColor;
   }
 }
 </style>

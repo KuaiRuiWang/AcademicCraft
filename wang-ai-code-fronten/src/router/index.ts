@@ -18,8 +18,8 @@ import MyOrdersPage from '@/pages/project/MyOrdersPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  scrollBehavior(_to, _from, savedPosition) {
-    return savedPosition || { top: 0 }
+  scrollBehavior(to, _from, savedPosition) {
+    return savedPosition || (to.hash === '#my-apps' ? { el: to.hash, top: 18 } : { top: 0 })
   },
   routes: [
     {
@@ -46,6 +46,7 @@ const router = createRouter({
       path: '/user/profile',
       name: '个人中心',
       component: UserProfilePage,
+      meta: { requiresLogin: true },
     },
     {
       path: '/admin/userManage',
@@ -86,6 +87,7 @@ const router = createRouter({
       path: '/app/edit/:id',
       name: '编辑应用',
       component: AppEditPage,
+      meta: { requiresLogin: true },
     },
     // --- 模板库 ---
     {
@@ -108,17 +110,20 @@ const router = createRouter({
       path: '/project/:id/edit',
       name: '编辑项目',
       component: ProjectEditPage,
+      meta: { requiresLogin: true },
     },
     // --- 我的 ---
     {
       path: '/my/projects',
       name: '我的项目',
       component: MyProjectsPage,
+      meta: { requiresLogin: true },
     },
     {
       path: '/my/orders',
       name: '领取记录',
       component: MyOrdersPage,
+      meta: { requiresLogin: true },
     },
   ],
 })

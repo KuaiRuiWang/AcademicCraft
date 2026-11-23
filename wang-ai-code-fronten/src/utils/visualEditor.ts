@@ -136,7 +136,7 @@ export class VisualEditor {
   /**
    * 向 iframe 发送消息
    */
-  private sendMessageToIframe(message: Record<string, any>) {
+  private sendMessageToIframe(message: Record<string, unknown>) {
     if (this.iframe?.contentWindow) {
       this.iframe.contentWindow.postMessage(message, '*')
     }
@@ -393,17 +393,18 @@ export class VisualEditor {
            if (document.getElementById('edit-tip')) return;
            const tip = document.createElement('div');
            tip.id = 'edit-tip';
-           tip.innerHTML = '🎯 编辑模式已开启<br/>悬浮查看元素，点击选中元素';
+           tip.textContent = '编辑模式 · 点击选择要修改的元素';
            tip.style.cssText = \`
              position: fixed;
              top: 20px;
              right: 20px;
-             background: #1890ff;
+             background: #2443ae;
              color: white;
              padding: 12px 16px;
-             border-radius: 6px;
+             border-radius: 2px;
              font-size: 14px;
              z-index: 9999;
+             pointer-events: none;
              box-shadow: 0 4px 12px rgba(0,0,0,0.15);
              animation: fadeIn 0.3s ease;
            \`;

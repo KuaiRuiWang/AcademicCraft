@@ -1,47 +1,50 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { CloseOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { userLogout } from '@/api/userController'
-import {
-  HomeOutlined,
-  ShoppingOutlined,
-  ThunderboltOutlined,
-  ProjectOutlined,
-  OrderedListOutlined,
-  UserOutlined,
-  LogoutOutlined,
-  DashboardOutlined,
-  DownOutlined,
-} from '@ant-design/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
-const menuItems = computed(() => [
-  { path: '/', label: '主页', icon: HomeOutlined },
-  { path: '/create', label: '创建应用', icon: ThunderboltOutlined },
-  { path: '/project', label: '模板库', icon: ShoppingOutlined },
-  ...(loginUserStore.loginUser.id
-    ? [
-        { path: '/my/projects', label: '我的项目', icon: ProjectOutlined },
-        { path: '/my/orders', label: '领取记录', icon: OrderedListOutlined },
-      ]
-    : []),
-])
-const isCurrent = (path: string) =>
-  route.path === path || (path !== '/' && route.path.startsWith(`${path}/`))
+const navigation = ref<HTMLDialogElement | null>(null)
+const menuOpen = ref(false)
 
-const doLogout = async () => {
+const pages = [
+  { to: '/', label: '首页' },
+  { to: '/create', label: '创建应用' },
+  { to: '/project', label: '模板目录' },
+]
+const personalPages = [
+  { to: '/user/profile', label: '个人资料' },
+  { to: '/my/projects', label: '我的项目' },
+  { to: '/my/orders', label: '领取记录' },
+]
+
+const isCurrent = (path: string) =>
+  route.path === path || (path !== '/' && route.path.startsWith(path + '/'))
+
+function openNavigation() {
+  navigation.value?.showModal()
+  menuOpen.value = true
+}
+
+function closeNavigation() {
+  navigation.value?.close()
+}
+
+async function doLogout() {
   try {
     const res = await userLogout()
     if (res.data.code === 0) {
       loginUserStore.setLoginUser({ userName: '未登录' })
-      message.success('退出登录成功')
+      closeNavigation()
+      message.success('已退出登录')
       await router.push('/user/login')
     } else {
-      message.error('退出登录失败，' + res.data.message)
+      message.error(res.data.message || '退出登录失败')
     }
   } catch {
     message.error('退出登录失败，请稍后重试')
@@ -51,258 +54,311 @@ const doLogout = async () => {
 
 <template>
   <a class="skip-link" href="#main-content">跳到主要内容</a>
-  <a-layout-header class="header">
+  <header class="site-header">
     <div class="header-inner">
-      <RouterLink to="/" class="header-brand" aria-label="百夜应用工坊主页">
-        <img class="logo" src="@/assets/logo.png" alt="" width="38" height="38" />
-        <span class="site-title">百夜应用工坊</span>
+      <RouterLink class="brand" to="/" aria-label="百夜应用工坊首页">
+        <span class="brand-mark" aria-hidden="true" />
+        百夜应用工坊
       </RouterLink>
-      <nav class="header-nav" aria-label="主导航">
+
+      <nav class="primary-nav" aria-label="主导航">
         <RouterLink
-          v-for="item in menuItems"
-          :key="item.path"
-          :to="item.path"
-          class="nav-link"
-          :aria-current="isCurrent(item.path) ? 'page' : undefined"
+          v-for="page in pages"
+          :key="page.to"
+          :to="page.to"
+          :aria-current="isCurrent(page.to) ? 'page' : undefined"
         >
-          <component :is="item.icon" aria-hidden="true" />
-          <span>{{ item.label }}</span>
+          {{ page.label }}
         </RouterLink>
       </nav>
-      <div class="header-actions">
-        <template v-if="loginUserStore.loginUser.id">
-          <a-button
-            v-if="loginUserStore.loginUser.userRole === 'admin'"
-            class="admin-link"
-            @click="router.push('/admin/userManage')"
-          >
-            <DashboardOutlined /> 管理端
-          </a-button>
-          <a-dropdown placement="bottomRight" :trigger="['click']">
-            <button class="profile-trigger" type="button" aria-label="打开账户菜单">
-              <a-avatar :src="loginUserStore.loginUser.userAvatar" :size="30">
-                {{ loginUserStore.loginUser.userName?.charAt(0) || 'U' }}
-              </a-avatar>
-              <span class="profile-name">{{ loginUserStore.loginUser.userName || '无名' }}</span>
-              <DownOutlined aria-hidden="true" />
-            </button>
-            <template #overlay>
-              <a-menu>
-                <a-menu-item @click="router.push('/user/profile')"
-                  ><UserOutlined /> 个人中心</a-menu-item
-                >
-                <a-menu-item @click="router.push('/my/projects')"
-                  ><ProjectOutlined /> 我的项目</a-menu-item
-                >
-                <a-menu-item @click="router.push('/my/orders')"
-                  ><OrderedListOutlined /> 领取记录</a-menu-item
-                >
-                <a-menu-divider />
-                <a-menu-item @click="doLogout"><LogoutOutlined /> 退出登录</a-menu-item>
-              </a-menu>
-            </template>
-          </a-dropdown>
-        </template>
-        <template v-else>
-          <RouterLink class="login-link" to="/user/login">登录</RouterLink>
-          <a-button type="primary" @click="router.push('/user/register')">注册账号</a-button>
-        </template>
+
+      <div class="header-end">
+        <RouterLink v-if="loginUserStore.loginUser.id" class="account-link" to="/user/profile">
+          {{ loginUserStore.loginUser.userName || '个人资料' }}
+        </RouterLink>
+        <RouterLink v-else class="account-link" to="/user/login">登录</RouterLink>
+
+        <button
+          type="button"
+          class="nav-toggle"
+          aria-controls="site-navigation"
+          aria-haspopup="dialog"
+          :aria-expanded="menuOpen"
+          @click="openNavigation"
+        >
+          <span class="menu-lines" aria-hidden="true" />导航
+        </button>
       </div>
     </div>
-  </a-layout-header>
+
+    <dialog
+      id="site-navigation"
+      ref="navigation"
+      class="navigation-sheet"
+      aria-label="站点导航"
+      @close="menuOpen = false"
+      @click.self="closeNavigation"
+    >
+      <div class="navigation-content">
+        <button type="button" class="nav-close" aria-label="关闭导航" @click="closeNavigation">
+          <CloseOutlined aria-hidden="true" />
+        </button>
+        <nav aria-label="站点导航">
+          <div class="navigation-group">
+            <span>工坊</span>
+            <RouterLink
+              v-for="page in pages"
+              :key="page.to"
+              :to="page.to"
+              :aria-current="isCurrent(page.to) ? 'page' : undefined"
+              @click="closeNavigation"
+            >
+              {{ page.label }}
+            </RouterLink>
+          </div>
+          <div class="navigation-group">
+            <span>个人区</span>
+            <template v-if="loginUserStore.loginUser.id">
+              <RouterLink
+                v-for="page in personalPages"
+                :key="page.to"
+                :to="page.to"
+                @click="closeNavigation"
+              >
+                {{ page.label }}
+              </RouterLink>
+              <RouterLink
+                v-if="loginUserStore.loginUser.userRole === 'admin'"
+                to="/admin/userManage"
+                @click="closeNavigation"
+              >
+                管理后台
+              </RouterLink>
+              <button type="button" @click="doLogout">退出登录</button>
+            </template>
+            <template v-else>
+              <RouterLink to="/user/login" @click="closeNavigation">登录</RouterLink>
+              <RouterLink to="/user/register" @click="closeNavigation">注册账号</RouterLink>
+            </template>
+          </div>
+        </nav>
+      </div>
+    </dialog>
+  </header>
 </template>
 
 <style scoped>
-.header {
-  position: sticky;
-  inset-block-start: 0;
-  z-index: 100;
-  height: auto;
-  padding-inline: var(--page-gutter);
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-  line-height: 1.5;
+.site-header {
+  border-bottom: 1px solid var(--color-text);
 }
+
 .header-inner {
-  max-width: var(--page-width);
-  min-height: 80px;
+  width: var(--page-measure);
+  min-height: var(--header-height);
   margin-inline: auto;
   display: flex;
   align-items: center;
-  gap: clamp(24px, 3vw, 48px);
+  gap: clamp(24px, 7.7vw, 110px);
 }
-.header-brand {
+
+.brand {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  flex-shrink: 0;
-}
-.logo {
-  border-radius: 10px;
-  object-fit: cover;
-}
-.site-title {
-  font-size: 19px;
-  font-weight: 750;
-  letter-spacing: -0.02em;
   color: var(--color-text);
-}
-.header-nav {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-.nav-link {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 44px;
-  padding-inline: 14px;
-  color: var(--color-text-secondary);
-  border-radius: 8px;
+  font-family: var(--font-display);
+  font-size: 1.27rem;
+  font-weight: 760;
   white-space: nowrap;
-  font-size: 14px;
 }
-.nav-link:hover {
-  color: var(--color-primary);
-  background: var(--color-surface-soft);
+
+.brand-mark {
+  position: relative;
+  flex: 0 0 34px;
+  height: 34px;
+  background: var(--color-primary);
+  color: var(--color-bg);
+  border-radius: 2px 13px 2px 2px;
 }
-.nav-link[aria-current='page'] {
-  color: var(--color-primary-strong);
-  background: var(--color-primary-soft);
-  font-weight: 650;
-}
-.nav-link[aria-current='page']::after {
+
+.brand-mark::before {
   content: '';
   position: absolute;
-  bottom: 5px;
-  width: 14px;
-  height: 2px;
-  background: currentColor;
-  border-radius: 2px;
+  width: 55%;
+  height: 55%;
+  inset: 21% auto auto 23%;
+  border-radius: 50%;
+  box-shadow: -4px 3px 0 currentColor;
+  transform: rotate(-28deg);
 }
-.header-actions {
+
+.primary-nav,
+.header-end {
   display: flex;
   align-items: center;
-  gap: 20px;
-  margin-inline-start: auto;
-  flex-shrink: 0;
 }
-.header-actions :deep(.ant-btn) {
-  min-height: 44px;
+
+.primary-nav {
+  gap: clamp(16px, 2vw, 32px);
 }
-.login-link {
-  display: inline-flex;
+
+.primary-nav a {
+  display: grid;
   align-items: center;
-  min-height: 44px;
+  min-height: 36px;
   color: var(--color-text-secondary);
-  font-weight: 600;
-}
-.profile-trigger {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 4px 8px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--color-text);
-  cursor: pointer;
-}
-.profile-trigger:hover {
-  background: var(--color-surface-soft);
-}
-.profile-name {
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.primary-nav [aria-current='page'] {
+  color: var(--color-primary);
+  box-shadow: inset 0 -2px var(--color-primary);
+}
+
+.header-end {
+  gap: 12px;
+  margin-inline-start: auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.account-link {
+  max-width: min(13ch, 18vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text-secondary);
+}
+
+.nav-toggle,
+.navigation-group button,
+.nav-close {
+  font: inherit;
+  border: 0;
+  color: var(--color-text);
+  background: transparent;
+  cursor: pointer;
+}
+
+.nav-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 8px 0 16px;
+  position: relative;
+}
+
+.nav-toggle::before {
+  content: '';
+  position: absolute;
+  inset: 5px auto 5px 0;
+  border-inline-start: 1px solid var(--color-border);
+}
+
+.menu-lines {
+  width: 17px;
+  height: 9px;
+  border-block: 1px solid;
+}
+
+.navigation-sheet {
+  position: fixed;
+  inset: calc(var(--header-height) + 10px) max(var(--page-gutter), (100% - var(--page-width)) / 2)
+    auto auto;
+  width: min(340px, calc(100% - 2 * var(--page-gutter)));
+  max-height: calc(100dvh - var(--header-height) - 24px);
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-top: 2px solid var(--color-primary);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.navigation-sheet::backdrop {
+  background: rgba(32, 32, 25, 0.15);
+}
+
+.navigation-content {
+  position: relative;
+  padding: 18px 24px;
+}
+
+.navigation-content nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.navigation-group {
+  display: grid;
+  align-content: start;
+}
+
+.navigation-group > span {
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+}
+
+.navigation-group a,
+.navigation-group button {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0;
+  text-align: start;
+}
+
+.navigation-group [aria-current='page'] {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.nav-close {
+  position: absolute;
+  inset: 4px 4px auto auto;
+  width: 40px;
+  height: 40px;
+}
+
 .skip-link {
   position: fixed;
-  inset-block-start: 8px;
-  inset-inline-start: 16px;
+  inset: 8px auto auto 16px;
   z-index: 1000;
   padding: 8px 16px;
   background: var(--color-primary);
   color: white;
-  border-radius: 8px;
   transform: translateY(-160%);
 }
+
 .skip-link:focus {
   transform: translateY(0);
+  color: white;
 }
-@media (max-width: 1080px) {
+
+@media (max-width: 760px) {
   .header-inner {
-    gap: 20px;
+    gap: 8px;
   }
-  .nav-link {
-    padding-inline: 10px;
-  }
-  .admin-link {
+
+  .primary-nav {
     display: none;
   }
 }
-@media (max-width: 1000px) {
-  .header-inner {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0 12px;
-    padding-block-start: 10px;
-  }
-  .header-brand {
-    min-height: 48px;
-  }
-  .site-title {
-    font-size: 17px;
-  }
-  .logo {
-    width: 32px;
-    height: 32px;
-  }
-  .header-actions {
-    gap: 14px;
-  }
-  .header-actions :deep(.ant-btn) {
-    padding-inline: 12px;
-  }
-  .header-nav {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding-block: 4px 10px;
-  }
-  .nav-link {
-    flex-shrink: 0;
-    min-height: 44px;
-    padding-inline: 14px;
-  }
-  .profile-name {
-    display: none;
-  }
-  .header-nav::-webkit-scrollbar {
-    display: none;
-  }
-}
-@media (max-width: 360px) {
-  .header-brand {
+
+@media (max-width: 359px) {
+  .brand {
     gap: 7px;
+    font-size: 1.03rem;
   }
-  .header-actions {
-    gap: 10px;
+
+  .brand-mark {
+    flex-basis: 28px;
+    height: 28px;
   }
-  .nav-link {
-    padding-inline: 10px;
+
+  .header-end {
     gap: 6px;
-  }
-  .header-actions :deep(.ant-btn) {
-    padding-inline: 8px;
-    font-size: 13px;
   }
 }
 </style>

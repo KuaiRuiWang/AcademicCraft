@@ -1,0 +1,258 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-23T08:24:00Z",
+  "title": "Design System — 百夜应用工坊",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "钴蓝",
+        "description": "主要操作、链接与当前导航。",
+        "tonalRamp": ["oklch(15% 0.174 266.4)", "oklch(26% 0.174 266.4)", "oklch(38% 0.174 266.4)", "oklch(49% 0.174 266.4)", "oklch(61% 0.174 266.4)", "oklch(72% 0.174 266.4)", "oklch(84% 0.174 266.4)", "oklch(95% 0.174 266.4)"]
+      },
+      "primary-strong": {
+        "role": "primary",
+        "displayName": "深钴蓝",
+        "description": "首页主按钮悬停。",
+        "tonalRamp": ["oklch(15% 0.146 267.0)", "oklch(26% 0.146 267.0)", "oklch(38% 0.146 267.0)", "oklch(49% 0.146 267.0)", "oklch(61% 0.146 267.0)", "oklch(72% 0.146 267.0)", "oklch(84% 0.146 267.0)", "oklch(95% 0.146 267.0)"]
+      },
+      "primary-soft": {
+        "role": "primary",
+        "displayName": "浅钴蓝",
+        "description": "智能体工具结果的状态底色。",
+        "tonalRamp": ["oklch(15% 0.020 270.2)", "oklch(26% 0.020 270.2)", "oklch(38% 0.020 270.2)", "oklch(49% 0.020 270.2)", "oklch(61% 0.020 270.2)", "oklch(72% 0.020 270.2)", "oklch(84% 0.020 270.2)", "oklch(95% 0.020 270.2)"]
+      },
+      "primary-hover": {
+        "role": "primary",
+        "displayName": "组件悬停蓝",
+        "description": "Ant Design Vue 按钮与字段的悬停色。",
+        "tonalRamp": ["oklch(15% 0.142 267.6)", "oklch(26% 0.142 267.6)", "oklch(38% 0.142 267.6)", "oklch(49% 0.142 267.6)", "oklch(61% 0.142 267.6)", "oklch(72% 0.142 267.6)", "oklch(84% 0.142 267.6)", "oklch(95% 0.142 267.6)"]
+      },
+      "on-primary": {
+        "role": "neutral",
+        "displayName": "白色",
+        "description": "钴蓝实底上的操作文字。",
+        "tonalRamp": ["oklch(15% 0.000 0)", "oklch(26% 0.000 0)", "oklch(38% 0.000 0)", "oklch(49% 0.000 0)", "oklch(61% 0.000 0)", "oklch(72% 0.000 0)", "oklch(84% 0.000 0)", "oklch(95% 0.000 0)"]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "暖米白",
+        "description": "整页纸色。",
+        "tonalRamp": ["oklch(15% 0.011 89.7)", "oklch(26% 0.011 89.7)", "oklch(38% 0.011 89.7)", "oklch(49% 0.011 89.7)", "oklch(61% 0.011 89.7)", "oklch(72% 0.011 89.7)", "oklch(84% 0.011 89.7)", "oklch(95% 0.011 89.7)"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "亮纸白",
+        "description": "透过微亮纸色区分输入、面板和弹层。",
+        "tonalRamp": ["oklch(15% 0.007 88.6)", "oklch(26% 0.007 88.6)", "oklch(38% 0.007 88.6)", "oklch(49% 0.007 88.6)", "oklch(61% 0.007 88.6)", "oklch(72% 0.007 88.6)", "oklch(84% 0.007 88.6)", "oklch(95% 0.007 88.6)"]
+      },
+      "surface-soft": {
+        "role": "neutral",
+        "displayName": "浅灰米色",
+        "description": "代码区和次级工具信息。",
+        "tonalRamp": ["oklch(15% 0.017 91.6)", "oklch(26% 0.017 91.6)", "oklch(38% 0.017 91.6)", "oklch(49% 0.017 91.6)", "oklch(61% 0.017 91.6)", "oklch(72% 0.017 91.6)", "oklch(84% 0.017 91.6)", "oklch(95% 0.017 91.6)"]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "墨色",
+        "description": "正文、标题和结构线。",
+        "tonalRamp": ["oklch(15% 0.013 107.3)", "oklch(26% 0.013 107.3)", "oklch(38% 0.013 107.3)", "oklch(49% 0.013 107.3)", "oklch(61% 0.013 107.3)", "oklch(72% 0.013 107.3)", "oklch(84% 0.013 107.3)", "oklch(95% 0.013 107.3)"]
+      },
+      "text-secondary": {
+        "role": "neutral",
+        "displayName": "灰褐文字",
+        "description": "说明与列表元信息。",
+        "tonalRamp": ["oklch(15% 0.019 95.4)", "oklch(26% 0.019 95.4)", "oklch(38% 0.019 95.4)", "oklch(49% 0.019 95.4)", "oklch(61% 0.019 95.4)", "oklch(72% 0.019 95.4)", "oklch(84% 0.019 95.4)", "oklch(95% 0.019 95.4)"]
+      },
+      "text-tertiary": {
+        "role": "neutral",
+        "displayName": "灰褐占位",
+        "description": "输入占位提示。",
+        "tonalRamp": ["oklch(15% 0.022 90.7)", "oklch(26% 0.022 90.7)", "oklch(38% 0.022 90.7)", "oklch(49% 0.022 90.7)", "oklch(61% 0.022 90.7)", "oklch(72% 0.022 90.7)", "oklch(84% 0.022 90.7)", "oklch(95% 0.022 90.7)"]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "浅灰褐线",
+        "description": "字段边框和细分隔线。",
+        "tonalRamp": ["oklch(15% 0.020 87.5)", "oklch(26% 0.020 87.5)", "oklch(38% 0.020 87.5)", "oklch(49% 0.020 87.5)", "oklch(61% 0.020 87.5)", "oklch(72% 0.020 87.5)", "oklch(84% 0.020 87.5)", "oklch(95% 0.020 87.5)"]
+      },
+      "success": {
+        "role": "status",
+        "displayName": "成功绿",
+        "description": "成功状态。",
+        "tonalRamp": ["oklch(15% 0.064 157.2)", "oklch(26% 0.064 157.2)", "oklch(38% 0.064 157.2)", "oklch(49% 0.064 157.2)", "oklch(61% 0.064 157.2)", "oklch(72% 0.064 157.2)", "oklch(84% 0.064 157.2)", "oklch(95% 0.064 157.2)"]
+      },
+      "success-bg": {
+        "role": "status",
+        "displayName": "浅绿状态底",
+        "description": "已领取、已上架等成功标签的底色。"
+      },
+      "success-border": {
+        "role": "status",
+        "displayName": "浅绿状态边线",
+        "description": "成功标签的细边线。"
+      },
+      "warning": {
+        "role": "status",
+        "displayName": "提醒琥珀",
+        "description": "提醒与待核对状态。",
+        "tonalRamp": ["oklch(15% 0.106 68.0)", "oklch(26% 0.106 68.0)", "oklch(38% 0.106 68.0)", "oklch(49% 0.106 68.0)", "oklch(61% 0.106 68.0)", "oklch(72% 0.106 68.0)", "oklch(84% 0.106 68.0)", "oklch(95% 0.106 68.0)"]
+      },
+      "error": {
+        "role": "status",
+        "displayName": "错误红",
+        "description": "失败与校验反馈。",
+        "tonalRamp": ["oklch(15% 0.148 25.6)", "oklch(26% 0.148 25.6)", "oklch(38% 0.148 25.6)", "oklch(49% 0.148 25.6)", "oklch(61% 0.148 25.6)", "oklch(72% 0.148 25.6)", "oklch(84% 0.148 25.6)", "oklch(95% 0.148 25.6)"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "首页大标题",
+        "purpose": "首页首屏标语。"
+      },
+      "headline": {
+        "displayName": "页面标题",
+        "purpose": "页面标题和模板详情的主标题。"
+      },
+      "title": {
+        "displayName": "分区标题",
+        "purpose": "首页选集和通用分区。"
+      },
+      "body": {
+        "displayName": "正文",
+        "purpose": "功能说明和一般正文。"
+      },
+      "label": {
+        "displayName": "字段标签",
+        "purpose": "创作简报的主字段与输出选项。"
+      }
+    },
+    "motion": [
+      {
+        "name": "展开箭头",
+        "value": "transform 0.15s ease",
+        "purpose": "智能体步骤或工具卡片展开与收起。"
+      },
+      {
+        "name": "减少动态效果",
+        "value": "(prefers-reduced-motion: reduce)",
+        "purpose": "将过渡和动画缩短至 0.01ms，滚动切换为即时定位。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "home-hero-stack",
+        "value": "520px"
+      },
+      {
+        "name": "catalog-and-detail-compact",
+        "value": "600px"
+      },
+      {
+        "name": "personal-collection-compact",
+        "value": "620px"
+      },
+      {
+        "name": "compact-navigation-and-workspace",
+        "value": "760px"
+      },
+      {
+        "name": "detail-body-stack",
+        "value": "800px"
+      },
+      {
+        "name": "thesis-chapters-horizontal",
+        "value": "920px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "主要按钮",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "提交表单或启动生成。",
+      "html": "<button type=\"button\" class=\"ds-primary\">开始生成</button>",
+      "css": ".ds-primary { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; height: 43px; padding: 9.5px 15px; border-radius: var(--radius-md, 2px); font: 400 14px/22px var(--font-body, \"Plus Jakarta Sans Variable\", \"Microsoft YaHei UI\", \"PingFang SC\", sans-serif); cursor: pointer; transition: background-color .2s, color .2s, border-color .2s; border: 1px solid transparent; background: var(--color-primary, #2443ae); color: #ffffff; }\n.ds-primary:hover { background: #4562ba; }\n.ds-primary:focus-visible { outline: 2px solid var(--color-primary, #2443ae); outline-offset: 3px; }"
+    },
+    {
+      "name": "首页主行动按钮",
+      "kind": "button",
+      "refersTo": "button-primary-hero",
+      "description": "打开应用创作页。",
+      "html": "<a class=\"ds-hero\" href=\"#create\">开始创作</a>",
+      "css": ".ds-hero { display: inline-flex; align-items: center; box-sizing: border-box; min-height: 46px; padding: 0 21px; color: #ffffff; background: var(--color-primary, #2443ae); border: 1px solid var(--color-primary, #2443ae); border-radius: var(--radius-md, 2px); font: 650 .9375rem/1.65 var(--font-body, \"Plus Jakarta Sans Variable\", \"Microsoft YaHei UI\", \"PingFang SC\", sans-serif); text-decoration: none; }\n.ds-hero:hover { color: #ffffff; background: var(--color-primary-strong, #1b3288); border-color: var(--color-primary-strong, #1b3288); }\n.ds-hero:focus-visible { outline: 2px solid var(--color-primary, #2443ae); outline-offset: 3px; }"
+    },
+    {
+      "name": "次要按钮",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "取消编辑或执行同一表单内的次要操作。",
+      "html": "<button type=\"button\" class=\"ds-secondary\">取消编辑</button>",
+      "css": ".ds-secondary { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; height: 43px; padding: 9.5px 15px; border-radius: var(--radius-md, 2px); font: 400 14px/22px var(--font-body, \"Plus Jakarta Sans Variable\", \"Microsoft YaHei UI\", \"PingFang SC\", sans-serif); cursor: pointer; transition: background-color .2s, color .2s, border-color .2s; background: var(--color-surface, #fdfbf6); color: var(--color-text, #202019); border: 1px solid var(--color-border, #cdc7b9); border-radius: var(--radius-md, 2px); }\n.ds-secondary:hover { border-color: #4562ba; color: #4562ba; }\n.ds-secondary:focus-visible { outline: 2px solid var(--color-primary, #2443ae); outline-offset: 3px; }"
+    },
+    {
+      "name": "单行输入",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "账号与常规表单中的单行字段。",
+      "html": "<input class=\"ds-input\" type=\"text\" aria-label=\"账号\" placeholder=\"请输入账号\" />",
+      "css": ".ds-input { box-sizing: border-box; height: 43px; padding: 9.5px 11px; background: var(--color-surface, #fdfbf6); color: var(--color-text, #202019); border: 1px solid var(--color-border, #cdc7b9); border-radius: var(--radius-md, 2px); font: 400 14px/22px var(--font-body, \"Plus Jakarta Sans Variable\", \"Microsoft YaHei UI\", \"PingFang SC\", sans-serif); transition: border-color .2s; }\n.ds-input::placeholder { color: var(--color-text-tertiary, #6b6658); opacity: 1; }\n.ds-input:hover, .ds-input:focus { border-color: #4562ba; }\n.ds-input:focus-visible { outline: 2px solid var(--color-primary, #2443ae); outline-offset: 3px; }"
+    },
+    {
+      "name": "目录分类筛选",
+      "kind": "chip",
+      "refersTo": "category-filter",
+      "description": "墨色选中态标记当前模板分类。",
+      "html": "<div class=\"ds-categories\" aria-label=\"模板分类\"><button type=\"button\" aria-pressed=\"true\">全部</button><button type=\"button\" aria-pressed=\"false\">活动组织</button></div>",
+      "css": ".ds-categories { display: flex; flex-wrap: wrap; gap: 8px; }\n.ds-categories button { min-height: 36px; padding: 5px 11px; border: 1px solid var(--color-border, #cdc7b9); border-radius: var(--radius-md, 2px); color: var(--color-text, #202019); background: transparent; font: 400 .84rem/1.57 var(--font-body, \"Plus Jakarta Sans Variable\", \"Microsoft YaHei UI\", \"PingFang SC\", sans-serif); cursor: pointer; }\n.ds-categories button:hover { color: #4562ba; border-color: #4562ba; }\n.ds-categories button[aria-pressed=\"true\"] { color: var(--color-surface, #fdfbf6); border-color: var(--color-text, #202019); background: var(--color-text, #202019); }\n.ds-categories button:focus-visible { outline: 2px solid var(--color-primary, #2443ae); outline-offset: 3px; }"
+    },
+    {
+      "name": "栏目导航",
+      "kind": "nav",
+      "refersTo": "nav-tab-current",
+      "description": "当前栏目使用钴蓝文字和内嵌蓝线。",
+      "html": "<nav class=\"ds-nav\" aria-label=\"个人中心\"><a href=\"#profile\">个人资料</a><a href=\"#projects\" aria-current=\"page\">我的项目</a><a href=\"#orders\">领取记录</a></nav>",
+      "css": ".ds-nav { display: flex; flex-wrap: wrap; gap: 0 clamp(10px, 2vw, 23px); border-bottom: 1px solid var(--color-border, #cdc7b9); font: 400 .9375rem/1.65 var(--font-body, \"Plus Jakarta Sans Variable\", \"Microsoft YaHei UI\", \"PingFang SC\", sans-serif); }\n.ds-nav a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 2px; color: var(--color-text-secondary, #625f53); text-decoration: none; white-space: nowrap; }\n.ds-nav a:hover, .ds-nav a[aria-current=\"page\"] { color: var(--color-primary, #2443ae); }\n.ds-nav a[aria-current=\"page\"] { box-shadow: inset 0 -2px currentColor; font-weight: 650; }\n.ds-nav a:focus-visible { outline: 2px solid var(--color-primary, #2443ae); outline-offset: 3px; }"
+    },
+    {
+      "name": "纸面面板",
+      "kind": "card",
+      "refersTo": "paper-panel",
+      "description": "承载模板资料、账号表单或论文章节。",
+      "html": "<section class=\"ds-panel\"><h2>模板信息</h2><p>许可与交付文件</p></section>",
+      "css": ".ds-panel { background: var(--color-surface, #fdfbf6); color: var(--color-text, #202019); border: 1px solid var(--color-border, #cdc7b9); border-radius: var(--radius-md, 2px); padding: clamp(18px, 2.3vw, 32px); font: 400 .9375rem/1.65 var(--font-body, \"Plus Jakarta Sans Variable\", \"Microsoft YaHei UI\", \"PingFang SC\", sans-serif); }\n.ds-panel h2 { margin: 0 0 16px; font: 750 clamp(1.25rem, 2vw, 1.7rem)/1.24 var(--font-display, \"Noto Serif SC Variable\", \"Songti SC\", SimSun, Georgia, serif); letter-spacing: -.04em; }\n.ds-panel p { margin: 0; color: var(--color-text-secondary, #625f53); }"
+    },
+    {
+      "name": "创作简报",
+      "kind": "custom",
+      "refersTo": "brief",
+      "description": "用多行文本说明使用场景和应用要求。",
+      "html": "<div class=\"ds-brief\"><label for=\"ds-prompt\">项目需求</label><textarea id=\"ds-prompt\" placeholder=\"例如，为工作室做一个库存台账。\"></textarea></div>",
+      "css": ".ds-brief { color: var(--color-text, #202019); font: 400 .9375rem/1.65 var(--font-body, \"Plus Jakarta Sans Variable\", \"Microsoft YaHei UI\", \"PingFang SC\", sans-serif); }\n.ds-brief label { display: block; margin-bottom: 8px; font-weight: 650; }\n.ds-brief textarea { box-sizing: border-box; display: block; width: 100%; min-height: 182px; padding: 16px 18px; background: var(--color-surface, #fdfbf6); color: var(--color-text, #202019); border: 1px solid var(--color-border, #cdc7b9); border-radius: var(--radius-md, 2px); font: inherit; resize: vertical; }\n.ds-brief textarea::placeholder { color: var(--color-text-tertiary, #6b6658); opacity: 1; }\n.ds-brief textarea:hover { border-color: var(--color-primary, #2443ae); }\n.ds-brief textarea:focus-visible { outline: 2px solid var(--color-primary, #2443ae); outline-offset: 3px; }"
+    },
+    {
+      "name": "交付清单",
+      "kind": "custom",
+      "description": "显示当前选择产生的应用、后端和文档。",
+      "html": "<aside class=\"ds-delivery\" aria-labelledby=\"ds-delivery-title\"><h2 id=\"ds-delivery-title\">交付清单</h2><dl><div><dt>应用</dt><dd>Web 网站</dd></div><div><dt>后端</dt><dd>仅前端</dd></div><div><dt>文档</dt><dd>论文初稿</dd></div></dl></aside>",
+      "css": ".ds-delivery { padding-top: 16px; border-top: 3px solid var(--color-primary, #2443ae); color: var(--color-text, #202019); font: 400 .9375rem/1.65 var(--font-body, \"Plus Jakarta Sans Variable\", \"Microsoft YaHei UI\", \"PingFang SC\", sans-serif); }\n.ds-delivery h2 { margin: 0 0 20px; color: var(--color-primary, #2443ae); font: 750 clamp(1.3rem, 2.2vw, 1.75rem)/1.24 var(--font-display, \"Noto Serif SC Variable\", \"Songti SC\", SimSun, Georgia, serif); letter-spacing: -.04em; }\n.ds-delivery dl, .ds-delivery dd { margin: 0; }\n.ds-delivery dl > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-block: 10px; border-bottom: 1px solid var(--color-border, #cdc7b9); }\n.ds-delivery dt { color: var(--color-text-secondary, #625f53); }\n.ds-delivery dd { text-align: end; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "纸上工坊",
+    "overview": "暖米白底、墨色文字和中文衬线标题建立纸面层次。首页使用原型的蓝色折纸照片，模板目录用小幅封面、标题和细分隔线呈现条目。\n\n创作页让需求简报和交付清单并列。对话、论文编辑和管理沿用同一套字色、分隔线和表单控件，突出当前任务和操作状态。",
+    "keyCharacteristics": [
+      "暖米白纸面与钴蓝主色",
+      "中文衬线标题与无衬线正文",
+      "横线分隔的模板目录与并列的创作简报、交付清单"
+    ],
+    "rules": [],
+    "dos": [
+      "将原型折纸照片用于首页主图。创作页桌面交付清单及账号页沿用同一图像。",
+      "保持当前栏目、筛选和状态都有可读的文字，并保留键盘焦点反馈。",
+      "用 `src/assets/global.css` 和 `src/config/theme.ts` 对照共享令牌与组件主题。"
+    ],
+    "donts": []
+  }
+}

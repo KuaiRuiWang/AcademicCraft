@@ -1,170 +1,105 @@
-<template>
-  <div id="myOrdersPage" class="workspace-page">
-    <div class="container">
-      <div class="page-header">
-        <h1 class="page-title">领取记录</h1>
-        <a-button size="large" @click="$router.push('/project')">
-          <ShoppingOutlined /> 浏览模板
-        </a-button>
-      </div>
-
-      <a-spin :spinning="loading">
-        <template v-if="orders.length > 0">
-          <a-table :data-source="orders" :pagination="false" :scroll="{ x: 900 }" row-key="id">
-            <a-table-column title="模板或历史项目" key="project" :width="300">
-              <template #default="{ record }">
-                <a-space>
-                  <a-image
-                    :src="record.projectCover || defaultCover"
-                    :width="48"
-                    :height="48"
-                    :preview="false"
-                    style="border-radius: 6px; object-fit: cover"
-                  />
-                  <div>
-                    <div class="project-name">{{ record.projectName || '项目已移除' }}</div>
-                    <div class="order-id">记录编号 {{ record.id }}</div>
-                  </div>
-                </a-space>
-              </template>
-            </a-table-column>
-
-            <a-table-column title="金额" :width="100" align="center">
-              <template #default="{ record }">
-                <span class="price">{{ record.amount ? `¥${record.amount}` : '免费' }}</span>
-              </template>
-            </a-table-column>
-
-            <a-table-column title="状态" :width="100" align="center">
-              <template #default="{ record }">
-                <a-tag :color="getStatusColor(record.status)">
-                  {{ record.status === 1 && !record.amount ? '已领取' : getStatusText(record.status) }}
-                </a-tag>
-              </template>
-            </a-table-column>
-
-            <a-table-column title="记录时间" data-index="createTime" :width="170" />
-
-            <a-table-column title="操作" key="action" :width="200" align="center" fixed="right">
-              <template #default="{ record }">
-                <a-space v-if="record.downloadAvailable && record.id">
-                  <a-button
-                    type="primary"
-                    size="small"
-                    :href="getTemplateDownloadUrl(record.id)"
-                    target="_blank"
-                    rel="noopener"
-                  >
-                    <DownloadOutlined aria-hidden="true" /> 下载
-                  </a-button>
-                  <a-button size="small" @click="$router.push(`/project/${record.projectId}`)">
-                    <EyeOutlined /> 查看
-                  </a-button>
-                </a-space>
-                <span v-else>暂不可下载</span>
-              </template>
-            </a-table-column>
-          </a-table>
-
-          <div class="pagination-wrapper">
-            <a-pagination
-              v-model:current="query.pageNum"
-              :page-size="query.pageSize"
-              :total="total"
-              :show-size-changer="false"
-              :show-total="(t: number) => `共 ${t} 条记录`"
-              @change="loadOrders"
-            />
-          </div>
-        </template>
-
-        <a-empty v-else description="还没有领取记录" class="empty-state">
-          <a-button type="primary" @click="$router.push('/project')">
-            <ShoppingOutlined /> 浏览模板
-          </a-button>
-        </a-empty>
-      </a-spin>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
-import { DownloadOutlined, EyeOutlined, ShoppingOutlined } from '@ant-design/icons-vue'
-import { listMyOrders, getTemplateDownloadUrl } from '@/api/projectOrderController.ts'
+import { useRouter } from 'vue-router'
+import { DownloadOutlined } from '@ant-design/icons-vue'
+import { listMyOrders, getTemplateDownloadUrl } from '@/api/projectOrderController'
+import { formatTime } from '@/utils/time'
+import PageHeading from '@/components/PageHeading.vue'
+import PersonalNav from '@/components/PersonalNav.vue'
+import TemplateArtwork from '@/components/TemplateArtwork.vue'
 
-const defaultCover =
-  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjZjBmMmY1Ii8+PHRleHQgeD0iMjQiIHk9IjI3IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYmZiZmMwIiBmb250LXNpemU9IjEwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+Tm9uZTwvdGV4dD48L3N2Zz4='
-
-const loading = ref(false)
+const router = useRouter()
+const loading = ref(true)
+const loadError = ref(false)
 const orders = ref<API.ProjectOrderVO[]>([])
 const total = ref(0)
+const query = reactive({ pageNum: 1, pageSize: 10 })
 
-const query = reactive({
-  pageNum: 1,
-  pageSize: 10,
-})
+const statuses: Record<number, string> = { 0: '待支付', 1: '已支付', 2: '已退款' }
 
-const statusMap: Record<number, { text: string; color: string }> = {
-  0: { text: '待支付', color: 'orange' },
-  1: { text: '已支付', color: 'blue' },
-  2: { text: '已退款', color: 'red' },
+function statusText(order: API.ProjectOrderVO) {
+  if (order.status === 1 && !order.amount) return '已领取'
+  return statuses[order.status ?? 0] || '未知状态'
 }
 
-const getStatusText = (status?: number) => {
-  return statusMap[status ?? 0]?.text || '未知'
-}
-
-const getStatusColor = (status?: number) => {
-  return statusMap[status ?? 0]?.color || 'default'
-}
-
-const loadOrders = async () => {
+async function loadOrders() {
   loading.value = true
+  loadError.value = false
   try {
     const res = await listMyOrders(query)
     if (res.data.code === 0 && res.data.data) {
       orders.value = res.data.data.records || []
       total.value = res.data.data.totalRow || 0
+    } else {
+      loadError.value = true
     }
   } catch {
-    message.error('加载领取记录失败')
+    loadError.value = true
   } finally {
     loading.value = false
   }
 }
 
-onMounted(() => {
-  loadOrders()
-})
+onMounted(loadOrders)
 </script>
 
-<style scoped>
-.text-muted,
-.order-id {
-  color: var(--color-text-tertiary);
-  font-size: 12px;
-}
-.project-name {
-  font-weight: 600;
-  font-size: 14px;
-}
-.price {
-  color: var(--color-primary-strong);
-  font-weight: 650;
-}
-.pagination-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-top: 24px;
-}
-:deep(.ant-table) {
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-}
-:deep(.ant-table-thead > tr > th) {
-  background: var(--color-surface-soft);
-  font-weight: 600;
-}
-</style>
+<template>
+  <div class="page-shell">
+    <PageHeading title="领取记录" description="查看已领取的模板与历史记录，下载可用的源码。">
+      <a-button type="primary" @click="router.push('/project')">浏览模板</a-button>
+    </PageHeading>
+    <PersonalNav />
+    <a-skeleton v-if="loading" active :title="false" :paragraph="{ rows: 3 }" />
+    <a-alert v-else-if="loadError" type="error" message="领取记录加载失败" show-icon>
+      <template #action><a-button size="small" @click="loadOrders">重试</a-button></template>
+    </a-alert>
+    <ul v-else-if="orders.length" class="paper-list">
+      <li v-for="order in orders" :key="order.id" class="collection-entry">
+        <TemplateArtwork class="collection-art" :cover="order.projectCover" />
+        <div class="collection-copy">
+          <span class="tabular">记录编号 {{ order.id }}</span>
+          <h2>
+            <RouterLink
+              v-if="order.downloadAvailable && order.projectId"
+              :to="'/project/' + order.projectId"
+            >
+              {{ order.projectName }}
+            </RouterLink>
+            <template v-else>{{ order.projectName || '项目已移除' }}</template>
+          </h2>
+          <p class="collection-meta tabular">
+            <a-tag :color="order.status === 1 ? 'success' : undefined">{{
+              statusText(order)
+            }}</a-tag>
+            <span>{{ order.amount ? '¥' + order.amount : '免费' }}</span>
+            <time v-if="order.createTime">{{ formatTime(order.createTime) }}</time>
+          </p>
+        </div>
+        <div class="folio-actions collection-actions">
+          <a-button
+            v-if="order.downloadAvailable && order.id"
+            :href="getTemplateDownloadUrl(order.id)"
+            target="_blank"
+            rel="noopener"
+          >
+            <DownloadOutlined aria-hidden="true" /> 下载源码
+          </a-button>
+          <span v-else class="collection-unavailable">暂不可下载</span>
+        </div>
+      </li>
+    </ul>
+    <div v-else class="folio-empty">
+      <p>还没有领取过模板。</p>
+      <RouterLink class="folio-link" to="/project">去模板目录看看</RouterLink>
+    </div>
+    <div v-if="total > query.pageSize" class="pagination-wrapper">
+      <a-pagination
+        v-model:current="query.pageNum"
+        :page-size="query.pageSize"
+        :total="total"
+        :show-size-changer="false"
+        @change="loadOrders"
+      />
+    </div>
+  </div>
+</template>

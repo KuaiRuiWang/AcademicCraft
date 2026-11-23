@@ -47,7 +47,7 @@ const renderedMarkdown = computed(() => {
 <style scoped>
 .markdown-content {
   line-height: 1.6;
-  color: #333;
+  color: var(--color-text);
   word-wrap: break-word;
 }
 
@@ -96,13 +96,13 @@ const renderedMarkdown = computed(() => {
 .markdown-content :deep(blockquote) {
   margin: 1em 0;
   padding: 0.5em 1em;
-  border-left: 4px solid #ddd;
-  background-color: #f9f9f9;
-  color: #666;
+  border-inline-start: 1px solid var(--color-border);
+  background-color: var(--color-surface-soft);
+  color: var(--color-text-secondary);
 }
 
 .markdown-content :deep(code) {
-  background-color: #f1f1f1;
+  background-color: var(--color-surface-soft);
   padding: 0.2em 0.4em;
   border-radius: 3px;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;

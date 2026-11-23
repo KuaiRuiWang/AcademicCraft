@@ -1,130 +1,95 @@
-<template>
-  <div class="auth-page">
-    <div class="auth-layout">
-      <aside class="auth-intro">
-        <h2 class="auth-display">百夜<span>应用工坊</span></h2>
-        <p>从一个想法开始，创建可预览、可修改的 Web 应用。</p>
-        <RouterLink to="/" class="auth-back"
-          ><ArrowLeftOutlined aria-hidden="true" /> 返回首页</RouterLink
-        >
-      </aside>
-      <section class="auth-card" aria-labelledby="auth-title">
-        <div class="auth-head">
-          <h1 id="auth-title" class="auth-title">创建账号</h1>
-          <p class="auth-desc">注册后即可创建应用和领取免费模板</p>
-        </div>
-        <a-form :model="formState" name="register" layout="vertical" @finish="handleSubmit">
-          <a-form-item
-            label="账号"
-            name="userAccount"
-            :rules="[{ required: true, message: '请输入账号' }]"
-          >
-            <a-input
-              v-model:value="formState.userAccount"
-              size="large"
-              placeholder="请输入账号"
-              autocomplete="username"
-              :disabled="submitting"
-            />
-          </a-form-item>
-          <a-form-item
-            label="密码"
-            name="userPassword"
-            :rules="[
-              { required: true, message: '请输入密码' },
-              { min: 8, message: '密码长度不能小于 8 位' },
-            ]"
-          >
-            <a-input-password
-              v-model:value="formState.userPassword"
-              size="large"
-              placeholder="请输入至少 8 位密码"
-              autocomplete="new-password"
-              :disabled="submitting"
-            />
-          </a-form-item>
-          <a-form-item
-            label="确认密码"
-            name="checkPassword"
-            :rules="[
-              { required: true, message: '请确认密码' },
-              { min: 8, message: '密码不能小于 8 位' },
-              { validator: validateCheckPassword },
-            ]"
-          >
-            <a-input-password
-              v-model:value="formState.checkPassword"
-              size="large"
-              placeholder="再次输入密码"
-              autocomplete="new-password"
-              :disabled="submitting"
-            />
-          </a-form-item>
-          <a-form-item class="auth-submit-row"
-            ><a-button type="primary" html-type="submit" size="large" block :loading="submitting"
-              >注册 <ArrowRightOutlined aria-hidden="true" /></a-button
-          ></a-form-item>
-          <div class="auth-tips">已有账号？<RouterLink to="/user/login">去登录</RouterLink></div>
-        </a-form>
-      </section>
-    </div>
-  </div>
-</template>
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
-import { userRegister } from '@/api/userController.ts'
+import { computed, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ArrowRightOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
-import { reactive, ref } from 'vue'
-import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons-vue'
+import { userRegister } from '@/api/userController'
+import AuthLayout from '@/layouts/AuthLayout.vue'
 
+const route = useRoute()
 const router = useRouter()
-
 const submitting = ref(false)
+const error = ref('')
+const form = reactive({ userAccount: '', userPassword: '', checkPassword: '' })
+const loginLocation = computed(() => ({
+  path: '/user/login',
+  query: { redirect: route.query.redirect },
+}))
 
-const formState = reactive<API.UserRegisterRequest>({
-  userAccount: '',
-  userPassword: '',
-  checkPassword: '',
-})
-
-/**
- * 验证确认密码
- * @param rule
- * @param value
- * @param callback
- */
-const validateCheckPassword = (rule: unknown, value: string, callback: (error?: Error) => void) => {
-  if (value && value !== formState.userPassword) {
-    callback(new Error('两次输入密码不一致'))
-  } else {
-    callback()
-  }
+async function validateCheckPassword(_: unknown, value: string) {
+  if (value && value !== form.userPassword) throw new Error('两次输入密码不一致')
 }
 
-/**
- * 提交表单
- * @param values
- */
-const handleSubmit = async (values: API.UserRegisterRequest) => {
+async function handleSubmit() {
   submitting.value = true
+  error.value = ''
   try {
-    const res = await userRegister(values)
-    // 注册成功，跳转到登录页面
+    const res = await userRegister({ ...form, userAccount: form.userAccount.trim() })
     if (res.data.code === 0) {
-      message.success('注册成功')
-      router.push({
-        path: '/user/login',
-        replace: true,
-      })
+      message.success('账号已注册，请登录')
+      await router.replace(loginLocation.value)
     } else {
-      message.error('注册失败，' + res.data.message)
+      error.value = res.data.message || '账号注册失败'
     }
   } catch {
-    message.error('注册失败，请检查网络后重试')
+    error.value = '注册失败，请检查网络后重试'
   } finally {
     submitting.value = false
   }
 }
 </script>
 
-<style src="@/assets/auth.css"></style>
+<template>
+  <AuthLayout title="注册账号" description="注册后可以创建应用、保存成果和领取免费模板。">
+    <a-form :model="form" name="register" layout="vertical" @finish="handleSubmit">
+      <a-form-item
+        label="账号"
+        name="userAccount"
+        :rules="[{ required: true, message: '请输入账号' }]"
+      >
+        <a-input
+          v-model:value="form.userAccount"
+          autocomplete="username"
+          placeholder="请输入账号"
+          :disabled="submitting"
+        />
+      </a-form-item>
+      <a-form-item
+        label="密码"
+        name="userPassword"
+        :rules="[
+          { required: true, message: '请输入密码' },
+          { min: 8, message: '密码长度至少为 8 位' },
+        ]"
+      >
+        <a-input-password
+          v-model:value="form.userPassword"
+          autocomplete="new-password"
+          placeholder="至少 8 位字符"
+          :disabled="submitting"
+        />
+      </a-form-item>
+      <a-form-item
+        label="确认密码"
+        name="checkPassword"
+        :rules="[{ required: true, message: '请确认密码' }, { validator: validateCheckPassword }]"
+      >
+        <a-input-password
+          v-model:value="form.checkPassword"
+          autocomplete="new-password"
+          placeholder="再次输入密码"
+          :disabled="submitting"
+        />
+      </a-form-item>
+      <a-alert v-if="error" :message="error" type="error" class="auth-error" show-icon />
+      <a-button type="primary" html-type="submit" :loading="submitting">
+        注册 <ArrowRightOutlined aria-hidden="true" />
+      </a-button>
+    </a-form>
+    <p class="auth-next">
+      <RouterLink :to="loginLocation" class="folio-link">
+        已有账号，去登录 <ArrowRightOutlined aria-hidden="true" />
+      </RouterLink>
+    </p>
+  </AuthLayout>
+</template>

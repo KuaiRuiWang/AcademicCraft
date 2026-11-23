@@ -1,83 +1,48 @@
+<script setup lang="ts">
+import { storeToRefs } from 'pinia'
+import { useLoginUserStore } from '@/stores/loginUser'
+
+const { loginUser } = storeToRefs(useLoginUserStore())
+</script>
+
 <template>
-  <a-layout-footer class="footer">
-    <div class="footer-content">
-      <div>
-        <RouterLink to="/" class="footer-brand"
-          >百夜应用工坊<span class="brand-dot" aria-hidden="true"></span
-        ></RouterLink>
-        <p class="copyright">
-          © {{ new Date().getFullYear() }} 百夜应用工坊
-        </p>
-      </div>
-      <nav class="footer-links" aria-label="页脚导航">
-        <RouterLink to="/create">创建应用</RouterLink>
-        <RouterLink to="/project">模板库</RouterLink>
-        <RouterLink to="/user/profile">个人中心</RouterLink>
-      </nav>
-    </div>
-  </a-layout-footer>
+  <footer class="site-footer">
+    <RouterLink to="/">百夜应用工坊</RouterLink>
+    <nav aria-label="页脚导航">
+      <RouterLink v-if="loginUser.id" to="/user/profile">个人资料</RouterLink>
+      <RouterLink v-else to="/user/register">注册账号</RouterLink>
+      <RouterLink v-if="loginUser.id" to="/my/projects">我的项目</RouterLink>
+      <RouterLink v-if="loginUser.userRole === 'admin'" to="/admin/userManage">管理后台</RouterLink>
+    </nav>
+  </footer>
 </template>
 
 <style scoped>
-.footer {
-  padding: 36px var(--page-gutter);
-  background: var(--color-bg);
+.site-footer {
+  width: var(--page-measure);
+  margin: 10px auto 0;
+  padding: 22px 0 40px;
   border-top: 1px solid var(--color-border);
-}
-.footer-content {
-  max-width: var(--page-width);
-  margin-inline: auto;
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
-  align-items: center;
-  gap: 24px;
-}
-.footer-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--color-text);
-}
-.brand-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--color-primary);
-}
-.copyright {
-  margin: 6px 0 0;
-  color: var(--color-text-tertiary);
-  font-size: 12px;
-}
-.footer-links {
-  display: flex;
-  align-items: center;
-  gap: 28px;
   flex-wrap: wrap;
-}
-.footer-links a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  font-size: 13px;
+  gap: 8px 20px;
+  font-size: 0.85rem;
   color: var(--color-text-secondary);
 }
-.footer-links a:hover {
-  color: var(--color-primary);
+
+.site-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
 }
-@media (max-width: 600px) {
-  .footer {
-    padding-block: 28px;
-  }
-  .footer-content {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .footer-links {
-    gap: 24px;
-  }
+
+.site-footer a {
+  color: inherit;
+}
+
+.site-footer a:hover {
+  color: var(--color-primary);
 }
 </style>

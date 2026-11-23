@@ -1,33 +1,38 @@
-<template>
-  <a-layout class="basic-layout">
-    <!-- 顶部导航栏 -->
-    <GlobalHeader />
-    <!-- 主要内容区域 -->
-    <a-layout-content id="main-content" class="main-content" tabindex="-1">
-      <router-view />
-    </a-layout-content>
-    <!-- 底部版权信息 -->
-    <GlobalFooter />
-  </a-layout>
-</template>
-
 <script setup lang="ts">
+import { useRoute } from 'vue-router'
 import GlobalHeader from '@/components/GlobalHeader.vue'
 import GlobalFooter from '@/components/GlobalFooter.vue'
+import AdminLayout from '@/layouts/AdminLayout.vue'
+
+const route = useRoute()
 </script>
 
+<template>
+  <div class="site-frame">
+    <GlobalHeader />
+    <main id="main-content" tabindex="-1">
+      <AdminLayout v-if="route.meta.layout === 'admin'" />
+      <RouterView v-else v-slot="{ Component }">
+        <component :is="Component" :key="route.path" />
+      </RouterView>
+    </main>
+    <GlobalFooter />
+  </div>
+</template>
+
 <style scoped>
-.basic-layout {
-  background: var(--color-bg);
+.site-frame {
+  min-height: 100vh;
   min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 
-.main-content {
-  width: 100%;
-  padding: 0;
-  background: none;
-  margin: 0;
+main {
   flex: 1;
+}
+
+main:focus {
   outline: none;
 }
 </style>

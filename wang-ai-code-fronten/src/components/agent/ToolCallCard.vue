@@ -47,7 +47,7 @@ const statusLabels = {
   unknown: '已返回',
   interrupted: '结果未知',
 }
-  const elapsed = computed(() =>
+const elapsed = computed(() =>
   props.tool.status === 'interrupted'
     ? ''
     : formatDuration(props.tool.startedAt, props.tool.endedAt || props.now),
@@ -142,7 +142,7 @@ function handleToggle(event: Event) {
 .tool-call {
   margin-block: 8px;
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--color-surface-soft);
   min-width: 0;
 }
@@ -156,14 +156,14 @@ summary {
   padding: 11px 12px;
   list-style: none;
   cursor: pointer;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   min-height: 44px;
 }
 summary::-webkit-details-marker {
   display: none;
 }
 summary:hover {
-  background: rgba(15, 118, 110, 0.035);
+  background: var(--color-primary-soft);
 }
 .disclosure {
   font-size: 10px;

@@ -1,323 +1,252 @@
-<template>
-  <div id="appEditPage">
-    <div class="page-header">
-      <h1>编辑应用信息</h1>
-    </div>
-
-    <div class="edit-container">
-      <a-card title="基本信息" :loading="loading">
-        <a-form
-          :model="formData"
-          :rules="rules"
-          layout="vertical"
-          @finish="handleSubmit"
-          ref="formRef"
-        >
-          <a-form-item label="应用名称" name="appName">
-            <a-input
-              v-model:value="formData.appName"
-              placeholder="请输入应用名称"
-              :maxlength="50"
-              show-count
-            />
-          </a-form-item>
-
-          <a-form-item
-            v-if="isAdmin"
-            label="应用封面"
-            name="cover"
-            extra="支持图片链接，建议尺寸：400x300"
-          >
-            <a-input v-model:value="formData.cover" placeholder="请输入封面图片链接" />
-            <div v-if="formData.cover" class="cover-preview">
-              <a-image
-                :src="formData.cover"
-                :width="200"
-                :height="150"
-                fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
-              />
-            </div>
-          </a-form-item>
-
-          <a-form-item v-if="isAdmin" label="优先级" name="priority" extra="设置为99表示精选应用">
-            <a-input-number
-              v-model:value="formData.priority"
-              :min="0"
-              :max="99"
-              style="width: 200px"
-            />
-          </a-form-item>
-
-          <a-form-item label="初始提示词" name="initPrompt">
-            <a-textarea
-              v-model:value="formData.initPrompt"
-              placeholder="请输入初始提示词"
-              :rows="4"
-              :maxlength="1000"
-              show-count
-              disabled
-            />
-            <div class="form-tip">初始提示词不可修改</div>
-          </a-form-item>
-
-          <a-form-item label="生成类型" name="codeGenType">
-            <a-input
-              :value="formatCodeGenType(formData.codeGenType)"
-              placeholder="生成类型"
-              disabled
-            />
-            <div class="form-tip">生成类型不可修改</div>
-          </a-form-item>
-
-          <a-form-item v-if="formData.deployKey" label="部署密钥" name="deployKey">
-            <a-input v-model:value="formData.deployKey" placeholder="部署密钥" disabled />
-            <div class="form-tip">部署密钥不可修改</div>
-          </a-form-item>
-
-          <a-form-item>
-            <a-space>
-              <a-button type="primary" html-type="submit" :loading="submitting">
-                保存修改
-              </a-button>
-              <a-button @click="resetForm">重置</a-button>
-              <a-button type="link" @click="goToChat">进入对话</a-button>
-            </a-space>
-          </a-form-item>
-        </a-form>
-      </a-card>
-
-      <!-- 应用信息展示 -->
-      <a-card title="应用信息" style="margin-top: 24px">
-        <a-descriptions :column="2" bordered>
-          <a-descriptions-item label="应用ID">
-            {{ appInfo?.id }}
-          </a-descriptions-item>
-          <a-descriptions-item label="创建者">
-            <UserInfo :user="appInfo?.user" size="small" />
-          </a-descriptions-item>
-          <a-descriptions-item label="创建时间">
-            {{ formatTime(appInfo?.createTime) }}
-          </a-descriptions-item>
-          <a-descriptions-item label="更新时间">
-            {{ formatTime(appInfo?.updateTime) }}
-          </a-descriptions-item>
-          <a-descriptions-item label="部署时间">
-            {{ appInfo?.deployedTime ? formatTime(appInfo.deployedTime) : '未部署' }}
-          </a-descriptions-item>
-          <a-descriptions-item label="访问链接">
-            <a-button v-if="appInfo?.deployKey" type="link" @click="openPreview" size="small">
-              查看预览
-            </a-button>
-            <span v-else>未部署</span>
-          </a-descriptions-item>
-        </a-descriptions>
-      </a-card>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { useRoute } from 'vue-router'
+import { ArrowLeftOutlined, ExportOutlined } from '@ant-design/icons-vue'
+import { message, type FormInstance, type FormProps } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
-import { getAppVoById, updateApp, updateAppByAdmin } from '@/api/appController'
+import { getAppVoById, getAppVoByIdByAdmin, updateApp, updateAppByAdmin } from '@/api/appController'
 import { formatCodeGenType } from '@/utils/codeGenTypes'
 import { formatTime } from '@/utils/time'
-import UserInfo from '@/components/UserInfo.vue'
-import { getStaticPreviewUrl } from '@/config/env'
-import type { FormInstance } from 'ant-design-vue'
+import { getDeployUrl } from '@/config/env'
+import PageHeading from '@/components/PageHeading.vue'
 
 const route = useRoute()
-const router = useRouter()
 const loginUserStore = useLoginUserStore()
-
-// 应用信息
-const appInfo = ref<API.AppVO>()
-const loading = ref(false)
+const isAdmin = computed(() => loginUserStore.loginUser.userRole === 'admin')
+const id = route.params.id as string
+const chatPath = '/app/chat/' + id
+const app = ref<API.AppVO>()
+const loading = ref(true)
+const loadError = ref('')
 const submitting = ref(false)
+const saveError = ref('')
 const formRef = ref<FormInstance>()
+const form = reactive({ appName: '', cover: '', priority: 0 })
 
-// 表单数据
-const formData = reactive({
-  appName: '',
-  cover: '',
-  priority: 0,
-  initPrompt: '',
-  codeGenType: '',
-  deployKey: '',
-})
-
-// 是否为管理员
-const isAdmin = computed(() => {
-  return loginUserStore.loginUser.userRole === 'admin'
-})
-
-// 表单验证规则
-const rules = {
-  appName: [
-    { required: true, message: '请输入应用名称', trigger: 'blur' },
-    { min: 1, max: 50, message: '应用名称长度在1-50个字符', trigger: 'blur' },
-  ],
-  cover: [{ type: 'url', message: '请输入有效的URL', trigger: 'blur' }],
-  priority: [{ type: 'number', min: 0, max: 99, message: '优先级范围0-99', trigger: 'blur' }],
+const rules: FormProps['rules'] = {
+  appName: [{ required: true, whitespace: true, max: 50, message: '请输入 1 到 50 个字符' }],
+  cover: [{ type: 'url', message: '请输入有效的图片地址', trigger: 'blur' }],
+  priority: [{ type: 'number', min: 0, max: 99, message: '优先级范围为 0 到 99' }],
 }
 
-// 获取应用信息
-const fetchAppInfo = async () => {
-  const id = route.params.id as string
-  if (!id) {
-    message.error('应用ID不存在')
-    router.push('/')
-    return
-  }
+function resetForm() {
+  form.appName = app.value?.appName || ''
+  form.cover = app.value?.cover || ''
+  form.priority = app.value?.priority || 0
+  saveError.value = ''
+  formRef.value?.clearValidate()
+}
 
+async function fetchAppInfo() {
   loading.value = true
+  loadError.value = ''
+  const fetchApp = isAdmin.value ? getAppVoByIdByAdmin : getAppVoById
+
   try {
-    const res = await getAppVoById({ id: id as unknown as number })
-    if (res.data.code === 0 && res.data.data) {
-      appInfo.value = res.data.data
-
-      // 检查权限
-      if (!isAdmin.value && appInfo.value.userId !== loginUserStore.loginUser.id) {
-        message.error('您没有权限编辑此应用')
-        router.push('/')
-        return
-      }
-
-      // 填充表单数据
-      formData.appName = appInfo.value.appName || ''
-      formData.cover = appInfo.value.cover || ''
-      formData.priority = appInfo.value.priority || 0
-      formData.initPrompt = appInfo.value.initPrompt || ''
-      formData.codeGenType = appInfo.value.codeGenType || ''
-      formData.deployKey = appInfo.value.deployKey || ''
-    } else {
-      message.error('获取应用信息失败')
-      router.push('/')
+    const res = await fetchApp({ id: id as unknown as number })
+    if (res.data.code !== 0 || !res.data.data) {
+      loadError.value = res.data.message || '无法读取应用'
+      return
     }
-  } catch (error) {
-    console.error('获取应用信息失败：', error)
-    message.error('获取应用信息失败')
-    router.push('/')
+    if (!isAdmin.value && String(res.data.data.userId) !== String(loginUserStore.loginUser.id)) {
+      loadError.value = '只有应用作者和管理员可以修改设置。'
+      return
+    }
+    app.value = res.data.data
+    resetForm()
+  } catch {
+    loadError.value = '无法读取应用，请检查网络后重试。'
   } finally {
     loading.value = false
   }
 }
 
-// 提交表单
-const handleSubmit = async () => {
-  if (!appInfo.value?.id) return
-
+async function handleSubmit() {
+  if (!app.value?.id) return
   submitting.value = true
-  try {
-    let res
-    if (isAdmin.value) {
-      // 管理员可以修改更多字段
-      res = await updateAppByAdmin({
-        id: appInfo.value.id,
-        appName: formData.appName,
-        cover: formData.cover,
-        priority: formData.priority,
-      })
-    } else {
-      // 普通用户只能修改应用名称
-      res = await updateApp({
-        id: appInfo.value.id,
-        appName: formData.appName,
-      })
-    }
+  saveError.value = ''
 
+  const appName = form.appName.trim()
+  try {
+    const patch = { id: app.value.id, appName }
+    const res = isAdmin.value
+      ? await updateAppByAdmin({ ...patch, cover: form.cover.trim(), priority: form.priority })
+      : await updateApp(patch)
     if (res.data.code === 0) {
-      message.success('修改成功')
-      // 重新获取应用信息
+      message.success('应用设置已保存')
       await fetchAppInfo()
     } else {
-      message.error('修改失败：' + res.data.message)
+      saveError.value = res.data.message || '保存失败'
     }
-  } catch (error) {
-    console.error('修改失败：', error)
-    message.error('修改失败')
+  } catch {
+    saveError.value = '保存失败，请检查网络后重试'
   } finally {
     submitting.value = false
   }
 }
 
-// 重置表单
-const resetForm = () => {
-  if (appInfo.value) {
-    formData.appName = appInfo.value.appName || ''
-    formData.cover = appInfo.value.cover || ''
-    formData.priority = appInfo.value.priority || 0
-  }
-  formRef.value?.clearValidate()
-}
-
-// 进入对话页面
-const goToChat = () => {
-  if (appInfo.value?.id) {
-    router.push(`/app/chat/${appInfo.value.id}`)
-  }
-}
-
-// 打开预览
-const openPreview = () => {
-  if (appInfo.value?.codeGenType && appInfo.value?.id) {
-    const url = getStaticPreviewUrl(appInfo.value.codeGenType, String(appInfo.value.id))
-    window.open(url, '_blank')
-  }
-}
-
-// 页面加载时获取应用信息
-onMounted(() => {
-  fetchAppInfo()
-})
+onMounted(fetchAppInfo)
 </script>
 
+<template>
+  <div class="page-shell">
+    <RouterLink :to="chatPath" class="back-link"
+      ><ArrowLeftOutlined aria-hidden="true" /> 对话工作区</RouterLink
+    >
+    <PageHeading title="应用设置" description="更新应用资料，查看构建和部署信息。" />
+    <div v-if="loading" class="paper-panel"><a-skeleton active :paragraph="{ rows: 5 }" /></div>
+    <a-alert v-else-if="loadError" :message="loadError" type="error" show-icon>
+      <template #action><a-button size="small" @click="fetchAppInfo">重新读取</a-button></template>
+    </a-alert>
+
+    <div v-else-if="app" class="settings-grid">
+      <section class="paper-panel">
+        <h2>应用资料</h2>
+        <a-form
+          ref="formRef"
+          :model="form"
+          :rules="rules"
+          layout="vertical"
+          name="app-settings"
+          @finish="handleSubmit"
+        >
+          <a-form-item label="应用名称" name="appName">
+            <a-input v-model:value="form.appName" :maxlength="50" show-count />
+          </a-form-item>
+
+          <template v-if="isAdmin">
+            <a-form-item label="应用封面" name="cover" extra="请输入图片链接，推荐 400 × 300。">
+              <a-input v-model:value="form.cover" placeholder="https://…" />
+              <a-image
+                v-if="form.cover"
+                :src="form.cover"
+                alt="应用封面"
+                :width="160"
+                class="cover-preview"
+              />
+            </a-form-item>
+            <a-form-item
+              label="优先级"
+              name="priority"
+              extra="优先级为 99 的应用展示在首页精选区。"
+            >
+              <a-input-number v-model:value="form.priority" :min="0" :max="99" />
+            </a-form-item>
+          </template>
+
+          <div class="application-brief">
+            <h3>初始需求</h3>
+            <p>{{ app.initPrompt || '暂无初始需求' }}</p>
+          </div>
+
+          <a-alert
+            v-if="saveError"
+            :message="saveError"
+            type="error"
+            class="save-error"
+            show-icon
+          />
+          <div class="folio-actions">
+            <a-button type="primary" html-type="submit" :loading="submitting">保存更改</a-button>
+            <a-button :disabled="submitting" @click="resetForm">重置</a-button>
+          </div>
+        </a-form>
+      </section>
+
+      <aside class="paper-panel">
+        <h2>构建信息</h2>
+        <dl class="folio-spec">
+          <div>
+            <dt>构建方式</dt>
+            <dd>{{ formatCodeGenType(app.codeGenType) }}</dd>
+          </div>
+          <div>
+            <dt>论文初稿</dt>
+            <dd>{{ app.generateThesis ? '已启用' : '未启用' }}</dd>
+          </div>
+          <div>
+            <dt>应用 ID</dt>
+            <dd>{{ app.id }}</dd>
+          </div>
+          <div>
+            <dt>创建者</dt>
+            <dd>{{ app.user?.userName || '—' }}</dd>
+          </div>
+          <div v-if="app.createTime">
+            <dt>创建时间</dt>
+            <dd>{{ formatTime(app.createTime) }}</dd>
+          </div>
+          <div v-if="app.updateTime">
+            <dt>最近更新</dt>
+            <dd>{{ formatTime(app.updateTime) }}</dd>
+          </div>
+          <div>
+            <dt>部署时间</dt>
+            <dd>{{ app.deployedTime ? formatTime(app.deployedTime) : '未部署' }}</dd>
+          </div>
+          <div v-if="app.deployKey">
+            <dt>部署标识</dt>
+            <dd>{{ app.deployKey }}</dd>
+          </div>
+        </dl>
+        <div class="folio-actions settings-links">
+          <RouterLink class="folio-link" :to="chatPath">打开工作区</RouterLink>
+          <a
+            v-if="app.deployKey"
+            class="folio-link"
+            :href="getDeployUrl(app.deployKey, app.codeGenType)"
+            target="_blank"
+            rel="noopener"
+          >
+            已部署应用 <ExportOutlined aria-hidden="true" />
+          </a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</template>
+
 <style scoped>
-#appEditPage {
-  padding: 24px;
-  max-width: 1000px;
-  margin: 0 auto;
+.settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(245px, 1fr);
+  align-items: start;
+  gap: clamp(18px, 3vw, 36px);
 }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
+.settings-links {
+  margin-top: 14px;
 }
 
-.page-header h1 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
+.application-brief {
+  margin: 0 0 22px;
+  padding-block: 15px;
+  border-block: 1px solid var(--color-border);
 }
 
-.edit-container {
-  border-radius: 8px;
+.application-brief h3 {
+  font-size: 1rem;
+}
+
+.application-brief p {
+  margin: 7px 0 0;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .cover-preview {
-  margin-top: 12px;
-  padding: 12px;
-  border: 1px solid #e8e8e8;
-  border-radius: 6px;
-  background: #fafafa;
+  display: block;
+  margin-top: 10px;
 }
 
-.form-tip {
-  font-size: 12px;
-  color: #999;
-  margin-top: 4px;
+.save-error {
+  margin-bottom: 16px;
 }
 
-:deep(.ant-card-head) {
-  background: #fafafa;
-}
-
-:deep(.ant-descriptions-item-label) {
-  background: #fafafa;
-  font-weight: 500;
+@media (max-width: 760px) {
+  .settings-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>
