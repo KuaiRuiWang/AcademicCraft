@@ -27,8 +27,8 @@ import {
   CloudUploadOutlined,
   SendOutlined,
   ExportOutlined,
-  DownloadOutlined,
   EditOutlined,
+  DownOutlined,
 } from '@ant-design/icons-vue'
 
 const route = useRoute()
@@ -68,19 +68,109 @@ const historyLoaded = ref(false)
 
 // 预览相关
 const previewUrl = ref('')
-const previewTab = ref(route.query.tab === 'thesis' ? 'thesis' : 'app')
-const compactMedia = window.matchMedia('(max-width: 760px)')
-const compactLayout = ref(compactMedia.matches)
-const previewFirst = computed(
-  () => compactLayout.value && (Boolean(previewUrl.value) || previewTab.value === 'thesis'),
+const previewTab = ref<'app' | 'thesis'>(route.query.tab === 'thesis' ? 'thesis' : 'app')
+const previewReady = ref(false)
+
+type WorkspaceView = 'chat' | 'split' | 'output'
+const desktopViews = [
+  { value: 'chat', label: '仅对话' },
+  { value: 'split', label: '双栏' },
+  { value: 'output', label: '仅成果' },
+] as const
+const desktopView = ref<WorkspaceView>('split')
+const compactView = ref<'chat' | 'output'>(
+  route.query.tab === 'thesis' || route.query.view === '1' ? 'output' : 'chat',
 )
+const compactMedia = window.matchMedia('(width < 960px)')
+const compactLayout = ref(compactMedia.matches)
+const isSplit = computed(() => !compactLayout.value && desktopView.value === 'split')
+const chatVisible = computed(() =>
+  compactLayout.value ? compactView.value === 'chat' : desktopView.value !== 'output',
+)
+const outputVisible = computed(() =>
+  compactLayout.value ? compactView.value === 'output' : desktopView.value !== 'chat',
+)
+
+const DEFAULT_SPLIT = 44
+const MIN_SPLIT = 35
+const MAX_SPLIT = 65
+const splitPercent = ref(DEFAULT_SPLIT)
+const workspaceGrid = ref<HTMLElement>()
+const resizeStart = ref<{ pointerId: number; x: number; width: number; percent: number }>()
+
+function setWorkspaceView(view: WorkspaceView) {
+  if (view !== 'split') compactView.value = view
+  if (!compactLayout.value) desktopView.value = view
+}
+
+function selectOutputTab(tab: string | number) {
+  previewTab.value = tab === 'thesis' ? 'thesis' : 'app'
+  compactView.value = 'output'
+}
+
 watch(
   () => route.query.tab,
   (tab) => {
     previewTab.value = tab === 'thesis' ? 'thesis' : 'app'
+    if (tab === 'thesis') {
+      compactView.value = 'output'
+      if (desktopView.value === 'chat') desktopView.value = 'output'
+    }
   },
 )
-const previewReady = ref(false)
+
+function setSplit(percent: number) {
+  splitPercent.value = Math.max(MIN_SPLIT, Math.min(MAX_SPLIT, Math.round(percent)))
+}
+
+function startResizing(event: PointerEvent) {
+  const separator = event.currentTarget as HTMLElement
+  const width = (workspaceGrid.value?.clientWidth ?? 0) - separator.offsetWidth
+  if (!event.isPrimary || event.button !== 0 || width <= 0) return
+  resizeStart.value = {
+    pointerId: event.pointerId,
+    x: event.clientX,
+    width,
+    percent: splitPercent.value,
+  }
+  separator.setPointerCapture(event.pointerId)
+  separator.focus({ preventScroll: true })
+}
+
+function resizePanels(event: PointerEvent) {
+  const start = resizeStart.value
+  if (start && start.pointerId === event.pointerId) {
+    setSplit(start.percent + ((event.clientX - start.x) / start.width) * 100)
+  }
+}
+
+function stopResizing(event: PointerEvent) {
+  if (resizeStart.value?.pointerId === event.pointerId) resizeStart.value = undefined
+}
+
+function resizeWithKeyboard(event: KeyboardEvent) {
+  switch (event.key) {
+    case 'ArrowLeft':
+      setSplit(splitPercent.value - 3)
+      break
+    case 'ArrowRight':
+      setSplit(splitPercent.value + 3)
+      break
+    case 'Home':
+      setSplit(MIN_SPLIT)
+      break
+    case 'End':
+      setSplit(MAX_SPLIT)
+      break
+    default:
+      return
+  }
+  event.preventDefault()
+}
+
+watch(isSplit, (split) => {
+  if (!split) resizeStart.value = undefined
+})
 
 // 部署相关
 const deploying = ref(false)
@@ -110,9 +200,22 @@ const isOwner = computed(() => {
 const isAdmin = computed(() => {
   return loginUserStore.loginUser.userRole === 'admin'
 })
+const activeOutputTab = computed(() => (isOwner.value ? previewTab.value : 'app'))
 
 // 应用详情相关
 const appDetailVisible = ref(false)
+const projectMenu = ref<HTMLDetailsElement>()
+
+function closeProjectMenu(restoreFocus = false) {
+  const menu = projectMenu.value
+  if (!menu?.open) return
+  menu.open = false
+  if (restoreFocus) menu.querySelector('summary')?.focus()
+}
+
+function onProjectMenuBlur(event: FocusEvent) {
+  if (!projectMenu.value?.contains(event.relatedTarget as Node | null)) closeProjectMenu()
+}
 
 // 显示应用详情
 const showAppDetail = () => {
@@ -352,15 +455,19 @@ const scrollToBottom = (force = false) => {
     hasNewOutput.value = false
   }
   nextTick(() => {
-    if (messagesContainer.value && followOutput.value) {
+    if (chatVisible.value && messagesContainer.value && followOutput.value) {
       messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
     }
   })
 }
 
+watch([chatVisible, splitPercent, desktopView], () => {
+  if (chatVisible.value) scrollToBottom()
+})
+
 const handleChatScroll = () => {
   const container = messagesContainer.value
-  if (!container) return
+  if (!container || !chatVisible.value) return
   followOutput.value = container.scrollHeight - container.clientHeight - container.scrollTop < 80
   if (followOutput.value) hasNewOutput.value = false
 }
@@ -504,6 +611,12 @@ const clearSelectedElement = () => {
   visualEditor.clearSelection()
 }
 
+async function composeElementEdit() {
+  setWorkspaceView(compactLayout.value ? 'chat' : 'split')
+  await nextTick()
+  document.getElementById('chat-input')?.focus()
+}
+
 const getInputPlaceholder = () => {
   if (selectedElementInfo.value) {
     return `正在编辑 ${selectedElementInfo.value.tagName.toLowerCase()} 元素，描述您想要的修改...`
@@ -540,7 +653,7 @@ const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeM
 </script>
 
 <template>
-  <div class="page-shell app-workspace">
+  <div class="app-workspace" :class="{ 'is-compact': compactLayout }">
     <div v-if="loadingApp && !appInfo" class="paper-panel" aria-busy="true">
       <a-skeleton active :paragraph="{ rows: 6 }" />
     </div>
@@ -551,25 +664,91 @@ const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeM
       </PageHeading>
     </template>
     <template v-else-if="appInfo">
-      <PageHeading :title="appInfo.appName || '对话工作区'">
-        <a-button v-if="isOwner || isAdmin" @click="editApp">应用设置</a-button>
-        <a-button @click="showAppDetail">应用详情</a-button>
-        <a-button
-          v-if="isOwner"
-          :loading="downloading"
-          :disabled="isGenerating"
-          @click="downloadCode"
-        >
-          <DownloadOutlined aria-hidden="true" /> 下载源码
-        </a-button>
-        <a-button v-if="isOwner" :loading="deploying" :disabled="isGenerating" @click="deployApp">
-          <CloudUploadOutlined aria-hidden="true" /> 部署
-        </a-button>
-      </PageHeading>
+      <header class="workspace-bar">
+        <h1 :title="appInfo.appName">{{ appInfo.appName || '对话工作区' }}</h1>
+        <div class="project-actions">
+          <details
+            v-if="isOwner || isAdmin"
+            ref="projectMenu"
+            class="project-menu"
+            @focusout="onProjectMenuBlur"
+            @keydown.esc.stop="closeProjectMenu(true)"
+          >
+            <summary aria-label="项目操作">项目 <DownOutlined aria-hidden="true" /></summary>
+            <div class="project-menu-actions" @click="closeProjectMenu(true)">
+              <a-button type="text" block @click="editApp">应用设置</a-button>
+              <a-button type="text" block @click="showAppDetail">应用详情</a-button>
+              <a-button
+                v-if="isOwner"
+                type="text"
+                block
+                :disabled="isGenerating || downloading"
+                @click="downloadCode"
+              >
+                {{ downloading ? '正在下载…' : '下载源码' }}
+              </a-button>
+            </div>
+          </details>
+          <a-button v-else @click="showAppDetail">应用详情</a-button>
+          <a-button v-if="isOwner" :loading="deploying" :disabled="isGenerating" @click="deployApp">
+            <CloudUploadOutlined aria-hidden="true" /> 部署
+          </a-button>
+        </div>
+        <div v-if="compactLayout" class="view-options" role="group" aria-label="工作区视图">
+          <button
+            type="button"
+            aria-controls="project-conversation"
+            :aria-pressed="chatVisible"
+            @click="setWorkspaceView('chat')"
+          >
+            对话
+          </button>
+          <button
+            type="button"
+            aria-controls="project-output"
+            :aria-pressed="outputVisible && activeOutputTab === 'app'"
+            @click="selectOutputTab('app')"
+          >
+            应用预览
+          </button>
+          <button
+            v-if="isOwner"
+            type="button"
+            aria-controls="project-output"
+            :aria-pressed="outputVisible && activeOutputTab === 'thesis'"
+            @click="selectOutputTab('thesis')"
+          >
+            论文初稿
+          </button>
+        </div>
+        <div v-else class="view-options" role="group" aria-label="工作区视图">
+          <button
+            v-for="{ value, label } in desktopViews"
+            :key="value"
+            type="button"
+            :aria-pressed="desktopView === value"
+            @click="setWorkspaceView(value)"
+          >
+            {{ label }}
+          </button>
+        </div>
+      </header>
 
-      <div class="work-grid">
-        <div id="compact-app-output" v-show="previewFirst" class="compact-app-output"></div>
-        <section class="conversation" aria-labelledby="conversation-title">
+      <div
+        ref="workspaceGrid"
+        class="work-grid"
+        :class="{ 'is-split': isSplit, 'is-resizing': resizeStart }"
+        :style="{
+          '--chat-width': splitPercent + 'fr',
+          '--output-width': 100 - splitPercent + 'fr',
+        }"
+      >
+        <section
+          v-show="chatVisible"
+          id="project-conversation"
+          class="conversation"
+          aria-labelledby="conversation-title"
+        >
           <h2 id="conversation-title">项目对话</h2>
           <div v-if="loadingHistory && !messages.length" class="history-loading" aria-busy="true">
             <a-skeleton active :title="false" :paragraph="{ rows: 3 }" />
@@ -578,72 +757,78 @@ const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeM
             v-else-if="messages.length"
             ref="messagesContainer"
             class="messages-container"
+            role="region"
             aria-label="对话消息"
             tabindex="0"
             @scroll.passive="handleChatScroll"
           >
-            <div v-if="hasMoreHistory" class="load-more">
-              <a-button type="link" @click="loadMoreHistory" :loading="loadingHistory"
-                >加载更多历史消息</a-button
-              >
-            </div>
-            <article v-for="chatMessage in messages" :key="chatMessage.id" class="message-item">
-              <h3>{{ chatMessage.type === 'user' ? (isOwner ? '你' : '创作者') : '工坊助手' }}</h3>
-              <p v-if="chatMessage.type === 'user'" class="message-text">
-                {{ chatMessage.content }}
-              </p>
-              <div v-else>
-                <AgentRunView
-                  v-if="chatMessage.run"
-                  :run="chatMessage.run"
-                  :fullstack="appInfo.codeGenType === CodeGenTypeEnum.FULLSTACK_VUE_NODEJS"
-                />
-                <MarkdownRenderer v-else-if="chatMessage.content" :content="chatMessage.content" />
-                <div
-                  v-if="chatMessage.loading && !chatMessage.run"
-                  class="loading-indicator"
-                  role="status"
-                >
-                  <a-spin size="small" /> 正在准备生成…
-                </div>
+            <div class="message-list">
+              <div v-if="hasMoreHistory" class="load-more">
+                <a-button type="link" :loading="loadingHistory" @click="loadMoreHistory">
+                  加载更多历史消息
+                </a-button>
               </div>
-            </article>
+              <article v-for="chatMessage in messages" :key="chatMessage.id" class="message-item">
+                <h3 :class="{ 'user-message': chatMessage.type === 'user' }">
+                  {{ chatMessage.type === 'user' ? (isOwner ? '你' : '创作者') : '工坊助手' }}
+                </h3>
+                <p v-if="chatMessage.type === 'user'" class="message-text">
+                  {{ chatMessage.content }}
+                </p>
+                <div v-else>
+                  <AgentRunView
+                    v-if="chatMessage.run"
+                    :run="chatMessage.run"
+                    :fullstack="appInfo.codeGenType === CodeGenTypeEnum.FULLSTACK_VUE_NODEJS"
+                  />
+                  <MarkdownRenderer
+                    v-else-if="chatMessage.content"
+                    :content="chatMessage.content"
+                  />
+                  <div
+                    v-if="chatMessage.loading && !chatMessage.run"
+                    class="loading-indicator"
+                    role="status"
+                  >
+                    <a-spin size="small" /> 正在准备生成…
+                  </div>
+                </div>
+              </article>
+            </div>
           </div>
           <p v-else class="chat-empty">还没有对话消息。</p>
 
-          <div v-if="hasNewOutput" class="new-output-notice" aria-live="polite">
-            <a-button size="small" @click="scrollToBottom(true)">有新输出 · 回到底部</a-button>
-          </div>
-
-          <a-alert
-            v-if="selectedElementInfo"
-            class="element-alert"
-            type="info"
-            closable
-            @close="clearSelectedElement"
-          >
-            <template #message>
-              <div><strong>选中元素</strong> {{ selectedElementInfo.tagName.toLowerCase() }}</div>
-              <div v-if="selectedElementInfo.pagePath">{{ selectedElementInfo.pagePath }}</div>
-              <code>{{ selectedElementInfo.selector }}</code>
-              <div v-if="selectedElementInfo.textContent">
-                {{ selectedElementInfo.textContent.slice(0, 50) }}
-              </div>
-            </template>
-          </a-alert>
-
-          <form v-if="isOwner" class="chat-composer" @submit.prevent="sendMessage">
-            <label for="chat-input">继续修改</label>
-            <a-textarea
-              id="chat-input"
-              v-model:value="userInput"
-              :placeholder="getInputPlaceholder()"
-              :rows="3"
-              :maxlength="1000"
-              :disabled="isGenerating"
-              @keydown.enter="onComposerEnter"
-            />
-            <div class="composer-actions">
+          <div v-if="isOwner || hasNewOutput" class="conversation-end">
+            <div v-if="hasNewOutput" class="new-output-notice" aria-live="polite">
+              <a-button size="small" @click="scrollToBottom(true)">有新输出 · 回到底部</a-button>
+            </div>
+            <a-alert
+              v-if="selectedElementInfo"
+              class="element-alert"
+              type="info"
+              closable
+              @close="clearSelectedElement"
+            >
+              <template #message>
+                <div><strong>选中元素</strong> {{ selectedElementInfo.tagName.toLowerCase() }}</div>
+                <div v-if="selectedElementInfo.pagePath">{{ selectedElementInfo.pagePath }}</div>
+                <code>{{ selectedElementInfo.selector }}</code>
+                <div v-if="selectedElementInfo.textContent">
+                  {{ selectedElementInfo.textContent.slice(0, 50) }}
+                </div>
+              </template>
+            </a-alert>
+            <form v-if="isOwner" class="chat-composer" @submit.prevent="sendMessage">
+              <label for="chat-input">继续修改</label>
+              <a-textarea
+                id="chat-input"
+                v-model:value="userInput"
+                :placeholder="getInputPlaceholder()"
+                :auto-size="{ minRows: 2, maxRows: 5 }"
+                :maxlength="1000"
+                :disabled="isGenerating"
+                @keydown.enter="onComposerEnter"
+              />
               <a-button
                 type="primary"
                 html-type="submit"
@@ -652,62 +837,95 @@ const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeM
               >
                 发送 <SendOutlined aria-hidden="true" />
               </a-button>
-            </div>
-          </form>
+            </form>
+          </div>
         </section>
 
-        <Teleport defer to="#compact-app-output" :disabled="!previewFirst">
-          <section class="workspace-output" aria-label="应用交付内容">
-            <a-tabs v-model:activeKey="previewTab" class="workspace-tabs">
-              <a-tab-pane key="app" tab="应用预览">
-                <div class="preview-panel">
-                  <div class="preview-toolbar">
-                    <span class="preview-caption" :class="{ ready: previewUrl && !isGenerating }">
-                      {{ isGenerating ? '正在生成' : previewUrl ? '可交互预览' : '等待产物' }}
-                    </span>
-                    <div class="preview-actions">
-                      <a-button
-                        v-if="isOwner && previewUrl"
-                        type="link"
-                        :disabled="isGenerating"
-                        :danger="isEditMode"
-                        @click="toggleEditMode"
-                      >
-                        <EditOutlined aria-hidden="true" />
-                        {{ isEditMode ? '退出编辑' : '编辑模式' }}
-                      </a-button>
-                      <a-button
-                        v-if="previewUrl && !isGenerating"
-                        type="link"
-                        :href="previewUrl"
-                        target="_blank"
-                        rel="noopener"
-                      >
-                        独立打开 <ExportOutlined aria-hidden="true" />
-                      </a-button>
-                    </div>
+        <div
+          v-if="isSplit"
+          class="workspace-divider"
+          role="separator"
+          tabindex="0"
+          aria-orientation="vertical"
+          aria-labelledby="conversation-title"
+          aria-controls="project-conversation"
+          :aria-valuemin="MIN_SPLIT"
+          :aria-valuemax="MAX_SPLIT"
+          :aria-valuenow="splitPercent"
+          :aria-valuetext="splitPercent + '%'"
+          title="拖动或用左右方向键调整栏宽"
+          @pointerdown="startResizing"
+          @pointermove="resizePanels"
+          @pointerup="stopResizing"
+          @pointercancel="stopResizing"
+          @lostpointercapture="stopResizing"
+          @keydown="resizeWithKeyboard"
+        ></div>
+
+        <section
+          v-show="outputVisible"
+          id="project-output"
+          class="workspace-output"
+          aria-label="应用交付内容"
+        >
+          <a-tabs :active-key="activeOutputTab" class="workspace-tabs" @change="selectOutputTab">
+            <a-tab-pane key="app" tab="应用预览">
+              <div class="preview-panel">
+                <div class="preview-toolbar">
+                  <span class="preview-caption" :class="{ ready: previewUrl && !isGenerating }">
+                    {{ isGenerating ? '正在生成' : previewUrl ? '可交互预览' : '等待产物' }}
+                  </span>
+                  <div class="preview-actions">
+                    <a-button
+                      v-if="isOwner && selectedElementInfo && !chatVisible"
+                      type="link"
+                      @click="composeElementEdit"
+                    >
+                      描述修改
+                    </a-button>
+                    <a-button
+                      v-if="isOwner && previewUrl"
+                      type="link"
+                      :disabled="isGenerating"
+                      :danger="isEditMode"
+                      @click="toggleEditMode"
+                    >
+                      <EditOutlined aria-hidden="true" />
+                      {{ isEditMode ? '退出编辑' : '编辑模式' }}
+                    </a-button>
+                    <a-button
+                      v-if="previewUrl && !isGenerating"
+                      type="link"
+                      :href="previewUrl"
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      独立打开 <ExportOutlined aria-hidden="true" />
+                    </a-button>
                   </div>
-                  <div v-if="isGenerating" class="preview-empty" role="status">
-                    <a-spin />
-                    <p>应用正在生成，可在项目对话中查看进度。</p>
-                  </div>
-                  <iframe
-                    v-else-if="previewUrl"
-                    ref="previewFrame"
-                    :src="previewUrl"
-                    :title="(appInfo.appName || '应用') + '预览'"
-                    class="preview-iframe"
-                    @load="onIframeLoad"
-                  ></iframe>
-                  <div v-else class="preview-empty">网站文件生成后将在此展示。</div>
                 </div>
-              </a-tab-pane>
-              <a-tab-pane v-if="isOwner" key="thesis" tab="论文初稿">
+                <div v-if="isGenerating" class="preview-empty" role="status">
+                  <a-spin />
+                  <p>应用正在生成，可在项目对话中查看进度。</p>
+                </div>
+                <iframe
+                  v-else-if="previewUrl"
+                  ref="previewFrame"
+                  :src="previewUrl"
+                  :title="(appInfo.appName || '应用') + '预览'"
+                  class="preview-iframe"
+                  @load="onIframeLoad"
+                ></iframe>
+                <div v-else class="preview-empty">网站文件生成后将在此展示。</div>
+              </div>
+            </a-tab-pane>
+            <a-tab-pane v-if="isOwner" key="thesis" tab="论文初稿">
+              <div class="thesis-scroll" role="region" aria-label="论文工作区" tabindex="0">
                 <ThesisPanel :app-id="appId" :app-generating="isGenerating" />
-              </a-tab-pane>
-            </a-tabs>
-          </section>
-        </Teleport>
+              </div>
+            </a-tab-pane>
+          </a-tabs>
+        </section>
       </div>
 
       <AppDetailModal
@@ -727,59 +945,234 @@ const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeM
 </template>
 
 <style scoped>
+.app-workspace {
+  --pane-padding: clamp(12px, 1.55vw, 24px);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  width: var(--page-measure);
+  min-height: 0;
+  margin-inline: auto;
+  padding-block: 12px max(12px, env(safe-area-inset-bottom));
+}
+
+.workspace-bar {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) auto 1fr;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.workspace-bar h1 {
+  overflow: hidden;
+  font-size: clamp(1.16rem, 1.65vw, 1.55rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-actions > :deep(.ant-btn),
+.project-menu summary {
+  min-height: 43px;
+  padding-inline: 10px;
+}
+
+.project-menu {
+  position: relative;
+}
+
+.project-menu summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.project-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.project-menu summary:hover,
+.project-menu[open] summary {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.project-menu-actions {
+  position: absolute;
+  z-index: 2;
+  inset: calc(100% + 4px) 0 auto auto;
+  min-width: 138px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.project-menu-actions :deep(.ant-btn) {
+  text-align: start;
+}
+
+.view-options {
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  justify-self: end;
+  min-width: 0;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+}
+
+.view-options button {
+  min-height: 34px;
+  padding-inline: 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: 650 0.875rem/1.25 var(--font-body);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.view-options button:hover {
+  color: var(--color-primary);
+}
+
+.view-options button[aria-pressed='true'] {
+  background: var(--color-surface);
+  box-shadow: inset 0 -2px var(--color-primary);
+  color: var(--color-primary);
+}
+
+.view-options button:focus-visible {
+  outline-offset: -3px;
+}
+
 .work-grid {
   display: grid;
-  grid-template-columns: minmax(245px, 0.8fr) minmax(0, 2fr);
-  gap: clamp(22px, 3vw, 32px);
-  align-items: start;
+  flex: 1;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  min-height: 0;
+}
+
+.work-grid.is-split {
+  grid-template-columns: minmax(0, var(--chat-width)) 24px minmax(0, var(--output-width));
+}
+
+.work-grid.is-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.work-grid.is-resizing iframe {
+  pointer-events: none;
+}
+
+.workspace-divider {
+  display: grid;
+  place-items: center;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.workspace-divider::before {
+  content: '';
+  width: 6px;
+  height: 36px;
+  border-inline: 1px solid var(--color-text-tertiary);
+}
+
+.workspace-divider:hover,
+.workspace-divider:focus-visible,
+.is-resizing .workspace-divider {
+  background: var(--color-primary-soft);
+}
+
+.workspace-divider:focus-visible {
+  outline-offset: -2px;
 }
 
 .conversation,
 .workspace-output {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-}
-
-.compact-app-output {
-  display: contents;
-}
-
-.conversation {
-  border-top: 2px solid var(--color-text);
-  padding-top: 16px;
+  min-height: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
 .conversation h2 {
-  font-size: clamp(1.35rem, 2.15vw, 1.75rem);
-  margin-bottom: 15px;
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: var(--pane-padding);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 1.1rem;
 }
 
-.messages-container {
-  max-height: min(55dvh, 550px);
+.messages-container,
+.history-loading,
+.chat-empty {
+  flex: 1;
+  min-height: 0;
+}
+
+.messages-container,
+.thesis-scroll {
   overflow: auto;
+  overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  border-block: 1px solid var(--color-border);
+}
+
+.messages-container:focus-visible,
+.thesis-scroll:focus-visible {
+  outline-offset: -3px;
+}
+
+.message-list {
+  max-width: 54rem;
+  margin-inline: auto;
+  padding: 4px var(--pane-padding);
 }
 
 .message-item {
-  padding: 12px 10px 14px 0;
+  padding-block: 12px 14px;
   overflow-wrap: anywhere;
 }
 
-.message-item + .message-item,
-.message-item:first-child:not(:only-child) {
+.message-item + .message-item {
   border-top: 1px solid var(--color-border);
 }
 
 .message-item h3 {
+  margin-bottom: 5px;
   font: 700 0.86rem/1.5 var(--font-body);
   letter-spacing: 0;
-  margin-bottom: 5px;
+}
+
+.message-item .user-message {
+  color: var(--color-primary);
 }
 
 .message-text {
-  white-space: pre-wrap;
-  color: var(--color-text-secondary);
   margin: 0;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
 }
 
 .load-more {
@@ -794,71 +1187,92 @@ const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeM
   color: var(--color-text-secondary);
 }
 
-.new-output-notice,
-.element-alert {
-  margin-top: 10px;
+.history-loading,
+.chat-empty {
+  margin: 0;
+  padding: var(--pane-padding);
+  color: var(--color-text-secondary);
 }
 
-.element-alert code {
+.conversation-end {
+  display: grid;
+  gap: 8px;
+  padding: 10px var(--pane-padding) 12px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.conversation-end > * {
+  width: 100%;
+  max-width: 54rem;
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.element-alert {
   overflow-wrap: anywhere;
 }
 
-.chat-empty {
-  margin: 0;
-  padding: 12px 0;
-  color: var(--color-text-secondary);
-  border-block-start: 1px solid var(--color-border);
-}
-
 .chat-composer {
-  margin-top: 22px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 6px 10px;
 }
 
 .chat-composer label {
-  display: block;
-  margin-bottom: 7px;
+  grid-column: 1 / -1;
+  font-size: 0.875rem;
   font-weight: 650;
 }
 
-.composer-actions {
+.workspace-tabs,
+.workspace-tabs :deep(.ant-tabs-content-holder),
+.workspace-tabs :deep(.ant-tabs-content),
+.workspace-tabs :deep(.ant-tabs-tabpane-active),
+.preview-panel {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 }
 
 .workspace-tabs :deep(.ant-tabs-nav) {
-  margin-bottom: 16px;
+  min-height: 44px;
+  margin: 0;
+  padding-inline: var(--pane-padding);
+}
+
+.workspace-tabs :deep(.ant-tabs-nav)::before {
+  border-color: var(--color-border);
 }
 
 .workspace-tabs :deep(.ant-tabs-tab) {
-  padding: 8px 3px 10px;
+  padding: 8px 3px;
 }
 
 .workspace-tabs :deep(.ant-tabs-tab + .ant-tabs-tab) {
-  margin-left: 12px;
-}
-
-.preview-panel {
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
+  margin-inline-start: 16px;
 }
 
 .preview-toolbar {
   display: flex;
+  flex: none;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 5px 12px;
-  flex-wrap: wrap;
-  min-height: 41px;
-  padding: 0 14px;
+  gap: 0 12px;
+  min-height: 42px;
+  padding-inline: var(--pane-padding);
   border-bottom: 1px solid var(--color-border);
   font-size: 0.85rem;
 }
 
 .preview-caption {
   display: inline-flex;
-  gap: 8px;
   align-items: center;
+  gap: 8px;
   font-weight: 650;
 }
 
@@ -866,30 +1280,29 @@ const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeM
   content: '';
   width: 7px;
   height: 7px;
-  background: var(--color-primary);
   border-radius: 50%;
+  background: var(--color-primary);
 }
 
 .preview-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0 16px;
+  gap: 0 14px;
 }
 
 .preview-actions :deep(.ant-btn) {
-  min-height: 41px;
+  min-height: 40px;
   font-size: 0.85rem;
 }
 
 .preview-empty {
   display: grid;
+  flex: 1;
   place-content: center;
-  min-height: clamp(240px, 38vw, 540px);
-  padding: 24px;
-  text-align: center;
+  padding: 20px;
   color: var(--color-text-secondary);
-  background: var(--color-surface);
+  text-align: center;
 }
 
 .preview-empty p {
@@ -898,24 +1311,57 @@ const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeM
 
 .preview-iframe {
   display: block;
+  flex: 1;
   width: 100%;
-  height: clamp(370px, 44vw, 610px);
+  min-height: 0;
   border: 0;
   background: white;
 }
 
-@media (max-width: 760px) {
-  .work-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 27px;
-  }
+.thesis-scroll {
+  flex: 1;
+  min-height: 0;
+}
 
-  .messages-container {
-    max-height: clamp(150px, 38dvh, 340px);
-  }
+.thesis-scroll :deep(.thesis-panel) {
+  border: 0;
+}
 
-  .preview-toolbar {
-    padding-inline: 10px;
+.is-compact {
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.is-compact .workspace-bar {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.is-compact .workspace-bar h1 {
+  font-size: 1.12rem;
+}
+
+.is-compact .view-options {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+}
+
+.is-compact .view-options button {
+  min-height: 42px;
+  padding-inline: 6px;
+}
+
+.is-compact .workspace-tabs :deep(.ant-tabs-nav) {
+  display: none;
+}
+
+.is-compact .preview-actions :deep(.ant-btn) {
+  min-height: 44px;
+}
+
+@media (height < 480px) {
+  .messages-container,
+  .thesis-scroll {
+    overscroll-behavior: auto;
   }
 }
 </style>

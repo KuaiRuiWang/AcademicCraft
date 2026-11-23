@@ -283,6 +283,7 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
 
 <style scoped>
 .thesis-panel {
+  container-type: inline-size;
   color: var(--color-text);
 }
 
@@ -441,7 +442,7 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
   border-top: 1px solid var(--color-border);
 }
 
-@media (max-width: 920px) {
+@container (max-width: 640px) {
   .thesis-workspace {
     grid-template-columns: minmax(0, 1fr);
   }
