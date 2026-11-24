@@ -1,12 +1,12 @@
 <template>
-  <div class="markdown-content" v-html="renderedMarkdown"></div>
+  <div class="markdown-content" @error.capture="showMermaidPreviewError" v-html="renderedMarkdown"></div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
-import { renderThesisDiagram } from '@/utils/thesisDiagram'
+import { isThesisFigureCaption, renderThesisDiagram, renderThesisMermaid } from '@/utils/thesisDiagram'
 
 // 引入代码高亮样式
 import 'highlight.js/styles/github.css'
@@ -14,6 +14,7 @@ import 'highlight.js/styles/github.css'
 interface Props {
   content: string
   diagrams?: boolean
+  mermaidPreview?: string
 }
 
 const props = defineProps<Props>()
@@ -45,12 +46,40 @@ md.renderer.rules.fence = (tokens, index, options, env, renderer) => {
   const token = tokens[index]!
   if (props.diagrams && token.info.trim() === 'diagram-design')
     return renderThesisDiagram(token.content, md.utils.escapeHtml)
+  const lines: string[] = env.lines
+  if (props.mermaidPreview && token.info.trim() === 'mermaid' && token.map
+    && /^```mermaid[ \t]*$/.test(lines[token.map[0]] || '')
+    && /^```[ \t]*$/.test(lines[token.map[1] - 1] || '')) {
+    const openCaption = tokens[index + 1]
+    const inlineCaption = tokens[index + 2]
+    const closeCaption = tokens[index + 3]
+    let caption = ''
+    if (openCaption?.type === 'paragraph_open' && inlineCaption?.type === 'inline'
+      && closeCaption?.type === 'paragraph_close' && isThesisFigureCaption(inlineCaption.content)) {
+      caption = inlineCaption.content.trim()
+      openCaption.hidden = true
+      inlineCaption.children = []
+      closeCaption.hidden = true
+    }
+    return renderThesisMermaid(token.content, caption, `${props.mermaidPreview}/${++env.mermaidFigureNo}`, md.utils.escapeHtml)
+  }
   return originalFence(tokens, index, options, env, renderer)
+}
+
+function showMermaidPreviewError(event: Event) {
+  const image = event.target
+  if (!(image instanceof HTMLImageElement) || !image.classList.contains('thesis-mermaid-image')) return
+  const status = image.parentElement?.querySelector<HTMLElement>('.thesis-diagram-error')
+  if (status) status.hidden = false
+  image.hidden = true
 }
 
 // 计算渲染后的 Markdown
 const renderedMarkdown = computed(() => {
-  return md.render(props.content)
+  const content = props.mermaidPreview
+    ? props.content.replace(/^> 配图自动排版未通过校验，已保留原始结构图；Word 导出仍会绘制该图。[ \t]*\r?$/gm, '')
+    : props.content
+  return md.render(content, { lines: content.split(/\r?\n/), mermaidFigureNo: 0 })
 })
 </script>
 
@@ -76,6 +105,15 @@ const renderedMarkdown = computed(() => {
 .markdown-content :deep(.thesis-diagram img) {
   display: block;
   max-width: none;
+}
+
+.markdown-content :deep(.thesis-diagram img.thesis-mermaid-image) {
+  max-width: 960px;
+  height: auto;
+}
+
+.markdown-content :deep(.thesis-diagram img[hidden]) {
+  display: none;
 }
 
 .markdown-content :deep(.thesis-diagram details) {

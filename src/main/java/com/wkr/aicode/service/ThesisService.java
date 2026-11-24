@@ -27,6 +27,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -280,6 +281,13 @@ public class ThesisService {
         ThrowUtils.throwIf(StrUtil.isBlank(suggestion) || suggestion.length() > 8000 || NON_PROSE_BLOCK.matcher(suggestion).find(),
                 ErrorCode.OPERATION_ERROR, "AI 返回的修改建议无法使用，请调整要求后重试");
         return suggestion;
+    }
+
+    public Path previewMermaid(Long appId, Integer chapterNo, int figureNo, User user) {
+        authorizedApp(appId, user);
+        AppThesisChapter chapter = chapterMapper.selectOneByQuery(QueryWrapper.create().eq("appId", appId).eq("chapterNo", chapterNo));
+        ThrowUtils.throwIf(chapter == null || StrUtil.isBlank(chapter.getContent()), ErrorCode.NOT_FOUND_ERROR, "章节正文不存在");
+        return diagramService.previewMermaid(appId, chapter.getContent(), figureNo);
     }
 
     public App authorizedApp(Long appId, User user) {

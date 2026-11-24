@@ -91,6 +91,7 @@ class ThesisServiceTest {
         assertThrows(BusinessException.class, () -> service.generate(1L, stranger));
         assertThrows(BusinessException.class, () -> service.saveChapter(1L, 1, null, stranger));
         assertThrows(BusinessException.class, () -> service.rewriteSelection(1L, 1, null, stranger));
+        assertThrows(BusinessException.class, () -> service.previewMermaid(1L, 1, 1, stranger));
         verifyNoInteractions(writer, snapshots);
     }
 

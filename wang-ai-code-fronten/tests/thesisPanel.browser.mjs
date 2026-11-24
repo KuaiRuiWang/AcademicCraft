@@ -43,13 +43,16 @@ let thesis = {
   })),
 }
 const repeatedSentence = '本系统提供图书列表和录入功能，采用 Vue 页面与接口连接。'
+const legacyCaption = '图4.2 系统总体架构图'
+const legacyDiagram = `\n\n\`\`\`mermaid\nflowchart LR\n    A["Vue 页面"] --> B["Express 路由"]\n\n${legacyCaption}\n\`\`\`\n\n> 配图自动排版未通过校验，已保留原始结构图；Word 导出仍会绘制该图。`
 const designContent = ('章节导语。\n\n' + thesis.chapters[5].content + '\n\n' + repeatedSentence
-  + '\n\n```diagram-design\n' + JSON.stringify(diagram) + '\n```').replaceAll('\n', '\r\n')
+  + '\n\n```diagram-design\n' + JSON.stringify(diagram) + '\n```' + legacyDiagram).replaceAll('\n', '\r\n')
 thesis.chapters[5].content = designContent
 let saved
 let created
 let generateCalls = 0
 let rejectSave = false
+let rejectExport = false
 const rewriteRequests = []
 const suggestedSentence = '系统使用 Vue 界面连接接口，支持图书浏览和录入。'
 const server = http.createServer(async (req, res) => {
@@ -90,6 +93,10 @@ const server = http.createServer(async (req, res) => {
       if (!chapter.userEdited) chapter.sourceVersion = thesis.sourceVersion
     }
     data = true
+  } else if (url.pathname.endsWith('/thesis/chapters/6/mermaid/1')) {
+    res.setHeader('Content-Type', 'image/png')
+    res.end(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+8/sAAAAAASUVORK5CYII=', 'base64'))
+    return
   } else if (url.pathname.endsWith('/thesis/chapters/6/rewrite') && req.method === 'POST') {
     rewriteRequests.push(body)
     if (rewriteRequests.length === 1) {
@@ -110,6 +117,9 @@ const server = http.createServer(async (req, res) => {
       chapter.sourceVersion = thesis.sourceVersion
       data = true
     }
+  } else if (url.pathname.endsWith('/thesis/export') && rejectExport) {
+    code = 50001
+    message = 'Word 导出失败，请检查本篇论文的配图后重试'
   } else if (url.pathname.endsWith('/thesis/export')) {
     res.setHeader(
       'Content-Type',
@@ -168,6 +178,14 @@ try {
   await page.waitForFunction(() => document.querySelector('.thesis-diagram img')?.naturalWidth > 0)
   assert.equal(await page.$eval('.thesis-diagram figcaption', element => element.textContent), diagram.caption)
   assert.equal((await page.$$('.thesis-diagram svg')).length, 0, 'SVG must remain in an image document')
+  await page.$eval('.thesis-mermaid-image', image => image.scrollIntoView({ block: 'nearest' }))
+  await page.waitForFunction(() => document.querySelector('.thesis-mermaid-image')?.naturalWidth > 0)
+  const fallback = await page.$eval('.thesis-mermaid-image', image => {
+    const figure = image.closest('figure')
+    return { caption: figure.querySelector('figcaption').textContent, sourceOpen: figure.querySelector('details').open }
+  })
+  assert.deepEqual(fallback, { caption: legacyCaption, sourceOpen: false })
+  assert.ok(!(await page.$eval('.thesis-content', element => element.textContent)).includes('Word 导出仍会绘制该图'))
   await clickText('编辑本章')
   const editable = await page.$eval('#thesis-chapter-content', element => element.value)
   assert.ok(editable.includes('<!-- 保留配图 1 -->'))
@@ -245,10 +263,14 @@ try {
   await clickText('论文初稿')
   await clickText('重试未完成章节')
   assert.equal(generateCalls, 2)
+  rejectExport = true
+  await clickText('下载 Word')
+  await page.waitForFunction(() => document.body.textContent.includes('Word 导出失败，请检查本篇论文的配图后重试'))
+  rejectExport = false
   const downloadResponse = page.waitForResponse((response) =>
     response.url().endsWith('/thesis/export'),
   )
-  await clickText('下载 Word')
+  await clickText('重新下载')
   assert.ok((await downloadResponse).headers()['content-type'].includes('wordprocessingml'))
   await page.waitForFunction(() =>
     [...document.querySelectorAll('button')].some(
@@ -300,7 +322,7 @@ try {
   assert.equal(created.thesisTitle, '图书管理系统设计与实现')
   assert.deepEqual(errors, [])
   console.log(
-    'PASS: create, diagrams, exact selection rewrite, model failure and cancel, figure-preserving edits, conflicts, source update, retry, desktop/mobile keyboard use',
+    'PASS: create, legacy figure preview, Word retry, exact selection rewrite, model failure and cancel, figure-preserving edits, conflicts, source update, desktop/mobile keyboard use',
   )
 } finally {
   await browser.close()

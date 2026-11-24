@@ -51,6 +51,16 @@ public class ThesisController {
         return ResultUtils.success(thesisService.rewriteSelection(appId, chapterNo, input, userService.getLoginUser(request)));
     }
 
+    @GetMapping("/chapters/{chapterNo}/mermaid/{figureNo}")
+    public void previewMermaid(@PathVariable Long appId, @PathVariable Integer chapterNo, @PathVariable int figureNo,
+                               HttpServletRequest request, HttpServletResponse response) throws IOException {
+        Path image = thesisService.previewMermaid(appId, chapterNo, figureNo, userService.getLoginUser(request));
+        response.setContentType("image/png");
+        response.setHeader("Cache-Control", "private, no-store");
+        response.setContentLengthLong(Files.size(image));
+        Files.copy(image, response.getOutputStream());
+    }
+
     @GetMapping("/export")
     public void export(@PathVariable Long appId, HttpServletRequest request, HttpServletResponse response) throws IOException {
         ThesisVO thesis = thesisService.getThesis(appId, userService.getLoginUser(request));

@@ -9,6 +9,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -45,16 +46,18 @@ class ThesisDiagramServiceTest {
         ThesisTools tools = mock(ThesisTools.class);
         ThesisWriter writer = mock(ThesisWriter.class);
         when(tools.root()).thenReturn(temporary);
-        when(tools.run(eq("diagram_design.py"), any(), anyInt(), eq("extract"), anyString())).thenReturn("{\"type\":\"flowchart\"}");
+        when(tools.run(eq("diagram_design.py"), any(), anyInt(), eq("extract"), anyString()))
+                .thenReturn(JSONUtil.toJsonStr(Map.of("type", "flowchart", "mermaidSource", "flowchart TD\nA-->B",
+                        "embeddedCaption", "图4.1 系统流程")));
         when(tools.run(eq("diagram_design.py"), any(), anyInt(), eq("validate"), anyString()))
                 .thenThrow(new BusinessException(ErrorCode.OPERATION_ERROR, "Missing source edge e1"));
         when(writer.drawDiagram(anyString(), anyString(), anyString(), anyString())).thenReturn("<svg/>");
         ThesisDiagramService service = new ThesisDiagramService();
         ReflectionTestUtils.setField(service, "tools", tools);
         ReflectionTestUtils.setField(service, "writer", writer);
-        String result = service.renderChapter(1L, "r1", 6, "```mermaid\nflowchart TD\nA-->B\n```\n\n图4.1 系统流程");
+        String result = service.renderChapter(1L, "r1", 6, "```mermaid\nflowchart TD\nA-->B\n\n图4.1 系统流程\n```");
         assertTrue(result.contains("```mermaid\nflowchart TD\nA-->B\n```\n\n图4.1 系统流程"));
-        assertTrue(result.contains("已保留原始结构图"));
+        assertEquals(1, result.split("图4.1 系统流程", -1).length - 1);
         assertFalse(result.contains("```diagram-design"));
         assertFalse(result.contains("<svg/>"));
         verify(writer).drawDiagram(anyString(), anyString(), anyString(), eq(""));

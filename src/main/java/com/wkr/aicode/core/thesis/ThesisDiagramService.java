@@ -1,5 +1,6 @@
 package com.wkr.aicode.core.thesis;
 
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.json.JSONUtil;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
@@ -20,7 +21,7 @@ import java.util.regex.Pattern;
 @Service
 @Slf4j
 public class ThesisDiagramService {
-    private static final Pattern MERMAID = Pattern.compile("(?m)^```mermaid[ \\t]*\\R(.*?)^```[ \\t]*(?:\\R[ \\t]*)*(图\\s*\\d[^\\r\\n]*)?", Pattern.DOTALL);
+    private static final Pattern MERMAID = Pattern.compile("(?m)^```mermaid[ \\t]*\\R(.*?)^```[ \\t]*(?=\\R|$)(?:\\R[ \\t]*)*(图\\s*\\d[^\\r\\n]*)?", Pattern.DOTALL);
     @Resource private ThesisTools tools;
     @Resource private ThesisWriter writer;
 
@@ -35,14 +36,22 @@ public class ThesisDiagramService {
             // 1. 使用上游提取器冻结图的节点、关系和字段。
             if (++index > 8) throw new BusinessException(ErrorCode.PARAMS_ERROR, "章节配图过多，请拆分章节");
             Path directory = work.resolve(Integer.toString(index));
-            String source = matches.group(1).strip();
-            Path sourceFile = write(directory.resolve("source.mmd"), source);
-            String digest = tools.run("diagram_design.py", directory, 20, "extract", sourceFile.toAbsolutePath().toString());
-            String type = JSONUtil.parseObj(digest).getStr("type");
+            String rawSource = matches.group(1).strip();
+            Path sourceFile = write(directory.resolve("source.mmd"), rawSource);
+            var extracted = JSONUtil.parseObj(tools.run("diagram_design.py", directory, 20, "extract", sourceFile.toAbsolutePath().toString()));
+            String source = extracted.getStr("mermaidSource", rawSource);
+            String embeddedCaption = extracted.getStr("embeddedCaption");
+            extracted.remove("mermaidSource");
+            extracted.remove("embeddedCaption");
+            String type = extracted.getStr("type");
+            String digest = extracted.toString();
             String reference = resource("thesis/vendor/diagram-design/references/type-" + type + ".md")
                     + "\n模板仅参考结构和线框语法，输出时改写为论文的 SVG 展示属性：\n"
                     + resource("thesis/vendor/diagram-design/assets/template.html");
-            String caption = matches.group(2) == null ? "图" + Math.max(1, chapterNo - 2) + "." + index + " 系统设计图" : matches.group(2).strip();
+            String caption = matches.group(2);
+            if (caption == null) caption = embeddedCaption;
+            if (caption == null) caption = "图" + Math.max(1, chapterNo - 2) + "." + index + " 系统设计图";
+            caption = caption.strip();
             String feedback = "";
             String figure = null;
             // 2. 模型只重排源图；不完整或错位时带校验反馈修正一次。
@@ -65,13 +74,36 @@ public class ThesisDiagramService {
                 }
             }
             String block = figure == null
-                    ? matches.group(0) + "\n\n> 配图自动排版未通过校验，已保留原始结构图；Word 导出仍会绘制该图。\n\n"
+                    ? "```mermaid\n" + source + "\n```\n\n" + caption + "\n\n"
                     : "```diagram-design\n" + figure + "\n```\n\n";
             matches.appendReplacement(result, Matcher.quoteReplacement(block));
         } while (matches.find());
         matches.appendTail(result);
         if (result.length() > 100_000) throw new BusinessException(ErrorCode.PARAMS_ERROR, "配图后的章节超过编辑长度限制，请拆分复杂图表");
         return result.toString();
+    }
+
+    public synchronized Path previewMermaid(Long appId, String content, int figureNo) {
+        if (figureNo < 1 || figureNo > 8) throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "配图不存在");
+        Matcher matches = MERMAID.matcher(content);
+        for (int number = 1; number <= figureNo; number++) {
+            if (!matches.find()) throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "配图不存在");
+        }
+
+        // 按源图缓存，编辑过的章节会请求并绘制新版本。
+        String source = matches.group(1).strip();
+        Path directory = tools.root().resolve(appId.toString()).resolve("mermaid-previews").resolve(DigestUtil.sha256Hex(source));
+        Path image = directory.resolve("diagram.png");
+        if (Files.isRegularFile(image)) return image;
+        try {
+            Path input = write(directory.resolve("source.mmd"), source);
+            tools.run("diagram_design.py", directory, 60, "render-mermaid", input.toAbsolutePath().toString(),
+                    "--target", image.toAbsolutePath().toString());
+        } catch (BusinessException e) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "配图暂时无法预览，可查看图中结构");
+        }
+        if (!Files.isRegularFile(image)) throw new BusinessException(ErrorCode.OPERATION_ERROR, "配图暂时无法预览，可查看图中结构");
+        return image;
     }
 
     public void validateChapter(Long appId, String content) {

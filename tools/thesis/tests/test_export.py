@@ -37,10 +37,45 @@ class ExportTest(unittest.TestCase):
             self.assertNotIn('<svg', text)
 
     def test_rejects_external_resources_before_starting_browser(self):
-        with tempfile.TemporaryDirectory() as folder, patch("export_thesis.subprocess.run") as run:
+        with tempfile.TemporaryDirectory() as folder, patch("diagram_design.subprocess.run") as run:
             with self.assertRaisesRegex(ValueError, "external resources"):
                 render_diagrams('```mermaid\nflowchart LR\nA@{img: "http://169.254.169.254/secret"}\n```\n', Path(folder))
             run.assert_not_called()
+
+    def test_recovers_embedded_caption_in_a_saved_mermaid_fallback(self):
+        caption = '图4.1 系统总体架构图'
+        markdown = f'''# 博客应用
+
+## 第四章 系统设计
+
+```mermaid
+flowchart LR
+    A["Vue SPA 前端组件"] -->|"HTTP /api"| B["Express 路由"]
+    B --> C["控制器 Controllers"]
+    C --> D["Sequelize Models"]
+    D --> E["MySQL 数据库"]
+
+{caption}
+```
+
+> 配图自动排版未通过校验，已保留原始结构图；Word 导出仍会绘制该图。
+
+### 后续说明
+
+后续正文保持原样。
+'''
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / 'saved.md'
+            source.write_text(markdown, encoding='utf-8')
+            target = Path(folder) / 'saved.docx'
+            export(source, target)
+            document = Document(target)
+            text = '\n'.join(p.text for p in document.paragraphs)
+            self.assertEqual(len(document.inline_shapes), 1)
+            self.assertEqual(text.count(caption), 1)
+            self.assertIn('后续正文保持原样。', text)
+            self.assertNotIn('Word 导出仍会绘制该图', text)
+            self.assertEqual(source.read_text(encoding='utf-8'), markdown)
 
     def test_exports_real_diagram_tables_and_word_navigation(self):
         with tempfile.TemporaryDirectory() as folder:

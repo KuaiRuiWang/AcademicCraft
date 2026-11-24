@@ -23,6 +23,19 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class ThesisWriterTest {
+    @Test void keepsTheClosingFenceOfTheLastDiagram() {
+        StreamingChatModel model = mock(StreamingChatModel.class);
+        ThesisWriter writer = new ThesisWriter();
+        ReflectionTestUtils.setField(writer, "chatModel", model);
+        String chapter = "说明正文\n\n```mermaid\nflowchart LR\nA-->B\n```";
+        doAnswer(invocation -> {
+            invocation.<StreamingChatResponseHandler>getArgument(1).onCompleteResponse(ChatResponse.builder()
+                    .aiMessage(AiMessage.from(chapter)).finishReason(FinishReason.STOP).build());
+            return null;
+        }).when(model).chat(any(ChatRequest.class), any(StreamingChatResponseHandler.class));
+        assertEquals(chapter, writer.writeChapter("图书管理", "第四章 系统设计", "App.vue", ""));
+    }
+
     @Test void sendsTheFrozenSourceAndDeclinesTruncatedOutput() {
         StreamingChatModel model = mock(StreamingChatModel.class);
         ThesisWriter writer = new ThesisWriter();

@@ -31,11 +31,14 @@ public class ThesisExportService {
             Files.writeString(source, markdown, StandardCharsets.UTF_8);
             tools.run("export_thesis.py", output, 180, source.toAbsolutePath().toString(), docx.toAbsolutePath().toString());
             if (!Files.isRegularFile(docx)) {
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "Word 导出失败，请检查配图、Python、Node 和浏览器配置");
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "Word 导出失败，请重试");
             }
             return docx;
         } catch (IOException e) {
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "无法启动 Word 导出工具，请配置 thesis.python-command 并安装导出依赖");
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "Word 导出失败，请稍后重试");
+        } catch (BusinessException e) {
+            // 工具日志保留完整错误，下载接口仅返回能在页面处理的提示。
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "Word 导出失败，请检查本篇论文的配图后重试");
         }
     }
 

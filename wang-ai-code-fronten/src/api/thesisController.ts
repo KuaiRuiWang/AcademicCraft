@@ -1,4 +1,5 @@
 import request from '@/request'
+import { API_BASE_URL } from '@/config/env'
 
 export type ThesisChapter = {
   chapterNo: number
@@ -31,6 +32,9 @@ export type ThesisRewriteInput = {
 
 type Response<T> = { code: number; data: T; message?: string }
 const path = (appId: string) => `/app/${encodeURIComponent(appId)}/thesis`
+
+export const thesisMermaidPreview = (appId: string, chapterNo: number) =>
+  `${API_BASE_URL.replace(/\/$/, '')}${path(appId)}/chapters/${chapterNo}/mermaid`
 
 export const getThesis = (appId: string) => request.get<Response<Thesis>>(path(appId))
 export const generateThesis = (appId: string) =>

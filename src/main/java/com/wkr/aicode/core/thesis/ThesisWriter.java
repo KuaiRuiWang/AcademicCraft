@@ -42,10 +42,10 @@ public class ThesisWriter {
         String text = complete(system, "论文题目：" + title + "\n本次只写：" + chapter + "\n完整提纲：" + String.join("、", CHAPTERS)
                         + "\n前文摘要（仅用于术语衔接，不是新增证据）：\n" + previousSummary
                         + "\n<project_sources>\n" + context + "\n</project_sources>");
-        // 顶层标题由应用统一生成，避免导出时重复论文标题与章节标题。
-        return text.replaceFirst("(?s)^\\s*```(?:markdown|md)?\\s*\\n", "")
-                .replaceFirst("\\n```\\s*$", "")
-                .replaceFirst("^#{1,2} [^\\n]+\\n", "").strip();
+        // 只移除整章的 Markdown 包装，保留正文末尾的配图围栏。
+        String unwrapped = text.replaceFirst("^\\s*```(?:markdown|md)?[ \\t]*\\R", "");
+        if (!unwrapped.equals(text)) unwrapped = unwrapped.replaceFirst("\\R```\\s*$", "");
+        return unwrapped.replaceFirst("^#{1,2} [^\\n]+\\n", "").strip();
     }
 
     public String drawDiagram(String digest, String reference, String caption, String feedback) {

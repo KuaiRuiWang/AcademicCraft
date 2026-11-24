@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createChapterDraft, renderThesisDiagram, restoreChapterDraft } from '../src/utils/thesisDiagram.ts'
+import { createChapterDraft, renderThesisDiagram, renderThesisMermaid, restoreChapterDraft } from '../src/utils/thesisDiagram.ts'
 
 const escape = (s: string) => s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')
 const payload = {
@@ -25,6 +25,14 @@ test('embeds the diagram as an inert image and escapes captions and source text'
 test('shows a readable error for malformed or unbounded figures', () => {
   for (const content of ['not JSON', JSON.stringify({ ...payload, version: 2 }), JSON.stringify({ ...payload, svg: '<svg viewBox="0 0 900000 900000"/>' })])
     assert.ok(renderThesisDiagram(content, escape).includes('role="alert"'))
+})
+
+test('shows a legacy Mermaid figure as a lazy image with a separate caption', () => {
+  const result = renderThesisMermaid(payload.source + '\n\n图4.2 系统关系图\n', '', '/app/1/thesis/chapters/6/mermaid/1', escape)
+  assert.ok(result.includes('src="/app/1/thesis/chapters/6/mermaid/1"'))
+  assert.ok(result.includes('loading="lazy"'))
+  assert.ok(result.includes('<figcaption>图4.2 系统关系图</figcaption>'))
+  assert.ok(!result.match(/<code>[^]*图4\.2[^]*<\/code>/))
 })
 
 test('editing prose preserves the exact original figure and allows explicit removal', () => {

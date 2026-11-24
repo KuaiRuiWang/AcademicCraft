@@ -20,10 +20,42 @@ import verify_geometry
 
 SVG_NS = "http://www.w3.org/2000/svg"
 FIGURE_RE = re.compile(r"^```diagram-design[ \t]*\r?\n(.*?)^```[ \t]*\r?$", re.MULTILINE | re.DOTALL)
+CAPTION_LINE = re.compile(r"图[ \t]*\d+(?:[.．-]\d+)*[ \t\u3000]+\S[^\r\n]*")
+EXTERNAL_MERMAID = re.compile(r"(?:https?|file|data|javascript):|%%\{|<\s*(?:script|iframe|img|svg)\b|\bclick\s|\b(?:img|image|icon)\s*:|\burl\s*\(", re.I)
 TYPES = {"flowchart": "architecture", "sequenceDiagram": "sequence", "erDiagram": "er", "stateDiagram-v2": "state", "stateDiagram": "state"}
 TAGS = {"svg", "title", "desc", "defs", "marker", "g", "rect", "text", "tspan", "path", "line", "circle", "ellipse", "polygon", "polyline"}
 ATTRS = set("id viewBox width height x y x1 y1 x2 y2 cx cy r rx ry d points fill fill-opacity stroke stroke-opacity opacity stroke-width stroke-linecap stroke-linejoin stroke-dasharray font-family font-size font-weight font-style text-anchor dominant-baseline dy dx transform marker-start marker-end markerWidth markerHeight refX refY orient markerUnits role aria-labelledby data-node-id data-edge-id data-from data-to data-label".split())
 NUMBER = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)"
+
+
+def split_mermaid_caption(source: str) -> tuple[str, str | None]:
+    """Recover a figure caption that was written on its own line inside the fence."""
+    source = source.strip()
+    diagram, newline, tail = source.rpartition("\n")
+    caption = tail.strip()
+    if newline and CAPTION_LINE.fullmatch(caption):
+        return diagram.rstrip(), caption
+    return source, None
+
+
+def render_mermaid(diagram: str, target: Path) -> None:
+    if len(diagram) > 40_000:
+        raise ValueError("Diagram source is too large; split the diagram.")
+    if EXTERNAL_MERMAID.search(diagram) or re.match(r"^---[ \t]*(?:\r?\n|$)", diagram):
+        raise ValueError("Mermaid diagrams cannot load external resources, links, or configuration directives.")
+    cli = Path(os.environ.get("THESIS_MERMAID_CLI", str(Path(__file__).parent / "node_modules/@mermaid-js/mermaid-cli/src/cli.js")))
+    if not cli.is_file():
+        raise RuntimeError("Mermaid CLI is missing; run npm ci in tools/thesis or set THESIS_MERMAID_CLI.")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    input_path = target.with_suffix(".mmd")
+    input_path.write_text(diagram, encoding="utf-8")
+    config = target.parent / "mermaid-config.json"
+    config.write_text('{"securityLevel":"strict","theme":"neutral","fontFamily":"Microsoft YaHei, Noto Sans CJK SC, sans-serif"}', encoding="utf-8")
+    staged = target.with_suffix(".partial.png")
+    staged.unlink(missing_ok=True)
+    subprocess.run(["node", str(cli.resolve()), "-i", str(input_path), "-o", str(staged),
+                    "-c", str(config), "-b", "white", "-s", "2"], check=True, timeout=45)
+    staged.replace(target)
 
 
 def extract(source: str) -> dict:
@@ -94,7 +126,7 @@ def validate_svg(source: str, svg: str, directory: Path) -> dict:
     box = [float(n) for n in re.split(r"[\s,]+", root.get("viewBox", "").strip())]
     if len(box) != 4 or not all(math.isfinite(n) for n in box) or box[:2] != [0, 0] or not 400 <= box[2] <= 960 or not 160 <= box[3] <= 1440:
         raise ValueError("Use a bounded viewBox starting at 0 0, width 400–960 and height 160–1440.")
-    diagram = extract(source)
+    diagram = extract(split_mermaid_caption(source)[0])
     nodes = [element for element in elements if "data-node-id" in element.attrib]
     edges = [element for element in elements if "data-edge-id" in element.attrib]
     if sorted(n.get("data-node-id") for n in nodes) != sorted(n["id"] for n in diagram["nodes"]):
@@ -150,11 +182,22 @@ def validate_figure(payload: dict, directory: Path, render: bool = False) -> dic
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["extract", "validate", "validate-chapter"])
+    parser.add_argument("command", choices=["extract", "validate", "validate-chapter", "render-mermaid"])
     parser.add_argument("source", type=Path)
+    parser.add_argument("--target", type=Path)
     args = parser.parse_args()
     if args.command == "extract":
-        result = extract(args.source.read_text(encoding="utf-8"))
+        source, caption = split_mermaid_caption(args.source.read_text(encoding="utf-8"))
+        result = extract(source)
+        result["mermaidSource"] = source
+        if caption:
+            result["embeddedCaption"] = caption
+    elif args.command == "render-mermaid":
+        if args.target is None:
+            parser.error("--target is required for render-mermaid")
+        diagram, _ = split_mermaid_caption(args.source.read_text(encoding="utf-8"))
+        render_mermaid(diagram, args.target)
+        return
     elif args.command == "validate":
         result = validate_figure(json.loads(args.source.read_text(encoding="utf-8")), args.source.parent, render=True)
     else:

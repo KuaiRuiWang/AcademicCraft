@@ -18,6 +18,7 @@ import {
   generateThesis,
   getThesis,
   saveThesisChapter,
+  thesisMermaidPreview,
   type Thesis,
   type ThesisRewriteInput,
 } from '@/api/thesisController'
@@ -25,6 +26,7 @@ import {
 const props = defineProps<{ appId: string; appGenerating: boolean }>()
 const thesis = ref<Thesis>()
 const error = ref('')
+const downloadError = ref('')
 const loading = ref(true)
 const starting = ref(false)
 const downloading = ref(false)
@@ -52,6 +54,7 @@ const chapter = computed(() =>
   thesis.value?.chapters.find((item) => item.chapterNo === chapterNo.value),
 )
 const generating = computed(() => thesis.value?.status === 'generating')
+const canDownload = computed(() => thesis.value?.status === 'ready' && !editing.value && !props.appGenerating)
 const completed = computed(
   () => thesis.value?.chapters.filter((item) => item.status === 'ready').length || 0,
 )
@@ -188,12 +191,14 @@ async function save() {
 
 async function download() {
   downloading.value = true
+  downloadError.value = ''
   try {
     const response = await exportThesis(props.appId)
     if (response.data.type.includes('json')) {
       const result = JSON.parse(await response.data.text()) as { message?: string }
       throw new Error(result.message || 'Word 导出失败')
     }
+    if (!response.data.type.includes('wordprocessingml')) throw new Error('Word 导出失败，请重试')
     const url = URL.createObjectURL(response.data)
     const anchor = document.createElement('a')
     anchor.href = url
@@ -204,7 +209,7 @@ async function download() {
     setTimeout(() => URL.revokeObjectURL(url), 1000)
     message.success('Word 已导出')
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : 'Word 导出失败，请重试'
+    downloadError.value = reason instanceof Error ? reason.message : 'Word 导出失败，请重试'
   } finally {
     downloading.value = false
   }
@@ -248,7 +253,7 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
         <a-button
           @click="download"
           :loading="downloading"
-          :disabled="thesis?.status !== 'ready' || editing || appGenerating"
+          :disabled="!canDownload"
         >
           <template #icon><DownloadOutlined /></template>下载 Word
         </a-button>
@@ -256,6 +261,9 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
     </div>
     <a-alert v-if="error" type="error" show-icon :message="error" class="thesis-notice">
       <template #action><a-button size="small" @click="load">重新读取</a-button></template>
+    </a-alert>
+    <a-alert v-if="downloadError" type="error" show-icon :message="downloadError" class="thesis-notice">
+      <template #action><a-button size="small" :disabled="!canDownload || downloading" @click="download">重新下载</a-button></template>
     </a-alert>
     <a-alert
       v-if="thesis?.status === 'stale'"
@@ -352,7 +360,12 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
             <a-button @click="editing = false" :disabled="saving">取消编辑</a-button>
           </div>
         </form>
-        <MarkdownRenderer v-else-if="chapter?.content" :content="chapter.content" diagrams />
+        <MarkdownRenderer
+          v-else-if="chapter?.content"
+          :content="chapter.content"
+          :mermaid-preview="thesisMermaidPreview(appId, chapter.chapterNo)"
+          diagrams
+        />
         <p v-else class="chapter-pending">
           {{
             chapter?.status === 'failed'

@@ -3,10 +3,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
 import re
-import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent / "vendor" / "lunwen"))
@@ -15,44 +13,38 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from diagram_design import render_svg, validate_figure
+from diagram_design import render_mermaid, render_svg, split_mermaid_caption, validate_figure
+
+LEGACY_FALLBACK_NOTE = "> 配图自动排版未通过校验，已保留原始结构图；Word 导出仍会绘制该图。"
 
 
 def render_diagrams(markdown: str, output: Path) -> tuple[str, dict[str, Path]]:
     image_map: dict[str, Path] = {}
-    pattern = re.compile(r"^```(mermaid|diagram-design)[ \t]*\r?\n(.*?)^```[ \t]*\r?(?:\n[ \t]*(?:\r?\n[ \t]*)*(图\s*\d[^\r\n]*))?", re.MULTILINE | re.DOTALL)
+    pattern = re.compile(r"^```(mermaid|diagram-design)[ \t]*\r?\n(.*?)^```[ \t]*\r?(?=\n|$)(?:\n[ \t]*(?:\r?\n[ \t]*)*(图\s*\d[^\r\n]*))?", re.MULTILINE | re.DOTALL)
 
     def render(match: re.Match) -> str:
-        # Diagrams are user-editable: only render local text/geometry, never external assets or directives.
-        if match.group(1) == "mermaid" and re.search(r"(?i)(?:https?|file|data|javascript):|%%\{|<\s*(?:script|iframe|img|svg)\b|\bclick\s|\b(?:img|image|icon)\s*:|\burl\s*\(", match.group(2)):
-            raise ValueError("Mermaid diagrams cannot load external resources, links, or configuration directives.")
         number = len(image_map) + 1
         if number > 8:
             raise ValueError("A thesis export supports at most eight figures.")
         payload = json.loads(match.group(2)) if match.group(1) == "diagram-design" else None
+        diagram, embedded_caption = split_mermaid_caption(match.group(2)) if payload is None else ("", None)
         caption = (match.group(3) or "").strip()
         if not caption:
-            caption = payload.get("caption", f"图4.{number} 系统设计图") if payload else f"图4.{number} 系统设计图"
+            caption = (payload.get("caption") if payload else embedded_caption) or f"图4.{number} 系统设计图"
         if caption in image_map:
             raise ValueError("Duplicate figure caption: " + caption)
         image = output / f"diagram-{number}.png"
-        if payload:
+        if payload is not None:
             metadata = validate_figure(payload, output / f"check-{number}")
             render_svg(payload["svg"], image, metadata["type"])
         else:
-            source = output / f"diagram-{number}.mmd"
-            source.write_text(match.group(2), encoding="utf-8")
-            cli = Path(os.environ.get("THESIS_MERMAID_CLI", str(Path(__file__).parent / "node_modules/@mermaid-js/mermaid-cli/src/cli.js")))
-            if not cli.is_file():
-                raise RuntimeError("Mermaid CLI is missing; run npm ci in tools/thesis or set THESIS_MERMAID_CLI.")
-            config = output / "mermaid-config.json"
-            config.write_text('{"securityLevel":"strict","theme":"neutral","fontFamily":"Microsoft YaHei, Noto Sans CJK SC, sans-serif"}', encoding="utf-8")
-            subprocess.run(["node", str(cli.resolve()), "-i", str(source), "-o", str(image),
-                            "-c", str(config), "-b", "white", "-s", "2"], check=True, timeout=45)
+            render_mermaid(diagram, image)
         image_map[caption] = image
         return f"```mermaid\n%% rendered figure\n```\n\n{caption}\n\n"
 
-    return pattern.sub(render, markdown), image_map
+    prepared = pattern.sub(render, markdown)
+    prepared = re.sub(rf"^{re.escape(LEGACY_FALLBACK_NOTE)}[ \t]*\r?$", "", prepared, flags=re.MULTILINE)
+    return prepared, image_map
 
 
 def field(paragraph, instruction: str) -> None:
