@@ -56,9 +56,11 @@ Git 插件采用手动提供的主机公钥策略，公钥与 GitHub 官方公�
 | `/project/ci-releases/backend` | 后端版本和原 JAR、原生产配置备份 |
 | `/project/config/application-prod.properties` | 后端实际发布时写入的生产配置，`baiye` 可读、权限 600 |
 | `/baiye/1panel/www/sites/ai-code/releases` | 前端版本及首次切换前的旧站点备份 |
+| `/baiye/1panel/www/sites/ai-code/static-archive/assets` | 已发布的带指纹前端资源，使用硬链接保留 |
 
 后端使用原 `ai-code.service`、原 JAR 路径和 `/project` 工作目录，保留生成代码及已部署应用数据。
 前端以相对符号链接切换 `index` 入口，使宿主机及 OpenResty 的 `/www` 映射都能解析。
+切换入口前，发布脚本保留当前版本和即将发布版本的带指纹资源。OpenResty 通过 `ci/nginx-assets.conf` 先查当前版本，再查保留目录，缺失的静态文件返回 HTTP 404。
 发布串行锁保护前后端的版本切换。健康检查失败时自动恢复旧入口或旧 JAR、旧配置。
 数据库新增列保留，不在回滚时删除。
 
@@ -67,6 +69,7 @@ Jenkins 的 SSH 凭据 ID 为 `academiccraft-deploy`。私钥存放在 Jenkins �
 部署过程中不会向 Jenkins 传入生产数据库密码，数据库检查在生产机内完成。
 
 更新发布入口时，用管理员权限安装 `ci/deploy.py` 到上述路径，权限 755、所有者 root。
+首次安装静态资源配置时，在 `/run/lock/academiccraft-deploy.lock` 的独占锁内，通过发布脚本的 `retain_frontend_assets()` 补齐 `releases` 中已发布的版本和当前 `index`。将 `ci/nginx-assets.conf` 安装为站点的 `proxy/academiccraft-assets.conf`，通过 `nginx -t` 后重载 OpenResty。
 生产参数变更仅修改 `/etc/academiccraft-ci/backend.json`，不会在普通构建时覆盖正在运行的配置。
 Jenkins 使用已安装的 JDK 21、Maven Wrapper 和 Node 24.18.0。
 Node 安装在 `/var/jenkins_home/tools/node-v24.18.0-linux-x64`，使用官方发行包并核验 SHA-256。

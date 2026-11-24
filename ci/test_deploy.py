@@ -43,7 +43,7 @@ class DeploymentTest(unittest.TestCase):
         self.paths.stop()
         self.temp.cleanup()
 
-    def archive(self, name='index.html', content=b'new frontend', kind=None):
+    def archive(self, name='index.html', content=b'new frontend', kind=None, assets=()):
         path = self.incoming / 'frontend.tgz'
         with tarfile.open(path, 'w:gz') as archive:
             member = tarfile.TarInfo(name)
@@ -54,6 +54,10 @@ class DeploymentTest(unittest.TestCase):
             else:
                 member.size = len(content)
                 archive.addfile(member, io.BytesIO(content))
+            for asset_name, asset_content in assets:
+                asset = tarfile.TarInfo(f'assets/{asset_name}')
+                asset.size = len(asset_content)
+                archive.addfile(asset, io.BytesIO(asset_content))
         return path
 
     def test_archive_cannot_escape_release_directory_or_create_links(self):
@@ -77,12 +81,29 @@ class DeploymentTest(unittest.TestCase):
             deploy.artifact_path(outside, hashlib.sha256(b'x').hexdigest())
 
     def test_frontend_switch_keeps_previous_content_and_uses_relative_link(self):
+        old_asset = self.live / 'assets/AppChatPage-OLD00000.js'
+        old_asset.parent.mkdir()
+        old_asset.write_bytes(b'old chat module')
+        archive = self.archive(assets=[('AppChatPage-NEW00000.js', b'new chat module')])
         with patch.object(deploy, 'frontend_health'), patch.object(deploy, 'wait_healthy', side_effect=lambda fn, _: fn()):
-            deploy.deploy_frontend(self.archive(), '0123456789ab-1')
+            deploy.deploy_frontend(archive, '0123456789ab-1')
         self.assertTrue(self.live.is_symlink())
         self.assertFalse(Path(os.readlink(self.live)).is_absolute())
         self.assertEqual((self.live / 'index.html').read_text(), 'new frontend')
         self.assertEqual((self.site / 'releases/legacy-0123456789ab-1/index.html').read_text(), 'old frontend')
+        retained = self.site / 'static-archive/assets'
+        self.assertEqual((retained / old_asset.name).read_bytes(), b'old chat module')
+        self.assertEqual((retained / 'AppChatPage-NEW00000.js').read_bytes(), b'new chat module')
+
+    def test_frontend_asset_conflict_keeps_current_release(self):
+        asset = self.live / 'assets/AppChatPage-OLD00000.js'
+        asset.parent.mkdir()
+        asset.write_bytes(b'old chat module')
+        archive = self.archive(assets=[(asset.name, b'different module with the same name')])
+        with self.assertRaisesRegex(ValueError, '前端资源文件名与已发布版本冲突'):
+            deploy.deploy_frontend(archive, '0123456789ab-6')
+        self.assertEqual((self.live / 'index.html').read_text(), 'old frontend')
+        self.assertEqual((self.site / 'static-archive/assets' / asset.name).read_bytes(), b'old chat module')
 
     def test_frontend_failed_health_check_restores_previous_content(self):
         with patch.object(deploy, 'frontend_health', side_effect=[RuntimeError('bad response'), None]), \

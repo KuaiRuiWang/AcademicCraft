@@ -22,6 +22,7 @@ SITE = pathlib.Path('/baiye/1panel/www/sites/ai-code')
 INCOMING = APP / 'ci-incoming'
 BACKEND_RELEASES = APP / 'ci-releases/backend'
 FRONTEND_RELEASES = SITE / 'releases'
+VERSIONED_ASSET = re.compile(r'.+-[A-Za-z0-9_-]{8}(?:\.[A-Za-z0-9]+)+')
 LIVE_JAR = APP / 'ai-code-0.0.1-SNAPSHOT.jar'
 ACTIVE_CONFIG = APP / 'config/application-prod.properties'
 PRIVATE_CONFIG = pathlib.Path('/etc/academiccraft-ci/backend.json')
@@ -106,6 +107,23 @@ def replace_link(live, target):
     os.replace(temporary, live)
 
 
+def retain_frontend_assets(release):
+    assets = release / 'assets'
+    if assets.is_symlink():
+        return
+    for asset in assets.rglob('*'):
+        if asset.is_symlink() or not VERSIONED_ASSET.fullmatch(asset.name) or not asset.is_file():
+            continue
+        relative = asset.relative_to(assets)
+        retained = SITE / 'static-archive' / 'assets' / relative
+        retained.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            os.link(asset, retained)
+        except FileExistsError:
+            if not asset.samefile(retained) and digest(asset) != digest(retained):
+                raise ValueError(f'前端资源文件名与已发布版本冲突：{relative}')
+
+
 def http_body(url, host=None):
     headers = {'Cache-Control': 'no-cache'}
     if host:
@@ -139,6 +157,9 @@ def deploy_frontend(archive, release):
     target = FRONTEND_RELEASES / release
     extract_frontend(archive, target)
     live = SITE / 'index'
+    # 切换前保留两版资源，旧标签页和回滚期间的页面仍可加载。
+    retain_frontend_assets(live)
+    retain_frontend_assets(target)
     previous = None
     if live.is_symlink():
         previous = live.resolve(strict=True)
