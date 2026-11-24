@@ -1,2 +1,5 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+ci/*.sh text eol=lf
+ci/*.py text eol=lf
+ci/Jenkinsfile.* text eol=lf
