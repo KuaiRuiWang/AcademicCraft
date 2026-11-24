@@ -4,7 +4,10 @@ import com.wkr.aicode.common.BaseResponse;
 import com.wkr.aicode.common.ResultUtils;
 import com.wkr.aicode.core.thesis.ThesisExportService;
 import com.wkr.aicode.model.dto.app.ThesisChapterUpdateRequest;
+import com.wkr.aicode.model.dto.app.ThesisSelectionRewriteRequest;
 import com.wkr.aicode.model.vo.app.ThesisVO;
+import com.wkr.aicode.ratelimter.annotation.RateLimit;
+import com.wkr.aicode.ratelimter.enums.RateLimitType;
 import com.wkr.aicode.service.ThesisService;
 import com.wkr.aicode.service.UserService;
 import jakarta.annotation.Resource;
@@ -39,6 +42,13 @@ public class ThesisController {
                                               @RequestBody ThesisChapterUpdateRequest input, HttpServletRequest request) {
         thesisService.saveChapter(appId, chapterNo, input, userService.getLoginUser(request));
         return ResultUtils.success(true);
+    }
+
+    @PostMapping("/chapters/{chapterNo}/rewrite")
+    @RateLimit(limitType = RateLimitType.USER, rate = 5, rateInterval = 60, message = "AI 修改请求过于频繁，请稍后再试")
+    public BaseResponse<String> rewriteSelection(@PathVariable Long appId, @PathVariable Integer chapterNo,
+                                                 @RequestBody ThesisSelectionRewriteRequest input, HttpServletRequest request) {
+        return ResultUtils.success(thesisService.rewriteSelection(appId, chapterNo, input, userService.getLoginUser(request)));
     }
 
     @GetMapping("/export")

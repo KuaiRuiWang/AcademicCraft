@@ -1,5 +1,6 @@
 package com.wkr.aicode.core.thesis;
 
+import cn.hutool.json.JSONUtil;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
 import dev.langchain4j.data.message.SystemMessage;
@@ -17,7 +18,9 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 
 /** 依据冻结资料逐章写作，模型不持有文件工具或其他应用的对话记忆。 */
@@ -56,8 +59,26 @@ public class ThesisWriter {
         }
     }
 
+    public String rewriteSelection(String title, String chapter, String selectedText, String instruction,
+                                   String beforeText, String afterText) {
+        try {
+            String prompt = new ClassPathResource("prompt/thesis-rewrite-system-prompt.txt").getContentAsString(StandardCharsets.UTF_8);
+            String input = JSONUtil.toJsonStr(Map.of("论文题目", title, "章节", chapter, "选中原文", selectedText,
+                    "修改要求", instruction, "前文片段", beforeText, "后文片段", afterText));
+            return complete(prompt, input, 45, "AI 修改建议输出不完整，请重试").strip();
+        } catch (IOException e) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "论文局部修改提示词加载失败");
+        } catch (CompletionException e) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "AI 暂未生成修改建议，请稍后重试");
+        }
+    }
+
     private String complete(String system, String input) {
-        // 写作与配图共用流式模型，收齐响应后才保存结果。
+        return complete(system, input, 180, "章节输出不完整，请重试该章节");
+    }
+
+    private String complete(String system, String input, int timeoutSeconds, String incompleteMessage) {
+        // 收齐流式响应后再交给调用方，避免使用截断的结果。
         ChatRequest request = ChatRequest.builder().messages(List.of(SystemMessage.from(system), UserMessage.from(input)))
                 .parameters(OpenAiChatRequestParameters.builder().reasoningEffort("none").build()).build();
         CompletableFuture<ChatResponse> completed = new CompletableFuture<>();
@@ -66,10 +87,10 @@ public class ThesisWriter {
             @Override public void onCompleteResponse(ChatResponse response) { completed.complete(response); }
             @Override public void onError(Throwable error) { completed.completeExceptionally(error); }
         });
-        ChatResponse response = completed.orTimeout(180, TimeUnit.SECONDS).join();
+        ChatResponse response = completed.orTimeout(timeoutSeconds, TimeUnit.SECONDS).join();
         String text = response.aiMessage().text();
         if (response.finishReason() == FinishReason.LENGTH || text == null || text.isBlank()) {
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "章节输出不完整，请重试该章节");
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, incompleteMessage);
         }
         return text;
     }

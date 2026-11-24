@@ -11,6 +11,7 @@ import com.wkr.aicode.mapper.AppMapper;
 import com.wkr.aicode.mapper.AppThesisChapterMapper;
 import com.wkr.aicode.mapper.AppThesisMapper;
 import com.wkr.aicode.model.dto.app.ThesisChapterUpdateRequest;
+import com.wkr.aicode.model.dto.app.ThesisSelectionRewriteRequest;
 import com.wkr.aicode.model.entity.App;
 import com.wkr.aicode.model.entity.User;
 import org.junit.jupiter.api.*;
@@ -89,6 +90,7 @@ class ThesisServiceTest {
         assertThrows(BusinessException.class, () -> service.getThesis(1L, stranger));
         assertThrows(BusinessException.class, () -> service.generate(1L, stranger));
         assertThrows(BusinessException.class, () -> service.saveChapter(1L, 1, null, stranger));
+        assertThrows(BusinessException.class, () -> service.rewriteSelection(1L, 1, null, stranger));
         verifyNoInteractions(writer, snapshots);
     }
 
@@ -162,6 +164,31 @@ class ThesisServiceTest {
         input.setContent("不应覆盖");
         assertThrows(BusinessException.class, () -> service.saveChapter(1L, 1, input, owner));
         assertEquals("摘要的正文", service.getThesis(1L, owner).getChapters().get(0).getContent());
+    }
+
+    @Test void rewritingAnUnsavedSelectionReturnsASuggestionWithoutUpdatingTheThesis() throws Exception {
+        service.generate(1L, owner);
+        await("ready");
+        var thesis = service.getThesis(1L, owner);
+        var input = new ThesisSelectionRewriteRequest();
+        input.setSelectedText("编辑稿中的句子");
+        input.setInstruction("精简");
+        input.setBeforeText("前文");
+        input.setAfterText("后文");
+        input.setRevision("old-revision");
+        assertThrows(BusinessException.class, () -> service.rewriteSelection(1L, 1, input, owner));
+        verify(writer, never()).rewriteSelection(anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+
+        input.setRevision(thesis.getRevision());
+        when(writer.rewriteSelection(thesis.getTitle(), "摘要", "编辑稿中的句子", "精简", "前文", "后文"))
+                .thenReturn("精简后的句子", "<!-- 保留配图 1 -->");
+        assertEquals("精简后的句子", service.rewriteSelection(1L, 1, input, owner));
+        assertThrows(BusinessException.class, () -> service.rewriteSelection(1L, 1, input, owner));
+        var result = service.getThesis(1L, owner);
+        assertEquals("ready", result.getStatus());
+        assertEquals(thesis.getRevision(), result.getRevision());
+        assertEquals(thesis.getChapters(), result.getChapters());
+        verify(writer, times(10)).writeChapter(anyString(), anyString(), anyString(), anyString());
     }
 
     @Test void explicitRegenerationRewritesAiChaptersWhileAutomaticDuplicateDoesNot() throws Exception {

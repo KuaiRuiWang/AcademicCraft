@@ -42,11 +42,16 @@ let thesis = {
     sourceVersion: 'v1',
   })),
 }
-thesis.chapters[5].content += '\n\n```diagram-design\n' + JSON.stringify(diagram) + '\n```'
+const repeatedSentence = '本系统提供图书列表和录入功能，采用 Vue 页面与接口连接。'
+const designContent = ('章节导语。\n\n' + thesis.chapters[5].content + '\n\n' + repeatedSentence
+  + '\n\n```diagram-design\n' + JSON.stringify(diagram) + '\n```').replaceAll('\n', '\r\n')
+thesis.chapters[5].content = designContent
 let saved
 let created
 let generateCalls = 0
 let rejectSave = false
+const rewriteRequests = []
+const suggestedSentence = '系统使用 Vue 界面连接接口，支持图书浏览和录入。'
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', 'http://127.0.0.1:5179')
   res.setHeader('Access-Control-Allow-Credentials', 'true')
@@ -85,7 +90,13 @@ const server = http.createServer(async (req, res) => {
       if (!chapter.userEdited) chapter.sourceVersion = thesis.sourceVersion
     }
     data = true
-  } else if (url.pathname.includes('/thesis/chapters/')) {
+  } else if (url.pathname.endsWith('/thesis/chapters/6/rewrite') && req.method === 'POST') {
+    rewriteRequests.push(body)
+    if (rewriteRequests.length === 1) {
+      code = 50001
+      message = 'AI 暂未生成修改建议，请稍后重试'
+    } else data = suggestedSentence
+  } else if (url.pathname.includes('/thesis/chapters/') && req.method === 'PUT') {
     saved = body
     if (rejectSave) {
       code = 50001
@@ -142,6 +153,12 @@ const clickText = async (text) => {
   await handle.asElement().click()
   await handle.dispose()
 }
+const selectLastInEditor = (text) => page.$eval('#thesis-chapter-content', (el, selected) => {
+  const start = el.value.lastIndexOf(selected)
+  if (start < 0) throw new Error(`Missing selection: ${selected}`)
+  el.focus()
+  el.setSelectionRange(start, start + selected.length)
+}, text)
 try {
   await page.setViewport({ width: 1440, height: 1100 })
   await page.goto('http://127.0.0.1:5179/app/chat/1?view=1', { waitUntil: 'networkidle0' })
@@ -155,15 +172,37 @@ try {
   const editable = await page.$eval('#thesis-chapter-content', element => element.value)
   assert.ok(editable.includes('<!-- 保留配图 1 -->'))
   assert.ok(!editable.includes('<svg'))
-  await page.$eval('#thesis-chapter-content', element => {
-    element.value = element.value.replace('本系统提供', '作者修改后提供')
-    element.dispatchEvent(new Event('input', { bubbles: true }))
-  })
+  assert.ok(await page.$$eval('button', buttons => buttons.find(b => b.textContent.trim() === 'AI 修改选中内容').disabled))
+  await selectLastInEditor('保留配图')
+  await clickText('AI 修改选中内容')
+  await page.waitForSelector('.selection-error')
+  assert.equal(rewriteRequests.length, 0)
+  await selectLastInEditor(repeatedSentence)
+  await clickText('AI 修改选中内容')
+  await page.waitForSelector('.rewrite-dialog[open]')
+  await page.waitForFunction(() => document.activeElement?.name === 'instruction')
+  await page.locator('.rewrite-dialog textarea').fill('精简为一句，保留 Vue 和业务功能')
+  await clickText('生成建议')
+  await page.waitForSelector('.rewrite-dialog [role="alert"]')
+  assert.equal(await page.$eval('#thesis-chapter-content', el => el.value), editable)
+  assert.equal(rewriteRequests[0].selectedText, repeatedSentence)
+  assert.ok(rewriteRequests[0].beforeText.includes('根据实际源码梳理业务流程'))
+  assert.equal(rewriteRequests[0].revision, 'r1')
+  assert.ok(!JSON.stringify(rewriteRequests[0]).includes('<svg'))
+  await clickText('生成建议')
+  await page.waitForFunction(() => document.querySelector('.rewrite-dialog')?.textContent.includes('修改建议'))
+  assert.equal(saved, undefined)
+  assert.equal(generateCalls, 0)
+  await fs.mkdir('../tmp/thesis-ui-check', { recursive: true })
+  await page.screenshot({ path: '../tmp/thesis-ui-check/rewrite-desktop.png' })
+  await clickText('替换选区')
+  await page.waitForFunction(() => !document.querySelector('.rewrite-dialog'))
+  assert.equal(saved, undefined)
   await clickText('保存本章')
   await page.waitForFunction(() => document.querySelector('.thesis-diagram img')?.naturalWidth > 0)
-  assert.ok(saved.content.includes('作者修改后提供'))
-  assert.ok(saved.content.includes('```diagram-design'))
-  assert.ok(saved.content.includes(JSON.stringify(diagram)))
+  const secondSentence = designContent.lastIndexOf(repeatedSentence)
+  assert.equal(saved.content, designContent.slice(0, secondSentence) + suggestedSentence + designContent.slice(secondSentence + repeatedSentence.length))
+  assert.equal(thesis.chapters[4].userEdited, 0)
   await (await page.$$('.thesis-chapters button'))[0].click()
   await clickText('编辑本章')
   await page.$eval('#thesis-chapter-content', (el) => {
@@ -231,6 +270,27 @@ try {
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
     'mobile layout must not overflow',
   )
+  await clickText('编辑本章')
+  const mobileDraft = await page.$eval('#thesis-chapter-content', el => el.value)
+  await selectLastInEditor(suggestedSentence)
+  await page.waitForFunction(() => [...document.querySelectorAll('button')].some(
+    button => button.textContent.trim() === 'AI 修改选中内容' && !button.disabled,
+  ))
+  await page.keyboard.down('Shift')
+  await page.keyboard.press('Tab')
+  await page.keyboard.up('Shift')
+  await page.keyboard.press('Enter')
+  await page.waitForSelector('.rewrite-dialog[open]')
+  await page.locator('.rewrite-dialog textarea').fill('调整表述')
+  await clickText('生成建议')
+  await page.waitForFunction(() => document.querySelector('.rewrite-dialog')?.textContent.includes('修改建议'))
+  assert.ok(await page.$eval('.rewrite-dialog', modal => modal.scrollWidth <= modal.clientWidth + 1))
+  await page.screenshot({ path: '../tmp/thesis-ui-check/rewrite-mobile.png' })
+  await page.keyboard.press('Escape')
+  await page.waitForFunction(() => !document.querySelector('.rewrite-dialog'))
+  assert.equal(await page.evaluate(() => document.activeElement?.textContent.trim()), 'AI 修改选中内容')
+  assert.equal(await page.$eval('#thesis-chapter-content', el => el.value), mobileDraft)
+  await clickText('取消编辑')
   await page.goto('http://127.0.0.1:5179/create', { waitUntil: 'networkidle0' })
   await page.type('#project-prompt', '创建图书管理系统')
   await page.type('#thesis-title', '图书管理系统设计与实现')
@@ -240,7 +300,7 @@ try {
   assert.equal(created.thesisTitle, '图书管理系统设计与实现')
   assert.deepEqual(errors, [])
   console.log(
-    'PASS: create, diagrams, figure-preserving edits, conflict preservation, source update, failure retry, desktop/mobile keyboard scrolling',
+    'PASS: create, diagrams, exact selection rewrite, model failure and cancel, figure-preserving edits, conflicts, source update, retry, desktop/mobile keyboard use',
   )
 } finally {
   await browser.close()

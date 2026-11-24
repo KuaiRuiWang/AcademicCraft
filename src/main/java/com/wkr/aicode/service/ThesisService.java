@@ -13,6 +13,7 @@ import com.wkr.aicode.mapper.AppMapper;
 import com.wkr.aicode.mapper.AppThesisMapper;
 import com.wkr.aicode.mapper.AppThesisChapterMapper;
 import com.wkr.aicode.model.dto.app.ThesisChapterUpdateRequest;
+import com.wkr.aicode.model.dto.app.ThesisSelectionRewriteRequest;
 import com.wkr.aicode.model.entity.App;
 import com.wkr.aicode.model.entity.AppThesis;
 import com.wkr.aicode.model.entity.AppThesisChapter;
@@ -32,11 +33,13 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 /** 论文任务独立于 SSE 连接运行，任务与章节进度均落库。 */
 @Service
 @Slf4j
 public class ThesisService {
+    private static final Pattern NON_PROSE_BLOCK = Pattern.compile("(?m)^[ \\t]{0,3}(?:`{3,}|~{3,})|<!-- 保留配图 \\d+ -->");
     @Resource private AppMapper appMapper;
     @Resource private AppThesisMapper thesisMapper;
     @Resource private AppThesisChapterMapper chapterMapper;
@@ -245,6 +248,38 @@ public class ThesisService {
             chapter.setErrorMessage("");
             chapterMapper.update(chapter);
         });
+    }
+
+    /** 根据当前编辑稿的选区生成建议，确认采用后仍由现有章节保存接口写入。 */
+    public String rewriteSelection(Long appId, Integer chapterNo, ThesisSelectionRewriteRequest request, User user) {
+        // 1. 校验应用归属、选区和修改要求，限制提交给模型的上下文。
+        authorizedApp(appId, user);
+        ThrowUtils.throwIf(request == null || StrUtil.isBlank(request.getSelectedText())
+                        || request.getSelectedText().length() > 4000,
+                ErrorCode.PARAMS_ERROR, "请选择 4000 字以内的正文");
+        ThrowUtils.throwIf(StrUtil.isBlank(request.getInstruction()) || request.getInstruction().length() > 500,
+                ErrorCode.PARAMS_ERROR, "请输入 500 字以内的修改要求");
+        ThrowUtils.throwIf(NON_PROSE_BLOCK.matcher(request.getSelectedText()).find(),
+                ErrorCode.PARAMS_ERROR, "请选择正文，避开配图和代码块");
+        String beforeText = Objects.toString(request.getBeforeText(), "");
+        String afterText = Objects.toString(request.getAfterText(), "");
+        ThrowUtils.throwIf(beforeText.length() > 500 || afterText.length() > 500,
+                ErrorCode.PARAMS_ERROR, "选区的上下文过长");
+
+        // 2. 检查编辑版本，只为已有正文的章节生成建议。
+        AppThesis thesis = thesisMapper.selectOneById(appId);
+        ThrowUtils.throwIf(thesis == null, ErrorCode.NOT_FOUND_ERROR, "论文不存在");
+        ThrowUtils.throwIf("generating".equals(thesis.getStatus()) || !Objects.equals(thesis.getRevision(), request.getRevision()),
+                ErrorCode.OPERATION_ERROR, "论文正在生成或版本已变化，请刷新后编辑");
+        AppThesisChapter chapter = chapterMapper.selectOneByQuery(QueryWrapper.create().eq("appId", appId).eq("chapterNo", chapterNo));
+        ThrowUtils.throwIf(chapter == null || StrUtil.isBlank(chapter.getContent()), ErrorCode.NOT_FOUND_ERROR, "章节正文不存在");
+
+        // 3. 返回选区的替换文字，禁止建议插入配图占位行或代码块。
+        String suggestion = thesisWriter.rewriteSelection(thesis.getTitle(), chapter.getTitle(),
+                request.getSelectedText(), request.getInstruction().strip(), beforeText, afterText);
+        ThrowUtils.throwIf(StrUtil.isBlank(suggestion) || suggestion.length() > 8000 || NON_PROSE_BLOCK.matcher(suggestion).find(),
+                ErrorCode.OPERATION_ERROR, "AI 返回的修改建议无法使用，请调整要求后重试");
+        return suggestion;
     }
 
     public App authorizedApp(Long appId, User user) {

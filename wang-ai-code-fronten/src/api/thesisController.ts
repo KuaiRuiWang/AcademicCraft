@@ -21,6 +21,14 @@ export type Thesis = {
   chapters: ThesisChapter[]
 }
 
+export type ThesisRewriteInput = {
+  revision?: string
+  selectedText: string
+  instruction: string
+  beforeText: string
+  afterText: string
+}
+
 type Response<T> = { code: number; data: T; message?: string }
 const path = (appId: string) => `/app/${encodeURIComponent(appId)}/thesis`
 
@@ -36,6 +44,12 @@ export const saveThesisChapter = (
     revision?: string
   },
 ) => request.put<Response<boolean>>(`${path(appId)}/chapters/${chapterNo}`, input)
+export const rewriteThesisSelection = (
+  appId: string,
+  chapterNo: number,
+  input: ThesisRewriteInput,
+  signal: AbortSignal,
+) => request.post<Response<string>>(`${path(appId)}/chapters/${chapterNo}/rewrite`, input, { signal })
 export const exportThesis = (appId: string) =>
   request.get<Blob>(`${path(appId)}/export`, {
     responseType: 'blob',

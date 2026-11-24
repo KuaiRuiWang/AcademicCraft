@@ -1,16 +1,25 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { DownloadOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import ThesisRewriteDialog from '@/components/ThesisRewriteDialog.vue'
 import { createChapterDraft, restoreChapterDraft } from '@/utils/thesisDiagram'
+import {
+  readChapterSelection,
+  REWRITE_CONTEXT_LENGTH,
+  REWRITE_SELECTION_LIMIT,
+  selectionIncludesProtectedContent,
+  type ChapterSelection,
+} from '@/utils/thesisRewrite'
 import {
   exportThesis,
   generateThesis,
   getThesis,
   saveThesisChapter,
   type Thesis,
+  type ThesisRewriteInput,
 } from '@/api/thesisController'
 
 const props = defineProps<{ appId: string; appGenerating: boolean }>()
@@ -27,6 +36,15 @@ const original = ref<string | null>(null)
 const originalDraft = ref('')
 const draftFigures = ref<{ marker: string; block: string }[]>([])
 const editRevision = ref<string>()
+const selection = ref<ChapterSelection | null>(null)
+const selectionError = ref('')
+const rewriteTarget = shallowRef<{
+  appId: string
+  chapterNo: number
+  draft: string
+  range: ChapterSelection
+  input: Omit<ThesisRewriteInput, 'instruction'>
+} | null>(null)
 let timer: ReturnType<typeof setTimeout> | undefined
 let disposed = false
 let loadId = 0
@@ -92,7 +110,60 @@ function edit() {
   originalDraft.value = editable.text
   draftFigures.value = editable.figures
   editRevision.value = thesis.value?.revision
+  selection.value = null
+  selectionError.value = ''
   editing.value = true
+}
+
+function captureSelection(event: Event) {
+  if (!(event.target instanceof HTMLTextAreaElement)) return
+  const next = readChapterSelection(draft.value, event.target)
+  if (selection.value?.start !== next?.start || selection.value?.end !== next?.end) selectionError.value = ''
+  selection.value = next
+}
+
+function openRewrite() {
+  const range = selection.value
+  if (!range || !chapter.value || saving.value || generating.value || props.appGenerating) return
+  const selectedText = draft.value.slice(range.start, range.end)
+  if (selectedText.length > REWRITE_SELECTION_LIMIT) {
+    selectionError.value = '请选择 4000 字以内的正文'
+    return
+  }
+  if (selectionIncludesProtectedContent(draft.value, range)) {
+    selectionError.value = '请选择正文，避开配图占位行和代码块'
+    return
+  }
+  rewriteTarget.value = {
+    appId: props.appId,
+    chapterNo: chapter.value.chapterNo,
+    draft: draft.value,
+    range,
+    input: {
+      revision: editRevision.value,
+      selectedText,
+      beforeText: draft.value.slice(Math.max(0, range.start - REWRITE_CONTEXT_LENGTH), range.start),
+      afterText: draft.value.slice(range.end, range.end + REWRITE_CONTEXT_LENGTH),
+    },
+  }
+}
+
+function applyRewrite(suggestion: string) {
+  const target = rewriteTarget.value
+  if (!target || !editing.value || target.appId !== props.appId || target.chapterNo !== chapter.value?.chapterNo
+    || target.draft !== draft.value || target.input.revision !== thesis.value?.revision
+    || generating.value || props.appGenerating) {
+    selectionError.value = '编辑内容或论文版本已变化，请重新选中文字'
+    return
+  }
+  const { start, end } = target.range
+  const updated = target.draft.slice(0, start) + suggestion + target.draft.slice(end)
+  if (restoreChapterDraft(updated, draftFigures.value).length > 100000) {
+    selectionError.value = '替换后正文超过 10 万字，请缩短修改建议'
+    return
+  }
+  draft.value = updated
+  message.success('已替换选区，请保存本章')
 }
 
 async function save() {
@@ -139,6 +210,10 @@ async function download() {
   }
 }
 
+watch(draft, () => {
+  selection.value = null
+  selectionError.value = ''
+})
 watch(
   () => props.appGenerating,
   () => {
@@ -245,7 +320,15 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
           </a-button>
         </div>
         <form v-if="editing" @submit.prevent="save" class="chapter-editor">
-          <label for="thesis-chapter-content">章节正文（Markdown）</label>
+          <div class="editor-selection-toolbar">
+            <label for="thesis-chapter-content">章节正文（Markdown）</label>
+            <a-button
+              size="small"
+              html-type="button"
+              :disabled="!selection || saving || generating || appGenerating"
+              @click="openRewrite"
+            >AI 修改选中内容</a-button>
+          </div>
           <p v-if="draftFigures.length" class="diagram-edit-note">配图以占位行显示，保存时保留原图；删除占位行可移除对应配图。</p>
           <a-textarea
             id="thesis-chapter-content"
@@ -253,7 +336,11 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
             :rows="10"
             :maxlength="100000"
             :disabled="saving"
+            @select="captureSelection"
+            @keyup="captureSelection"
+            @pointerup="captureSelection"
           />
+          <p v-if="selectionError" class="selection-error" role="alert">{{ selectionError }}</p>
           <div class="editor-actions">
             <a-button
               type="primary"
@@ -275,6 +362,14 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
         </p>
       </article>
     </div>
+    <ThesisRewriteDialog
+      v-if="rewriteTarget"
+      :app-id="rewriteTarget.appId"
+      :chapter-no="rewriteTarget.chapterNo"
+      :selection="rewriteTarget.input"
+      @apply="applyRewrite"
+      @close="rewriteTarget = null"
+    />
     <p class="thesis-footnote">
       初稿依据源码生成。测试记录、页面截图、文献和学校格式需核对补充。Word 目录可在打开后更新。
     </p>
@@ -404,6 +499,19 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
 .chapter-editor label {
   font-weight: 650;
   font-size: 0.87rem;
+}
+
+.editor-selection-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.selection-error {
+  margin: 0;
+  color: var(--color-error);
 }
 
 .diagram-edit-note {
