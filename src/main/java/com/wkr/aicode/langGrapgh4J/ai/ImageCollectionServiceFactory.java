@@ -1,5 +1,8 @@
 package com.wkr.aicode.langGrapgh4J.ai;
 
+import com.wkr.aicode.core.model.ModelStep;
+import com.wkr.aicode.core.model.PlatformModelRouter;
+
 import com.wkr.aicode.langGrapgh4J.tools.ImageSearchTool;
 import com.wkr.aicode.langGrapgh4J.tools.LogoGeneratorTool;
 import com.wkr.aicode.langGrapgh4J.tools.MermaidDiagramTool;
@@ -14,6 +17,9 @@ import org.springframework.context.annotation.Configuration;
 @Slf4j
 @Configuration
 public class ImageCollectionServiceFactory {
+
+    @Resource
+    private PlatformModelRouter models;
 
     @Resource(name = "openAiChatModel")
     private ChatModel chatModel;
@@ -36,7 +42,7 @@ public class ImageCollectionServiceFactory {
     @Bean
     public ImageCollectionService createImageCollectionService() {
         return AiServices.builder(ImageCollectionService.class)
-                .chatModel(chatModel)
+                .chatModel(models.chat(ModelStep.IMAGE_COLLECTION, chatModel))
                 .tools(
                         imageSearchTool,
                         undrawIllustrationTool,

@@ -4,6 +4,7 @@ import com.wkr.aicode.ai.AiCodeGeneratorService;
 import com.wkr.aicode.ai.AiCodeGeneratorServiceFactory;
 import com.wkr.aicode.core.AiCodeGeneratorFacade;
 import com.wkr.aicode.core.builder.VueProjectBuilder;
+import com.wkr.aicode.core.model.ModelStep;
 import com.wkr.aicode.model.enums.CodeGenTypeEnum;
 import com.wkr.aicode.service.ThesisService;
 import dev.langchain4j.data.message.AiMessage;
@@ -33,7 +34,7 @@ class ThesisGenerationTriggerTest {
         var thesis = mock(ThesisService.class);
         TokenStream stream = mock(TokenStream.class, RETURNS_SELF);
         AtomicReference<Consumer<ChatResponse>> complete = new AtomicReference<>();
-        when(factory.getAiCodeGeneratorService(1L, CodeGenTypeEnum.VUE_PROJECT)).thenReturn(generator);
+        when(factory.getAiCodeGeneratorService(1L, CodeGenTypeEnum.VUE_PROJECT, ModelStep.VUE_GENERATION)).thenReturn(generator);
         when(generator.generateVueProjectCodeStream(1L, "生成图书管理")).thenReturn(stream);
         when(builder.buildProject(anyString())).thenReturn(built);
         doAnswer(call -> { complete.set(call.getArgument(0)); return stream; }).when(stream).onCompleteResponse(any());

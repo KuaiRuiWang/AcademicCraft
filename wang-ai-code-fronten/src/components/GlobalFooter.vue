@@ -12,7 +12,6 @@ const { loginUser } = storeToRefs(useLoginUserStore())
       <RouterLink v-if="loginUser.id" to="/user/profile">个人资料</RouterLink>
       <RouterLink v-else to="/user/register">注册账号</RouterLink>
       <RouterLink v-if="loginUser.id" to="/my/projects">我的项目</RouterLink>
-      <RouterLink v-if="loginUser.userRole === 'admin'" to="/admin/userManage">管理后台</RouterLink>
     </nav>
   </footer>
 </template>

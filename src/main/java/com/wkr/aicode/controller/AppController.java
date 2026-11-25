@@ -5,12 +5,12 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
+import com.wkr.aicode.admin.AdminPermission;
 import com.wkr.aicode.annotation.AuthCheck;
 import com.wkr.aicode.common.BaseResponse;
 import com.wkr.aicode.common.DeleteRequest;
 import com.wkr.aicode.common.ResultUtils;
 import com.wkr.aicode.constant.AppConstant;
-import com.wkr.aicode.constant.UserConstant;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
 import com.wkr.aicode.exception.ThrowUtils;
@@ -122,7 +122,7 @@ public class AppController {
         App oldApp = appService.getById(id);
         ThrowUtils.throwIf(oldApp == null, ErrorCode.NOT_FOUND_ERROR);
         // 仅本人或管理员可删除
-        if (!oldApp.getUserId().equals(loginUser.getId()) && !UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole())) {
+        if (!oldApp.getUserId().equals(loginUser.getId())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
         boolean result = appService.removeById(id);
@@ -208,7 +208,7 @@ public class AppController {
      * @return 删除结果
      */
     @PostMapping("/admin/delete")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @AuthCheck(AdminPermission.APP_WRITE)
     public BaseResponse<Boolean> deleteAppByAdmin(@RequestBody DeleteRequest deleteRequest) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -228,7 +228,7 @@ public class AppController {
      * @return 更新结果
      */
     @PostMapping("/admin/update")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @AuthCheck(AdminPermission.APP_WRITE)
     public BaseResponse<Boolean> updateAppByAdmin(@RequestBody AppAdminUpdateRequest appAdminUpdateRequest) {
         if (appAdminUpdateRequest == null || appAdminUpdateRequest.getId() == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -253,7 +253,7 @@ public class AppController {
      * @return 应用列表
      */
     @PostMapping("/admin/list/page/vo")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @AuthCheck(AdminPermission.APP_READ)
     public BaseResponse<Page<AppVO>> listAppVOByPageByAdmin(@RequestBody AppQueryRequest appQueryRequest) {
         ThrowUtils.throwIf(appQueryRequest == null, ErrorCode.PARAMS_ERROR);
         long pageNum = appQueryRequest.getPageNum();
@@ -274,7 +274,7 @@ public class AppController {
      * @return 应用详情
      */
     @GetMapping("/admin/get/vo")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @AuthCheck(AdminPermission.APP_READ)
     public BaseResponse<AppVO> getAppVOByIdByAdmin(long id) {
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
         // 查询数据库

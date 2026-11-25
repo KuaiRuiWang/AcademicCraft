@@ -7,11 +7,12 @@ import {
   deleteCategory,
   listCategories,
   updateCategory,
-} from '@/api/projectCategoryController'
-import { upload } from '@/api/commonController'
+} from '@/api/operations'
+import { upload } from '@/api/operations'
 import { formatDate } from '@/utils/time'
 import PageHeading from '@/components/PageHeading.vue'
 import AdminRecords from '@/components/AdminRecords.vue'
+import { can } from '@/session'
 
 const columns: TableColumnsType<API.ProjectCategory> = [
   { title: '分类名称', key: 'category' },
@@ -130,7 +131,7 @@ onMounted(load)
 <template>
   <div>
     <PageHeading title="分类管理" description="整理模板目录中的分类与显示顺序。">
-      <a-button type="primary" @click="openEditor()"
+      <a-button v-if="can('CATEGORY_WRITE')" type="primary" @click="openEditor()"
         ><PlusOutlined aria-hidden="true" /> 新增分类</a-button
       >
     </PageHeading>
@@ -171,7 +172,7 @@ onMounted(load)
             </div>
           </div>
           <span v-else-if="column.key === 'created'">{{ formatDate(record.createTime) }}</span>
-          <div v-else-if="column.key === 'action'" class="record-actions">
+          <div v-else-if="column.key === 'action' && can('CATEGORY_WRITE')" class="record-actions">
             <a-button type="link" @click="openEditor(record)">编辑分类</a-button>
             <a-popconfirm
               title="删除该分类？"

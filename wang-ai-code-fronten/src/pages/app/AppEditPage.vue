@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowLeftOutlined, ExportOutlined } from '@ant-design/icons-vue'
 import { message, type FormInstance, type FormProps } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
-import { getAppVoById, getAppVoByIdByAdmin, updateApp, updateAppByAdmin } from '@/api/appController'
+import { getAppVoById, updateApp } from '@/api/appController'
 import { formatCodeGenType } from '@/utils/codeGenTypes'
 import { formatTime } from '@/utils/time'
 import { getDeployUrl } from '@/config/env'
@@ -12,7 +12,6 @@ import PageHeading from '@/components/PageHeading.vue'
 
 const route = useRoute()
 const loginUserStore = useLoginUserStore()
-const isAdmin = computed(() => loginUserStore.loginUser.userRole === 'admin')
 const id = route.params.id as string
 const chatPath = '/app/chat/' + id
 const app = ref<API.AppVO>()
@@ -21,18 +20,14 @@ const loadError = ref('')
 const submitting = ref(false)
 const saveError = ref('')
 const formRef = ref<FormInstance>()
-const form = reactive({ appName: '', cover: '', priority: 0 })
+const form = reactive({ appName: '' })
 
 const rules: FormProps['rules'] = {
   appName: [{ required: true, whitespace: true, max: 50, message: '请输入 1 到 50 个字符' }],
-  cover: [{ type: 'url', message: '请输入有效的图片地址', trigger: 'blur' }],
-  priority: [{ type: 'number', min: 0, max: 99, message: '优先级范围为 0 到 99' }],
 }
 
 function resetForm() {
   form.appName = app.value?.appName || ''
-  form.cover = app.value?.cover || ''
-  form.priority = app.value?.priority || 0
   saveError.value = ''
   formRef.value?.clearValidate()
 }
@@ -40,16 +35,15 @@ function resetForm() {
 async function fetchAppInfo() {
   loading.value = true
   loadError.value = ''
-  const fetchApp = isAdmin.value ? getAppVoByIdByAdmin : getAppVoById
 
   try {
-    const res = await fetchApp({ id: id as unknown as number })
+    const res = await getAppVoById({ id: id as unknown as number })
     if (res.data.code !== 0 || !res.data.data) {
       loadError.value = res.data.message || '无法读取应用'
       return
     }
-    if (!isAdmin.value && String(res.data.data.userId) !== String(loginUserStore.loginUser.id)) {
-      loadError.value = '只有应用作者和管理员可以修改设置。'
+    if (String(res.data.data.userId) !== String(loginUserStore.loginUser.id)) {
+      loadError.value = '只有应用作者可以修改设置。'
       return
     }
     app.value = res.data.data
@@ -69,9 +63,7 @@ async function handleSubmit() {
   const appName = form.appName.trim()
   try {
     const patch = { id: app.value.id, appName }
-    const res = isAdmin.value
-      ? await updateAppByAdmin({ ...patch, cover: form.cover.trim(), priority: form.priority })
-      : await updateApp(patch)
+    const res = await updateApp(patch)
     if (res.data.code === 0) {
       message.success('应用设置已保存')
       await fetchAppInfo()
@@ -114,25 +106,6 @@ onMounted(fetchAppInfo)
             <a-input v-model:value="form.appName" :maxlength="50" show-count />
           </a-form-item>
 
-          <template v-if="isAdmin">
-            <a-form-item label="应用封面" name="cover" extra="请输入图片链接，推荐 400 × 300。">
-              <a-input v-model:value="form.cover" placeholder="https://…" />
-              <a-image
-                v-if="form.cover"
-                :src="form.cover"
-                alt="应用封面"
-                :width="160"
-                class="cover-preview"
-              />
-            </a-form-item>
-            <a-form-item
-              label="优先级"
-              name="priority"
-              extra="优先级为 99 的应用展示在首页精选区。"
-            >
-              <a-input-number v-model:value="form.priority" :min="0" :max="99" />
-            </a-form-item>
-          </template>
 
           <div class="application-brief">
             <h3>初始需求</h3>

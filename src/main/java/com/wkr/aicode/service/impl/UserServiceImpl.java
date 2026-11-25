@@ -3,6 +3,7 @@ package com.wkr.aicode.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import com.wkr.aicode.constant.UserConstant;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.wkr.aicode.exception.BusinessException;
@@ -71,6 +72,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
         }
         LoginUserVO loginUserVO = new LoginUserVO();
         BeanUtil.copyProperties(user, loginUserVO);
+        loginUserVO.setUserRole(UserConstant.DEFAULT_ROLE);
         return loginUserVO;
     }
 
@@ -171,6 +173,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
         }
         UserVO userVO = new UserVO();
         BeanUtil.copyProperties(user, userVO);
+        userVO.setUserRole(UserConstant.DEFAULT_ROLE);
         return userVO;
     }
 

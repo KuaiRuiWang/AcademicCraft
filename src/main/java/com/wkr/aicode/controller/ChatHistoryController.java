@@ -2,6 +2,7 @@ package com.wkr.aicode.controller;
 
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
+import com.wkr.aicode.admin.AdminPermission;
 import com.wkr.aicode.annotation.AuthCheck;
 import com.wkr.aicode.common.BaseResponse;
 import com.wkr.aicode.common.ResultUtils;
@@ -62,7 +63,7 @@ public class ChatHistoryController {
      * @return 对话历史分页
      */
     @PostMapping("/admin/list/page/vo")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @AuthCheck(AdminPermission.CHAT_READ)
     public BaseResponse<Page<ChatHistory>> listAllChatHistoryByPageForAdmin(@RequestBody ChatHistoryQueryRequest chatHistoryQueryRequest) {
         ThrowUtils.throwIf(chatHistoryQueryRequest == null, ErrorCode.PARAMS_ERROR);
         long pageNum = chatHistoryQueryRequest.getPageNum();

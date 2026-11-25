@@ -1,6 +1,7 @@
 package com.wkr.aicode.controller;
 
 import com.mybatisflex.core.query.QueryWrapper;
+import com.wkr.aicode.admin.AdminPermission;
 import com.wkr.aicode.annotation.AuthCheck;
 import com.wkr.aicode.common.BaseResponse;
 import com.wkr.aicode.common.DeleteRequest;
@@ -48,7 +49,7 @@ public class ProjectCategoryController {
      */
     @Operation(summary = "添加项目分类（管理员）", description = "管理员新增一个项目分类")
     @PostMapping("/admin/add")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @AuthCheck(AdminPermission.CATEGORY_WRITE)
     public BaseResponse<Long> addCategory(@RequestBody ProjectCategory category) {
         ThrowUtils.throwIf(category == null, ErrorCode.PARAMS_ERROR);
         boolean result = projectCategoryService.save(category);
@@ -61,7 +62,7 @@ public class ProjectCategoryController {
      */
     @Operation(summary = "删除项目分类（管理员）", description = "管理员根据ID逻辑删除一个项目分类")
     @PostMapping("/admin/delete")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @AuthCheck(AdminPermission.CATEGORY_WRITE)
     public BaseResponse<Boolean> deleteCategory(@RequestBody DeleteRequest deleteRequest) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -77,7 +78,7 @@ public class ProjectCategoryController {
      */
     @Operation(summary = "更新项目分类（管理员）", description = "管理员更新一个项目分类的名称、图标或排序")
     @PostMapping("/admin/update")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @AuthCheck(AdminPermission.CATEGORY_WRITE)
     public BaseResponse<Boolean> updateCategory(@RequestBody ProjectCategory category) {
         if (category == null || category.getId() == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);

@@ -21,7 +21,9 @@ public interface ProjectService extends IService<Project> {
     /**
      * 发布项目
      */
-    Long createProject(ProjectAddRequest addRequest, User loginUser);
+    Long createProject(ProjectAddRequest addRequest, long adminId);
+
+    boolean updateProjectByAdmin(ProjectUpdateRequest updateRequest);
 
     /**
      * 更新项目

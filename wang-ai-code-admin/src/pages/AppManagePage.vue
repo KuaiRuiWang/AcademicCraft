@@ -2,12 +2,13 @@
 import { reactive } from 'vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import { message, type TableColumnsType } from 'ant-design-vue'
-import { listAppVoByPageByAdmin, deleteAppByAdmin, updateAppByAdmin } from '@/api/appController'
+import { listAppVoByPageByAdmin, deleteAppByAdmin, updateAppByAdmin } from '@/api/operations'
 import { useAdminTable } from '@/composables/useAdminTable'
 import { CODE_GEN_TYPE_OPTIONS, formatCodeGenType } from '@/utils/codeGenTypes'
 import { formatDate } from '@/utils/time'
 import PageHeading from '@/components/PageHeading.vue'
 import AdminRecords from '@/components/AdminRecords.vue'
+import { can } from '@/session'
 
 const filters = reactive<API.AppQueryRequest>({})
 const { rows, loading, error, pagination, load, search, changePage } = useAdminTable((page) =>
@@ -124,8 +125,8 @@ async function removeApp(id?: number) {
               record.deployedTime ? '部署于 ' + formatDate(record.deployedTime) : '未部署'
             }}</span>
           </div>
-          <div v-else-if="column.key === 'action'" class="record-actions">
-            <RouterLink class="folio-link" :to="'/app/edit/' + record.id">编辑应用</RouterLink>
+          <div v-else-if="column.key === 'action' && can('APP_WRITE')" class="record-actions">
+            <RouterLink class="folio-link" :to="'/apps/' + record.id + '/edit'">编辑应用</RouterLink>
             <a-button type="link" @click="toggleFeatured(record)">{{
               record.priority === 99 ? '取消精选' : '设为精选'
             }}</a-button>

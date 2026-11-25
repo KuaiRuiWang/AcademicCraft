@@ -1,5 +1,8 @@
 package com.wkr.aicode.ai;
 
+import com.wkr.aicode.core.model.ModelStep;
+import com.wkr.aicode.core.model.PlatformModelRouter;
+
 import com.wkr.aicode.ai.guardrail.PromptSafetyInputGuardrail;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
@@ -18,13 +21,16 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ApiContractDesignServiceFactory {
 
+    @Resource
+    private PlatformModelRouter models;
+
     @Resource(name = "openAiChatModel")
     private ChatModel chatModel;
 
     @Bean
     public ApiContractDesignService apiContractDesignService() {
         return AiServices.builder(ApiContractDesignService.class)
-                .chatModel(chatModel)
+                .chatModel(models.chat(ModelStep.CONTRACT_DESIGN, chatModel))
                 // 直接面向用户输入（架构师是用户需求的第一站），上限放宽以容纳重试时拼接的失败说明
                 .inputGuardrails(new PromptSafetyInputGuardrail(2000))
                 .build();

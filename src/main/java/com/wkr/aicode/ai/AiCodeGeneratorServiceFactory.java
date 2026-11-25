@@ -1,5 +1,8 @@
 package com.wkr.aicode.ai;
 
+import com.wkr.aicode.core.model.ModelStep;
+import com.wkr.aicode.core.model.PlatformModelRouter;
+import com.wkr.aicode.model.entity.PlatformModel;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.wkr.aicode.ai.guardrail.PromptSafetyInputGuardrail;
@@ -13,7 +16,6 @@ import com.wkr.aicode.model.enums.AgentRoleEnum;
 import com.wkr.aicode.model.enums.CodeGenTypeEnum;
 import com.wkr.aicode.service.ChatHistoryService;
 import com.wkr.aicode.utils.SpringContextUtil;
-import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
@@ -30,6 +32,11 @@ import java.util.List;
 @Configuration
 @Slf4j
 public class AiCodeGeneratorServiceFactory {
+
+    @Resource
+    private PlatformModelRouter models;
+
+    private record ServiceKey(long appId, ModelStep step, PlatformModel model) { }
 
 
     @Resource(name = "openAiChatModel")
@@ -57,12 +64,12 @@ public class AiCodeGeneratorServiceFactory {
      * - 写入后 30 分钟过期
      * - 访问后 10 分钟过期
      */
-    private final Cache<String, AiCodeGeneratorService> serviceCache = Caffeine.newBuilder()
+    private final Cache<ServiceKey, AiCodeGeneratorService> serviceCache = Caffeine.newBuilder()
             .maximumSize(1000)
             .expireAfterWrite(Duration.ofMinutes(30))
             .expireAfterAccess(Duration.ofMinutes(10))
             .removalListener((key, value, cause) -> {
-                log.debug("AI 服务实例被移除，缓存键: {}, 原因: {}", key, cause);
+                log.debug("AI 服务实例被移除，原因: {}", cause);
             })
             .build();
 
@@ -79,8 +86,13 @@ public class AiCodeGeneratorServiceFactory {
      * 根据 appId 和代码生成类型获取服务（带缓存）
      */
     public AiCodeGeneratorService getAiCodeGeneratorService(long appId, CodeGenTypeEnum codeGenType) {
-        String cacheKey = buildCacheKey(appId, codeGenType);
-        return serviceCache.get(cacheKey, key -> createAiCodeGeneratorService(appId, codeGenType));
+        return getAiCodeGeneratorService(appId, codeGenType, ModelStep.code(codeGenType, ModelStep.CodePhase.GENERATE));
+    }
+
+    public AiCodeGeneratorService getAiCodeGeneratorService(long appId, CodeGenTypeEnum codeGenType, ModelStep step) {
+        PlatformModel model = models.configuredModel(step);
+        // 本次步骤使用一份配置快照，工具调用期间继续沿用同一模型。
+        return serviceCache.get(new ServiceKey(appId, step, model), key -> createAiCodeGeneratorService(appId, codeGenType, model));
     }
 
     @Resource
@@ -92,7 +104,7 @@ public class AiCodeGeneratorServiceFactory {
     /**
      * 创建新的 AI 服务实例
      */
-    private AiCodeGeneratorService createAiCodeGeneratorService(Long appId, CodeGenTypeEnum codeGenType) {
+    private AiCodeGeneratorService createAiCodeGeneratorService(Long appId, CodeGenTypeEnum codeGenType, PlatformModel model) {
         // 根据 appId 构建独立的对话记忆
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory
                 .builder()
@@ -102,13 +114,13 @@ public class AiCodeGeneratorServiceFactory {
                 .build();
         // 从数据库加载历史对话到记忆中
         chatHistoryService.loadChatHistoryToMemory(appId, chatMemory, 20);
-        // 根据代码生成类型选择不同的模型配
+        // 根据代码类型保留部署默认模型，已绑定的模型优先。
         return switch (codeGenType) {
             case VUE_PROJECT -> {
                 // 使用多例模式的 StreamingChatModel 解决并发问题
                 StreamingChatModel reasoningStreamingChatModel = SpringContextUtil.getBean("reasoningStreamingChatModelPrototype", StreamingChatModel.class);
                 yield AiServices.builder(AiCodeGeneratorService.class)
-                        .streamingChatModel(reasoningStreamingChatModel)
+                        .streamingChatModel(models.stream(model, reasoningStreamingChatModel))
                         .chatMemoryProvider(memoryId -> chatMemory)
                         .tools(toolManager.getAllTools())
                         .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(
@@ -122,8 +134,8 @@ public class AiCodeGeneratorServiceFactory {
                 // 使用多例模式的 StreamingChatModel 解决并发问题
                 StreamingChatModel openAiStreamingChatModel = SpringContextUtil.getBean("streamingChatModelPrototype", StreamingChatModel.class);
                 yield AiServices.builder(AiCodeGeneratorService.class)
-                        .chatModel(chatModel)
-                        .streamingChatModel(openAiStreamingChatModel)
+                        .chatModel(models.chat(model, chatModel))
+                        .streamingChatModel(models.stream(model, openAiStreamingChatModel))
                         .chatMemory(chatMemory)
                         .inputGuardrails(new PromptSafetyInputGuardrail()) // 添加输入内容安全检查
                         //.outputGuardrails(new RetryOutputGuardrail()) // 添加输出内容安全检查 不能流式输出，会缓存
@@ -136,25 +148,18 @@ public class AiCodeGeneratorServiceFactory {
     }
 
     /**
-     * 构建缓存键
-     */
-    private String buildCacheKey(long appId, CodeGenTypeEnum codeGenType) {
-        return appId + "_" + codeGenType.getValue();
-    }
-
-    /**
      * 获取全栈项目指定 Agent 的 AI 服务（带缓存）
      * 缓存键含角色，保证前端、后端 Agent 的记忆与工具集相互隔离
      */
-    public AiCodeGeneratorService getFullstackAgentService(long appId, AgentRoleEnum agentRole) {
-        String cacheKey = appId + "_" + CodeGenTypeEnum.FULLSTACK_VUE_NODEJS.getValue() + "_" + agentRole.getValue();
-        return serviceCache.get(cacheKey, key -> createFullstackAgentService(appId, agentRole));
+    public AiCodeGeneratorService getFullstackAgentService(long appId, AgentRoleEnum agentRole, ModelStep step) {
+        PlatformModel model = models.configuredModel(step);
+        return serviceCache.get(new ServiceKey(appId, step, model), key -> createFullstackAgentService(appId, agentRole, model));
     }
 
     /**
      * 创建全栈项目 Agent 的 AI 服务实例
      */
-    private AiCodeGeneratorService createFullstackAgentService(long appId, AgentRoleEnum agentRole) {
+    private AiCodeGeneratorService createFullstackAgentService(long appId, AgentRoleEnum agentRole, PlatformModel model) {
         // 每个 Agent 独立的工作区工具集：产物根目录 + 角色绑定，防止并行写冲突与越权
         String projectDir = AppConstant.fullstackProjectDir(appId);
         List<Object> tools = toolSetFactory.createFullstackTools(projectDir, agentRole);
@@ -168,7 +173,7 @@ public class AiCodeGeneratorServiceFactory {
         // 使用多例模式的 StreamingChatModel 解决并发问题
         StreamingChatModel reasoningStreamingChatModel = SpringContextUtil.getBean("reasoningStreamingChatModelPrototype", StreamingChatModel.class);
         return AiServices.builder(AiCodeGeneratorService.class)
-                .streamingChatModel(reasoningStreamingChatModel)
+                .streamingChatModel(models.stream(model, reasoningStreamingChatModel))
                 .chatMemoryProvider(memoryId -> chatMemory)
                 .tools(tools.toArray())
                 .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(

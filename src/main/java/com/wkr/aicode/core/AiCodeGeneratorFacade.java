@@ -1,5 +1,7 @@
 package com.wkr.aicode.core;
 
+import com.wkr.aicode.core.model.ModelStep;
+import com.wkr.aicode.core.model.ModelStep.CodePhase;
 import cn.hutool.json.JSONUtil;
 import com.wkr.aicode.ai.AiCodeGeneratorService;
 import com.wkr.aicode.ai.AiCodeGeneratorServiceFactory;
@@ -55,7 +57,8 @@ public class AiCodeGeneratorFacade {
      */
     public File generateAndSaveCode(String userMessage, CodeGenTypeEnum codeGenTypeEnum,Long appId) {
         // 根据 appId 获取对应的 AI 服务实例
-        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId, codeGenTypeEnum);
+        var step = ModelStep.code(codeGenTypeEnum, existingCodePhase(codeGenTypeEnum, appId));
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId, codeGenTypeEnum, step);
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "生成类型为空");
         }
@@ -84,6 +87,10 @@ public class AiCodeGeneratorFacade {
      * @param codeGenTypeEnum 生成类型
      */
     public Flux<String> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum codeGenTypeEnum, Long appId) {
+        return generateAndSaveCodeStream(userMessage, codeGenTypeEnum, appId, existingCodePhase(codeGenTypeEnum, appId));
+    }
+
+    public Flux<String> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum codeGenTypeEnum, Long appId, CodePhase phase) {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "生成类型为空");
         }
@@ -96,7 +103,8 @@ public class AiCodeGeneratorFacade {
             return new FullstackCodeGenWorkflow().executeWorkflowWithFlux(userMessage, appId);
         }
         // 根据 appId 获取对应的 AI 服务实例
-        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId, codeGenTypeEnum);
+        var step = ModelStep.code(codeGenTypeEnum, phase);
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId, codeGenTypeEnum, step);
         return switch (codeGenTypeEnum) {
             case HTML -> {
                 Flux<String> codeStream = aiCodeGeneratorService.generateHtmlCodeStream(userMessage);
@@ -115,6 +123,13 @@ public class AiCodeGeneratorFacade {
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, errorMessage);
             }
         };
+    }
+
+    private CodePhase existingCodePhase(CodeGenTypeEnum type, long appId) {
+        if (type == null || type == CodeGenTypeEnum.FULLSTACK_VUE_NODEJS) return CodePhase.GENERATE;
+        String entryFile = type == CodeGenTypeEnum.VUE_PROJECT ? "package.json" : "index.html";
+        File entry = new File(AppConstant.codeOutputDir(type.getValue(), appId), entryFile);
+        return entry.isFile() ? CodePhase.MODIFY : CodePhase.GENERATE;
     }
 
     /**
@@ -137,8 +152,8 @@ public class AiCodeGeneratorFacade {
      * @param userMessage 用户消息（需求描述 + API 契约）
      * @return Flux<String> 流式响应
      */
-    public Flux<String> generateFullstackAgentCodeStream(Long appId, AgentRoleEnum agentRole, String userMessage) {
-        AiCodeGeneratorService agentService = aiCodeGeneratorServiceFactory.getFullstackAgentService(appId, agentRole);
+    public Flux<String> generateFullstackAgentCodeStream(Long appId, AgentRoleEnum agentRole, String userMessage, ModelStep step) {
+        AiCodeGeneratorService agentService = aiCodeGeneratorServiceFactory.getFullstackAgentService(appId, agentRole, step);
         TokenStream tokenStream = switch (agentRole) {
             case FRONTEND -> agentService.generateFullstackFrontendCodeStream(appId, userMessage);
             case BACKEND -> agentService.generateNodeBackendCodeStream(appId, userMessage);

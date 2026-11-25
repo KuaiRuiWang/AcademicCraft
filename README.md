@@ -83,11 +83,14 @@ npm run dev
 
 前端默认调用 `http://localhost:8123/api`。后端端口或部署地址变化时，通过 [前端环境变量](wang-ai-code-fronten/README.md#环境变量)设置 API 地址。
 
+管理端独立运行，默认端口为 5181。管理员使用独立账号登录，可管理平台业务、模型和各 AI 步骤的模型配置。启动配置见[管理端开发文档](wang-ai-code-admin/README.md)。
+
 ## 文档
 
 | 文档 | 内容 |
 | --- | --- |
 | [前端开发](wang-ai-code-fronten/README.md) | 环境变量、路由、构建和接口类型生成 |
+| [管理端开发](wang-ai-code-admin/README.md) | 管理员初始化、模型和步骤配置、独立构建与发布 |
 | [AG-UI 对话接入](agent/AG-UI对话接入.md) | SSE 事件、历史快照和跨端测试 |
 | [论文初稿与 Word 导出](agent/应用论文生成接入说明.md) | 源码快照、章节编辑、导出依赖和校验 |
 | [全栈设计记录](agent/全栈项目生成模块设计与实现.md) · [任务记录](agent/全栈项目生成模块-任务文档.md) | Vue + Node.js 全栈生成、构建与部署的设计和开发历史 |
@@ -98,6 +101,7 @@ npm run dev
 src/main/              Java 后端、提示词和部署模板
 src/test/              后端测试
 wang-ai-code-fronten/  Vue 前端、内置模板和前端测试
+wang-ai-code-admin/    独立 Vue 管理端
 sql/                   数据库初始化与升级脚本
 tools/thesis/          Word 导出工具和测试
 agent/                 功能接入文档与设计记录
@@ -114,6 +118,7 @@ agent/                 功能接入文档与设计记录
 | [upgrade_ag_ui.sql](sql/upgrade_ag_ui.sql) | 增加 AG-UI 展示快照字段 |
 | [upgrade_app_workshop.sql](sql/upgrade_app_workshop.sql) | 增加模板来源及许可字段。待核对的上架项目转为草稿，可由管理员核对后重新上架。 |
 | [upgrade_thesis.sql](sql/upgrade_thesis.sql) | 增加论文生成选项、任务和章节表 |
+| [upgrade_platform_admin.sql](sql/upgrade_platform_admin.sql) | 增加管理员、角色、模型和步骤绑定，支持管理员发布平台模板 |
 
 ## 参与贡献
 

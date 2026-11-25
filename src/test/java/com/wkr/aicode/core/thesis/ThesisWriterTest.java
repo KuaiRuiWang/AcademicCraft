@@ -1,5 +1,6 @@
 package com.wkr.aicode.core.thesis;
 
+import com.wkr.aicode.core.model.PlatformModelRouter;
 import com.wkr.aicode.exception.BusinessException;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -25,8 +26,7 @@ import static org.mockito.Mockito.*;
 class ThesisWriterTest {
     @Test void keepsTheClosingFenceOfTheLastDiagram() {
         StreamingChatModel model = mock(StreamingChatModel.class);
-        ThesisWriter writer = new ThesisWriter();
-        ReflectionTestUtils.setField(writer, "chatModel", model);
+        ThesisWriter writer = writerUsing(model);
         String chapter = "说明正文\n\n```mermaid\nflowchart LR\nA-->B\n```";
         doAnswer(invocation -> {
             invocation.<StreamingChatResponseHandler>getArgument(1).onCompleteResponse(ChatResponse.builder()
@@ -38,8 +38,7 @@ class ThesisWriterTest {
 
     @Test void sendsTheFrozenSourceAndDeclinesTruncatedOutput() {
         StreamingChatModel model = mock(StreamingChatModel.class);
-        ThesisWriter writer = new ThesisWriter();
-        ReflectionTestUtils.setField(writer, "chatModel", model);
+        ThesisWriter writer = writerUsing(model);
         doAnswer(invocation -> {
             invocation.<StreamingChatResponseHandler>getArgument(1).onCompleteResponse(ChatResponse.builder()
                     .aiMessage(AiMessage.from("部分正文")).finishReason(FinishReason.LENGTH).build());
@@ -75,8 +74,7 @@ class ThesisWriterTest {
         });
         server.start();
         try {
-            ThesisWriter writer = new ThesisWriter();
-            ReflectionTestUtils.setField(writer, "chatModel", OpenAiStreamingChatModel.builder()
+            ThesisWriter writer = writerUsing(OpenAiStreamingChatModel.builder()
                     .baseUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/v1")
                     .apiKey("local-test").modelName("test-model").maxTokens(16384)
                     .timeout(Duration.ofSeconds(5)).build());
@@ -93,8 +91,7 @@ class ThesisWriterTest {
 
     @Test void propagatesStreamFailuresWithoutSavingPartialText() {
         StreamingChatModel model = mock(StreamingChatModel.class);
-        ThesisWriter writer = new ThesisWriter();
-        ReflectionTestUtils.setField(writer, "chatModel", model);
+        ThesisWriter writer = writerUsing(model);
         doAnswer(invocation -> {
             StreamingChatResponseHandler handler = invocation.getArgument(1);
             handler.onPartialResponse("尚未完成的正文");
@@ -104,5 +101,14 @@ class ThesisWriterTest {
         var error = assertThrows(java.util.concurrent.CompletionException.class,
                 () -> writer.writeChapter("任务管理", "摘要", "App.vue", ""));
         assertInstanceOf(IllegalStateException.class, error.getCause());
+    }
+
+    private ThesisWriter writerUsing(StreamingChatModel defaultModel) {
+        ThesisWriter writer = new ThesisWriter();
+        PlatformModelRouter router = mock(PlatformModelRouter.class);
+        when(router.stream(null, defaultModel)).thenReturn(defaultModel);
+        ReflectionTestUtils.setField(writer, "chatModel", defaultModel);
+        ReflectionTestUtils.setField(writer, "models", router);
+        return writer;
     }
 }

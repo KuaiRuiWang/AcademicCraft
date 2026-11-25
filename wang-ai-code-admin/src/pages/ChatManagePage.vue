@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
+import { useRoute } from 'vue-router'
+import { can } from '@/session'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import type { TableColumnsType } from 'ant-design-vue'
-import { listAllChatHistoryByPageForAdmin } from '@/api/chatHistoryController'
+import { listAllChatHistoryByPageForAdmin } from '@/api/operations'
 import { useAdminTable } from '@/composables/useAdminTable'
 import { formatTime } from '@/utils/time'
 import PageHeading from '@/components/PageHeading.vue'
 import AdminRecords from '@/components/AdminRecords.vue'
 
-const filters = reactive<API.ChatHistoryQueryRequest>({})
+const route = useRoute()
+const appFilter = typeof route.query.appId === 'string' ? route.query.appId : undefined
+const filters = reactive<API.ChatHistoryQueryRequest>({ appId: appFilter as unknown as number })
 const { rows, loading, error, pagination, load, search, changePage } = useAdminTable((page) =>
   listAllChatHistoryByPageForAdmin({ ...filters, ...page }),
 )
@@ -87,9 +91,9 @@ const messageTypes = [
           </div>
           <span v-else-if="column.key === 'sent'">{{ formatTime(record.createTime) }}</span>
           <RouterLink
-            v-else-if="column.key === 'action' && record.appId"
+            v-else-if="column.key === 'action' && record.appId && can('APP_READ') && can('APP_WRITE')"
             class="folio-link"
-            :to="'/app/chat/' + record.appId"
+            :to="'/apps/' + record.appId + '/edit'"
             >打开对话</RouterLink
           >
         </template>

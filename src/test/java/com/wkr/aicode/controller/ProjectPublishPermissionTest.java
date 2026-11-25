@@ -1,7 +1,11 @@
 package com.wkr.aicode.controller;
 
 import com.mybatisflex.core.query.QueryWrapper;
+import com.wkr.aicode.admin.AdminAccountService;
+import com.wkr.aicode.admin.AdminPermission;
+import com.wkr.aicode.admin.AdminSessionService;
 import com.wkr.aicode.aop.AuthInterceptor;
+import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
 import com.wkr.aicode.exception.GlobalExceptionHandler;
 import com.wkr.aicode.model.dto.project.ProjectAddRequest;
@@ -20,8 +24,12 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.util.Set;
+
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -35,6 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ProjectPublishPermissionTest {
 
     private final UserService userService = mock(UserService.class);
+    private final AdminSessionService sessions = mock(AdminSessionService.class);
     private final ProjectServiceImpl projectService = spy(new ProjectServiceImpl());
     private MockMvc mockMvc;
 
@@ -44,10 +53,9 @@ class ProjectPublishPermissionTest {
         ReflectionTestUtils.setField(controller, "userService", userService);
         ReflectionTestUtils.setField(controller, "projectService", projectService);
 
-        AuthInterceptor authInterceptor = new AuthInterceptor();
-        ReflectionTestUtils.setField(authInterceptor, "userService", userService);
+        when(sessions.current(any())).thenThrow(new BusinessException(ErrorCode.NOT_LOGIN_ERROR));
         AspectJProxyFactory proxyFactory = new AspectJProxyFactory(controller);
-        proxyFactory.addAspect(authInterceptor);
+        proxyFactory.addAspect(new AuthInterceptor(sessions));
         ProjectController securedController = proxyFactory.getProxy();
 
         mockMvc = MockMvcBuilders.standaloneSetup(securedController)
@@ -63,14 +71,22 @@ class ProjectPublishPermissionTest {
 
     @ParameterizedTest
     @EnumSource(UserRoleEnum.class)
-    void creatingProjectRequiresAdmin(UserRoleEnum role) throws Exception {
+    void consumerAccountsCannotPublishTemplates(UserRoleEnum role) throws Exception {
         logInAs(role);
-        doReturn(1L).when(projectService).createProject(any(ProjectAddRequest.class), any(User.class));
-        int expectedCode = role == UserRoleEnum.ADMIN ? 0 : ErrorCode.NO_AUTH_ERROR.getCode();
-
         mockMvc.perform(post("/project/add").contentType(APPLICATION_JSON)
                         .content("{\"name\":\"测试项目\",\"categoryId\":1,\"price\":0}"))
-                .andExpect(jsonPath("$.code").value(expectedCode));
+                .andExpect(jsonPath("$.code").value(ErrorCode.NOT_LOGIN_ERROR.getCode()));
+        verify(projectService, never()).createProject(any(ProjectAddRequest.class), anyLong());
+    }
+
+    @Test
+    void platformPublisherProvidesItsOwnAdminIdentity() throws Exception {
+        logInAsPublisher();
+        doReturn(1L).when(projectService).createProject(any(ProjectAddRequest.class), anyLong());
+        mockMvc.perform(post("/project/add").contentType(APPLICATION_JSON)
+                        .content("{\"name\":\"测试项目\",\"categoryId\":1,\"price\":0}"))
+                .andExpect(jsonPath("$.code").value(0));
+        verify(projectService).createProject(any(ProjectAddRequest.class), eq(20L));
     }
 
     @Test
@@ -96,7 +112,7 @@ class ProjectPublishPermissionTest {
 
     @Test
     void adminCannotPublishAnUnreviewedDraft() throws Exception {
-        logInAs(UserRoleEnum.ADMIN);
+        logInAsPublisher();
         mockMvc.perform(post("/project/admin/update").contentType(APPLICATION_JSON)
                         .content("{\"id\":1,\"status\":1}"))
                 .andExpect(jsonPath("$.code").value(ErrorCode.PARAMS_ERROR.getCode()));
@@ -105,7 +121,7 @@ class ProjectPublishPermissionTest {
 
     @Test
     void adminCanPublishAfterProvidingFreeTemplateAndTerms() throws Exception {
-        logInAs(UserRoleEnum.ADMIN);
+        logInAsPublisher();
         doReturn(true).when(projectService).updateById(any(Project.class));
 
         mockMvc.perform(post("/project/admin/update").contentType(APPLICATION_JSON)
@@ -121,5 +137,10 @@ class ProjectPublishPermissionTest {
         user.setId(10L);
         user.setUserRole(role.getValue());
         when(userService.getLoginUser(any())).thenReturn(user);
+    }
+
+    private void logInAsPublisher() {
+        doReturn(new AdminAccountService.Identity(20L, "发布管理员", "模板运营",
+                Set.of(AdminPermission.TEMPLATE_WRITE))).when(sessions).current(any());
     }
 }

@@ -1,5 +1,4 @@
 import { useLoginUserStore } from '@/stores/loginUser'
-import { message } from 'ant-design-vue'
 import router from '@/router'
 
 // 是否为首次获取登录用户
@@ -16,18 +15,13 @@ router.beforeEach(async (to) => {
     try {
       await loginUserStore.fetchLoginUser()
     } catch {
-      // 登录态接口暂不可用时允许浏览公共页面，管理端仍由下方权限检查拦截。
+      // 登录态接口暂不可用时允许浏览公共页面。
       console.warn('暂时无法获取登录状态，按访客模式继续访问')
     }
     loginUser = loginUserStore.loginUser
     firstFetchLoginUser = false
   }
-  const requiresAdmin = to.meta.layout === 'admin' || to.meta.requiresAdmin === true
-  if (!loginUser.id && (to.meta.requiresLogin || requiresAdmin)) {
+  if (!loginUser.id && to.meta.requiresLogin) {
     return { path: '/user/login', query: { redirect: to.fullPath } }
-  }
-  if (requiresAdmin && loginUser.userRole !== 'admin') {
-    message.error('此页面仅对管理员开放')
-    return { path: to.meta.layout === 'admin' ? '/' : '/my/projects' }
   }
 })

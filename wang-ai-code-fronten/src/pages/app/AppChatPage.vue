@@ -7,7 +7,6 @@ import {
   getAppVoById,
   deployApp as deployAppApi,
   deleteApp as deleteAppApi,
-  deleteAppByAdmin,
 } from '@/api/appController'
 import { listAppChatHistory } from '@/api/chatHistoryController'
 import { CodeGenTypeEnum } from '@/utils/codeGenTypes'
@@ -197,9 +196,6 @@ const isOwner = computed(() => {
   )
 })
 
-const isAdmin = computed(() => {
-  return loginUserStore.loginUser.userRole === 'admin'
-})
 const activeOutputTab = computed(() => (isOwner.value ? previewTab.value : 'app'))
 
 // 应用详情相关
@@ -574,8 +570,7 @@ const deleteApp = async () => {
   if (!appInfo.value?.id) return
 
   try {
-    const removeApp = isAdmin.value ? deleteAppByAdmin : deleteAppApi
-    const res = await removeApp({ id: appInfo.value.id })
+    const res = await deleteAppApi({ id: appInfo.value.id })
     if (res.data.code === 0) {
       message.success('删除成功')
       appDetailVisible.value = false
@@ -668,7 +663,7 @@ const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeM
         <h1 :title="appInfo.appName">{{ appInfo.appName || '对话工作区' }}</h1>
         <div class="project-actions">
           <details
-            v-if="isOwner || isAdmin"
+            v-if="isOwner"
             ref="projectMenu"
             class="project-menu"
             @focusout="onProjectMenuBlur"
@@ -931,7 +926,7 @@ const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeM
       <AppDetailModal
         v-model:open="appDetailVisible"
         :app="appInfo"
-        :show-actions="isOwner || isAdmin"
+        :show-actions="isOwner"
         @edit="editApp"
         @delete="deleteApp"
       />

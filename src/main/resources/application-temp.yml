@@ -13,7 +13,7 @@ redis:
 
 deepseek:
   api-key: xxxxxxxx
-  model-name: deepseek-v4-pro
+  model-name: deepseek-flash
 
 minio:
   endpoint: http://localhost:9000

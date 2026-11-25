@@ -127,13 +127,6 @@ async function doLogout() {
               >
                 {{ page.label }}
               </RouterLink>
-              <RouterLink
-                v-if="loginUserStore.loginUser.userRole === 'admin'"
-                to="/admin/userManage"
-                @click="closeNavigation"
-              >
-                管理后台
-              </RouterLink>
               <button type="button" @click="doLogout">退出登录</button>
             </template>
             <template v-else>

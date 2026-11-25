@@ -7,11 +7,13 @@ import {
   deleteProject,
   listProjectVoByPageByAdmin,
   updateProjectByAdmin,
-} from '@/api/projectController'
+} from '@/api/operations'
 import { useAdminTable } from '@/composables/useAdminTable'
 import { formatDate } from '@/utils/time'
 import PageHeading from '@/components/PageHeading.vue'
 import AdminRecords from '@/components/AdminRecords.vue'
+import { can } from '@/session'
+import { workshopUrl } from '@/config/env'
 
 const router = useRouter()
 const filters = reactive<API.ProjectQueryRequest>({})
@@ -60,7 +62,7 @@ async function removeProject(id?: number) {
 <template>
   <div>
     <PageHeading title="模板管理" description="维护模板资料、使用许可和上架状态。">
-      <a-button type="primary" @click="router.push('/project/create')"
+      <a-button v-if="can('TEMPLATE_WRITE')" type="primary" @click="router.push('/templates/create')"
         ><PlusOutlined aria-hidden="true" /> 发布模板</a-button
       >
     </PageHeading>
@@ -111,9 +113,9 @@ async function removeProject(id?: number) {
               alt="模板封面"
             />
             <div>
-              <RouterLink v-if="record.status === 1" :to="'/project/' + record.id">{{
+              <a v-if="record.status === 1" :href="workshopUrl('/project/' + record.id)" target="_blank" rel="noopener noreferrer">{{
                 record.name
-              }}</RouterLink>
+              }}</a>
               <strong v-else class="record-primary">{{ record.name }}</strong>
               <span class="record-note"
                 >{{ record.categoryName || '未分类' }} ·
@@ -139,8 +141,8 @@ async function removeProject(id?: number) {
             {{ record.salesCount || 0 }} 次
             <span class="record-note">创建于 {{ formatDate(record.createTime) }}</span>
           </div>
-          <div v-else-if="column.key === 'action'" class="record-actions">
-            <RouterLink class="folio-link" :to="'/project/' + record.id + '/edit'"
+          <div v-else-if="column.key === 'action' && can('TEMPLATE_WRITE')" class="record-actions">
+            <RouterLink class="folio-link" :to="'/templates/' + record.id + '/edit'"
               >编辑模板</RouterLink
             >
             <a-button type="link" @click="toggleStatus(record)">{{

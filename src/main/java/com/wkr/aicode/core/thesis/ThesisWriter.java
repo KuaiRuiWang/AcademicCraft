@@ -1,6 +1,8 @@
 package com.wkr.aicode.core.thesis;
 
 import cn.hutool.json.JSONUtil;
+import com.wkr.aicode.core.model.ModelStep;
+import com.wkr.aicode.core.model.PlatformModelRouter;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
 import dev.langchain4j.data.message.SystemMessage;
@@ -16,6 +18,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +34,8 @@ public class ThesisWriter {
 
     @Resource(name = "streamingChatModelPrototype")
     private StreamingChatModel chatModel;
+    @Resource
+    private PlatformModelRouter models;
 
     public String writeChapter(String title, String chapter, String context, String previousSummary) {
         String system;
@@ -39,7 +44,7 @@ public class ThesisWriter {
         } catch (IOException e) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "论文提示词加载失败");
         }
-        String text = complete(system, "论文题目：" + title + "\n本次只写：" + chapter + "\n完整提纲：" + String.join("、", CHAPTERS)
+        String text = complete(ModelStep.THESIS_CHAPTER, system, "论文题目：" + title + "\n本次只写：" + chapter + "\n完整提纲：" + String.join("、", CHAPTERS)
                         + "\n前文摘要（仅用于术语衔接，不是新增证据）：\n" + previousSummary
                         + "\n<project_sources>\n" + context + "\n</project_sources>");
         // 只移除整章的 Markdown 包装，保留正文末尾的配图围栏。
@@ -51,7 +56,7 @@ public class ThesisWriter {
     public String drawDiagram(String digest, String reference, String caption, String feedback) {
         try {
             String prompt = new ClassPathResource("prompt/thesis-diagram-system-prompt.txt").getContentAsString(StandardCharsets.UTF_8);
-            return complete(prompt, "图题：" + caption + "\n<source_diagram>\n" + digest
+            return complete(ModelStep.THESIS_DIAGRAM, prompt, "图题：" + caption + "\n<source_diagram>\n" + digest
                     + "\n</source_diagram>\n<layout_reference>\n" + reference + "\n</layout_reference>\n" + feedback)
                     .replaceFirst("(?s)^\\s*```(?:svg|xml)?\\s*\\n", "").replaceFirst("\\n```\\s*$", "").strip();
         } catch (IOException e) {
@@ -65,7 +70,7 @@ public class ThesisWriter {
             String prompt = new ClassPathResource("prompt/thesis-rewrite-system-prompt.txt").getContentAsString(StandardCharsets.UTF_8);
             String input = JSONUtil.toJsonStr(Map.of("论文题目", title, "章节", chapter, "选中原文", selectedText,
                     "修改要求", instruction, "前文片段", beforeText, "后文片段", afterText));
-            return complete(prompt, input, 45, "AI 修改建议输出不完整，请重试").strip();
+            return complete(ModelStep.THESIS_REWRITE, prompt, input, 45, "AI 修改建议输出不完整，请重试").strip();
         } catch (IOException e) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "论文局部修改提示词加载失败");
         } catch (CompletionException e) {
@@ -73,16 +78,19 @@ public class ThesisWriter {
         }
     }
 
-    private String complete(String system, String input) {
-        return complete(system, input, 180, "章节输出不完整，请重试该章节");
+    private String complete(ModelStep step, String system, String input) {
+        return complete(step, system, input, 180, "章节输出不完整，请重试该章节");
     }
 
-    private String complete(String system, String input, int timeoutSeconds, String incompleteMessage) {
+    private String complete(ModelStep step, String system, String input, int timeoutSeconds, String incompleteMessage) {
         // 收齐流式响应后再交给调用方，避免使用截断的结果。
-        ChatRequest request = ChatRequest.builder().messages(List.of(SystemMessage.from(system), UserMessage.from(input)))
-                .parameters(OpenAiChatRequestParameters.builder().reasoningEffort("none").build()).build();
+        var model = models.configuredModel(step);
+        var request = ChatRequest.builder().messages(List.of(SystemMessage.from(system), UserMessage.from(input)));
+        if (model == null || "api.deepseek.com".equalsIgnoreCase(URI.create(model.getBaseUrl()).getHost())) {
+            request.parameters(OpenAiChatRequestParameters.builder().reasoningEffort("none").build());
+        }
         CompletableFuture<ChatResponse> completed = new CompletableFuture<>();
-        chatModel.chat(request, new StreamingChatResponseHandler() {
+        models.stream(model, chatModel).chat(request.build(), new StreamingChatResponseHandler() {
             @Override public void onPartialResponse(String text) { }
             @Override public void onCompleteResponse(ChatResponse response) { completed.complete(response); }
             @Override public void onError(Throwable error) { completed.completeExceptionally(error); }

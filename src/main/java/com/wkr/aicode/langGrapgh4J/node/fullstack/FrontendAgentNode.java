@@ -3,6 +3,7 @@ package com.wkr.aicode.langGrapgh4J.node.fullstack;
 import cn.hutool.json.JSONUtil;
 import com.wkr.aicode.ai.model.ApiContract;
 import com.wkr.aicode.core.AiCodeGeneratorFacade;
+import com.wkr.aicode.core.model.ModelStep;
 import com.wkr.aicode.langGrapgh4J.state.WorkflowContext;
 import com.wkr.aicode.model.enums.AgentRoleEnum;
 import com.wkr.aicode.utils.SpringContextUtil;
@@ -34,7 +35,9 @@ public class FrontendAgentNode {
             AiCodeGeneratorFacade codeGeneratorFacade = SpringContextUtil.getBean(AiCodeGeneratorFacade.class);
             long startTime = System.currentTimeMillis();
             // 同步等待流式输出完成，边产出边推送给前端
-            codeGeneratorFacade.generateFullstackAgentCodeStream(appId, AgentRoleEnum.FRONTEND, userMessage)
+            boolean repairing = context.getFrontendFixHints() != null && !context.getFrontendFixHints().isEmpty();
+            var step = ModelStep.agent(AgentRoleEnum.FRONTEND, context.isModifyMode(), repairing);
+            codeGeneratorFacade.generateFullstackAgentCodeStream(appId, AgentRoleEnum.FRONTEND, userMessage, step)
                     .doOnNext(pipe::emit)
                     .blockLast(Duration.ofMinutes(10));
             log.info("前端 Agent 代码{}完成，耗时 {} ms，产物目录: {}",

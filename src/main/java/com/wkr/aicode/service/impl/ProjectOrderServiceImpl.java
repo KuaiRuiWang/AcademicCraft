@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -47,7 +48,7 @@ public class ProjectOrderServiceImpl extends ServiceImpl<ProjectOrderMapper, Pro
         ThrowUtils.throwIf(!projectService.isPublicTemplate(project), ErrorCode.NOT_FOUND_ERROR, "模板暂未开放");
 
         // 作者已有源码，无需领取自己的模板。
-        if (project.getAuthorId().equals(buyer.getId())) {
+        if (Objects.equals(project.getAuthorId(), buyer.getId())) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "不能领取自己的模板");
         }
 

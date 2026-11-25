@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowLeftOutlined,
@@ -8,8 +8,7 @@ import {
   PlusOutlined,
 } from '@ant-design/icons-vue'
 import { message, type UploadProps } from 'ant-design-vue'
-import { useLoginUserStore } from '@/stores/loginUser'
-import { addProject, getEditableProjectVo, updateProject } from '@/api/projectController'
+import { getEditableProjectVo, updateProject } from '@/api/projectController'
 import { listCategories } from '@/api/projectCategoryController'
 import { upload } from '@/api/commonController'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
@@ -17,12 +16,8 @@ import PageHeading from '@/components/PageHeading.vue'
 
 const route = useRoute()
 const router = useRouter()
-const loginUserStore = useLoginUserStore()
-const id = route.params.id as string | undefined
-const isAdmin = computed(() => loginUserStore.loginUser.userRole === 'admin')
-const backPath = computed(() => (isAdmin.value ? '/admin/projectManage' : '/my/projects'))
-const status = ref(1)
-const authorizationRequired = computed(() => isAdmin.value && status.value === 1)
+const id = route.params.id as string
+const backPath = '/my/projects'
 const loading = ref(true)
 const submitting = ref(false)
 const uploads = ref(0)
@@ -30,12 +25,6 @@ const loadError = ref('')
 const categoryError = ref('')
 const saveError = ref('')
 const categories = ref<API.ProjectCategory[]>([])
-const statusOptions = [
-  { value: 0, label: '草稿' },
-  { value: 1, label: '已上架' },
-  { value: 2, label: '已下架' },
-]
-
 const form = reactive<API.ProjectAddRequest>({
   name: '',
   categoryId: undefined,
@@ -63,7 +52,6 @@ async function loadCategories() {
 }
 
 async function loadProject() {
-  if (!id) return
   loadError.value = ''
   try {
     const res = await getEditableProjectVo({ id: id as unknown as number })
@@ -72,7 +60,6 @@ async function loadProject() {
       loadError.value = res.data.message || '无法读取模板资料。'
       return
     }
-    status.value = project.status ?? 0
     Object.assign(form, {
       name: project.name || '',
       categoryId: project.categoryId,
@@ -156,20 +143,11 @@ async function handleSubmit() {
       detailContent: form.detailContent?.trim(),
       sourceUrl: form.sourceUrl?.trim(),
       demoUrl: form.demoUrl?.trim(),
-      price: isAdmin.value ? 0 : undefined,
-      sourceAttribution: isAdmin.value ? form.sourceAttribution?.trim() : undefined,
-      licenseTerms: isAdmin.value ? form.licenseTerms?.trim() : undefined,
     }
-    const res = id
-      ? await updateProject({
-          ...template,
-          id: id as unknown as number,
-          status: isAdmin.value ? status.value : undefined,
-        })
-      : await addProject(template)
+    const res = await updateProject({ ...template, id: id as unknown as number })
     if (res.data.code === 0) {
-      message.success(id ? '模板已保存' : '模板已发布')
-      await router.push(backPath.value)
+      message.success('模板已保存')
+      await router.push(backPath)
     } else {
       saveError.value = res.data.message || '模板保存失败'
     }
@@ -186,10 +164,10 @@ onMounted(loadEditor)
 <template>
   <div class="page-shell">
     <RouterLink :to="backPath" class="back-link">
-      <ArrowLeftOutlined aria-hidden="true" /> {{ isAdmin ? '模板管理' : '我的项目' }}
+      <ArrowLeftOutlined aria-hidden="true" /> 我的项目
     </RouterLink>
     <PageHeading
-      :title="id ? '编辑模板' : '发布模板'"
+      title="编辑模板"
       description="整理模板介绍、演示和源码地址，补充来源及使用许可。"
     />
 
@@ -312,55 +290,12 @@ onMounted(loadEditor)
               "
             />
           </a-form-item>
-          <a-form-item v-if="id && isAdmin" label="上架状态">
-            <a-select aria-label="上架状态" v-model:value="status" :options="statusOptions" />
-          </a-form-item>
-          <p v-else-if="!id" class="publish-note">发布后，模板将在目录开放免费领取。</p>
           <a-form-item label="演示地址" name="demoUrl">
             <a-input v-model:value="form.demoUrl" placeholder="https://…" />
           </a-form-item>
-          <a-form-item
-            label="源码下载地址"
-            name="sourceUrl"
-            :rules="[
-              { required: authorizationRequired, whitespace: true, message: '请填写源码下载地址' },
-            ]"
-          >
+          <a-form-item label="源码下载地址" name="sourceUrl">
             <a-input v-model:value="form.sourceUrl" placeholder="https://…" :maxlength="500" />
           </a-form-item>
-          <template v-if="isAdmin">
-            <a-form-item
-              label="模板来源或授权方"
-              name="sourceAttribution"
-              :rules="[
-                {
-                  required: authorizationRequired,
-                  whitespace: true,
-                  message: '请填写模板来源或授权方',
-                },
-              ]"
-            >
-              <a-input
-                v-model:value="form.sourceAttribution"
-                placeholder="原创作者、上游项目或授权方"
-                :maxlength="500"
-              />
-            </a-form-item>
-            <a-form-item
-              label="使用许可"
-              name="licenseTerms"
-              :rules="[
-                { required: authorizationRequired, whitespace: true, message: '请填写使用许可' },
-              ]"
-            >
-              <a-textarea
-                v-model:value="form.licenseTerms"
-                placeholder="许可名称、商用和再分发条件"
-                :rows="3"
-                :maxlength="1000"
-              />
-            </a-form-item>
-          </template>
           <div class="asset-field cover-field">
             <h3>封面图片</h3>
             <img v-if="form.coverImage" :src="form.coverImage" alt="模板封面" />
@@ -389,7 +324,7 @@ onMounted(loadEditor)
           :loading="submitting"
           :disabled="Boolean(uploads)"
         >
-          {{ id ? '保存模板' : '发布模板' }}
+          保存模板
         </a-button>
         <RouterLink class="folio-link" :to="backPath">取消</RouterLink>
       </div>
@@ -420,8 +355,7 @@ onMounted(loadEditor)
   font-size: 1.1rem;
 }
 
-.asset-field p,
-.publish-note {
+.asset-field p {
   margin: 5px 0 12px;
   color: var(--color-text-secondary);
   font-size: 0.85rem;

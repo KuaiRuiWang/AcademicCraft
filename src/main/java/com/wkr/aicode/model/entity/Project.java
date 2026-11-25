@@ -107,6 +107,9 @@ public class Project implements Serializable {
     @Column("authorId")
     private Long authorId;
 
+    @Column("adminAuthorId")
+    private Long adminAuthorId;
+
     /**
      * 状态：0-草稿 1-已发布 2-已下架
      */

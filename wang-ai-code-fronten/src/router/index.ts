@@ -4,12 +4,7 @@ import CreatePage from '@/pages/CreatePage.vue'
 import UserLoginPage from '@/pages/user/UserLoginPage.vue'
 import UserRegisterPage from '@/pages/user/UserRegisterPage.vue'
 import UserProfilePage from '@/pages/user/UserProfilePage.vue'
-import UserManagePage from '@/pages/admin/UserManagePage.vue'
-import AppManagePage from '@/pages/admin/AppManagePage.vue'
 import AppEditPage from '@/pages/app/AppEditPage.vue'
-import ChatManagePage from '@/pages/admin/ChatManagePage.vue'
-import ProjectManagePage from '@/pages/admin/ProjectManagePage.vue'
-import CategoryManagePage from '@/pages/admin/CategoryManagePage.vue'
 import ProjectMarketPage from '@/pages/project/ProjectMarketPage.vue'
 import ProjectDetailPage from '@/pages/project/ProjectDetailPage.vue'
 import ProjectEditPage from '@/pages/project/ProjectEditPage.vue'
@@ -49,36 +44,6 @@ const router = createRouter({
       meta: { requiresLogin: true },
     },
     {
-      path: '/admin/userManage',
-      name: '用户管理',
-      component: UserManagePage,
-      meta: { layout: 'admin' },
-    },
-    {
-      path: '/admin/appManage',
-      name: '应用管理',
-      component: AppManagePage,
-      meta: { layout: 'admin' },
-    },
-    {
-      path: '/admin/chatManage',
-      name: '对话管理',
-      component: ChatManagePage,
-      meta: { layout: 'admin' },
-    },
-    {
-      path: '/admin/projectManage',
-      name: '模板管理',
-      component: ProjectManagePage,
-      meta: { layout: 'admin' },
-    },
-    {
-      path: '/admin/categoryManage',
-      name: '分类管理',
-      component: CategoryManagePage,
-      meta: { layout: 'admin' },
-    },
-    {
       path: '/app/chat/:id',
       name: '应用对话',
       component: () => import('@/pages/app/AppChatPage.vue'),
@@ -95,12 +60,6 @@ const router = createRouter({
       path: '/project',
       name: '模板库',
       component: ProjectMarketPage,
-    },
-    {
-      path: '/project/create',
-      name: '发布模板',
-      component: ProjectEditPage,
-      meta: { requiresAdmin: true },
     },
     {
       path: '/project/:id',

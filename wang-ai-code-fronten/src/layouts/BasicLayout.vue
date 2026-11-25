@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import GlobalHeader from '@/components/GlobalHeader.vue'
 import GlobalFooter from '@/components/GlobalFooter.vue'
-import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const route = useRoute()
 const workspace = computed(() => route.meta.layout === 'workspace')
@@ -13,8 +12,7 @@ const workspace = computed(() => route.meta.layout === 'workspace')
   <div class="site-frame" :class="{ 'site-frame--workspace': workspace }">
     <GlobalHeader />
     <main id="main-content" tabindex="-1">
-      <AdminLayout v-if="route.meta.layout === 'admin'" />
-      <RouterView v-else v-slot="{ Component }">
+      <RouterView v-slot="{ Component }">
         <component :is="Component" :key="route.path" />
       </RouterView>
     </main>

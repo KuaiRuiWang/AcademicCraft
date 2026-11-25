@@ -2,6 +2,7 @@ package com.wkr.aicode.langGrapgh4J.node;
 
 import com.wkr.aicode.constant.AppConstant;
 import com.wkr.aicode.core.AiCodeGeneratorFacade;
+import com.wkr.aicode.core.model.ModelStep.CodePhase;
 import com.wkr.aicode.langGrapgh4J.model.QualityResult;
 import com.wkr.aicode.langGrapgh4J.state.WorkflowContext;
 import com.wkr.aicode.model.enums.CodeGenTypeEnum;
@@ -31,7 +32,8 @@ public class CodeGeneratorNode {
             // 先使用固定的 appId (后续再整合到业务中)
             Long appId = 0L;
             // 调用流式代码生成
-            Flux<String> codeStream = codeGeneratorFacade.generateAndSaveCodeStream(userMessage, generationType, appId);
+            CodePhase phase = isQualityCheckFailed(context.getQualityResult()) ? CodePhase.REPAIR : CodePhase.GENERATE;
+            Flux<String> codeStream = codeGeneratorFacade.generateAndSaveCodeStream(userMessage, generationType, appId, phase);
             // 同步等待流式输出完成
             codeStream.blockLast(Duration.ofMinutes(10)); // 最多等待 10 分钟
             // 根据类型设置生成目录

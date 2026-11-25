@@ -7,7 +7,6 @@ import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
-import com.wkr.aicode.constant.UserConstant;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
 import com.wkr.aicode.exception.ThrowUtils;
@@ -37,6 +36,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -60,9 +60,7 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Long createProject(ProjectAddRequest addRequest, User loginUser) {
-        // 上架由管理员负责，授权信息需要和源码一并提交。
-        ThrowUtils.throwIf(!UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole()), ErrorCode.NO_AUTH_ERROR);
+    public Long createProject(ProjectAddRequest addRequest, long adminId) {
         ThrowUtils.throwIf(StrUtil.isBlank(addRequest.getName()), ErrorCode.PARAMS_ERROR, "项目名称不能为空");
         ThrowUtils.throwIf(addRequest.getCategoryId() == null || addRequest.getCategoryId() <= 0,
                 ErrorCode.PARAMS_ERROR, "项目分类不能为空");
@@ -72,7 +70,7 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
         BeanUtil.copyProperties(addRequest, project);
         project.setPrice(ObjectUtil.defaultIfNull(project.getPrice(), BigDecimal.ZERO));
         validateTemplateForPublication(project);
-        project.setAuthorId(loginUser.getId());
+        project.setAdminAuthorId(adminId);
         project.setStatus(ProjectStatusEnum.PUBLISHED.getValue());
         project.setSalesCount(0);
         project.setViewCount(0);
@@ -97,13 +95,23 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
             projectImageService.saveBatch(imageList);
         }
 
-        log.info("项目发布成功，ID: {}, 作者: {}", projectId, loginUser.getId());
+        log.info("项目发布成功，ID: {}，管理员: {}", projectId, adminId);
         return projectId;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean updateProject(ProjectUpdateRequest updateRequest, User loginUser) {
+        return updateProject(updateRequest, loginUser.getId(), false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean updateProjectByAdmin(ProjectUpdateRequest updateRequest) {
+        return updateProject(updateRequest, null, true);
+    }
+
+    private boolean updateProject(ProjectUpdateRequest updateRequest, Long authorId, boolean isAdmin) {
         ThrowUtils.throwIf(updateRequest.getId() == null || updateRequest.getId() <= 0,
                 ErrorCode.PARAMS_ERROR, "项目ID不能为空");
 
@@ -111,8 +119,7 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
         Project oldProject = this.getOne(QueryWrapper.create().eq("id", updateRequest.getId()).forUpdate());
         ThrowUtils.throwIf(oldProject == null, ErrorCode.NOT_FOUND_ERROR, "项目不存在");
         // 管理员维护上架模板，原作者可处理自己的草稿和下架项目。
-        boolean isAdmin = UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole());
-        if (!isAdmin && !oldProject.getAuthorId().equals(loginUser.getId())) {
+        if (!isAdmin && !Objects.equals(oldProject.getAuthorId(), authorId)) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限编辑该项目");
         }
 
@@ -218,6 +225,8 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
             if (user != null) {
                 projectVO.setAuthor(userService.getUserVO(user));
             }
+        } else if (project.getAdminAuthorId() != null) {
+            projectVO.setAuthor(platformAuthor());
         }
 
         // 项目图片
@@ -245,8 +254,9 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
         // 批量获取作者信息
         Set<Long> authorIds = projectList.stream()
                 .map(Project::getAuthorId)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
-        Map<Long, UserVO> userVOMap = userService.listByIds(authorIds).stream()
+        Map<Long, UserVO> userVOMap = authorIds.isEmpty() ? Map.of() : userService.listByIds(authorIds).stream()
                 .collect(Collectors.toMap(User::getId, userService::getUserVO));
 
         // 批量获取分类信息
@@ -260,12 +270,19 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
             ProjectVO vo = new ProjectVO();
             BeanUtil.copyProperties(project, vo);
             // 作者
-            UserVO userVO = userVOMap.get(project.getAuthorId());
+            UserVO userVO = project.getAuthorId() != null ? userVOMap.get(project.getAuthorId())
+                    : project.getAdminAuthorId() != null ? platformAuthor() : null;
             vo.setAuthor(userVO);
             // 分类名
             vo.setCategoryName(categoryNameMap.getOrDefault(project.getCategoryId(), ""));
             return vo;
         }).collect(Collectors.toList());
+    }
+
+    private UserVO platformAuthor() {
+        UserVO author = new UserVO();
+        author.setUserName("应用工坊");
+        return author;
     }
 
     @Override

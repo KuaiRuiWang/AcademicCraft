@@ -102,7 +102,7 @@ async function handleSave() {
           </div>
           <div>
             <dt>角色</dt>
-            <dd>{{ user.userRole === 'admin' ? '管理员' : '用户' }}</dd>
+            <dd>用户</dd>
           </div>
           <div v-if="user.id">
             <dt>用户 ID</dt>

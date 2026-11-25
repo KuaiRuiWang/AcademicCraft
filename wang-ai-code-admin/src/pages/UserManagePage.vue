@@ -2,14 +2,13 @@
 import { reactive } from 'vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import { message, type TableColumnsType } from 'ant-design-vue'
-import { deleteUser, listUserVoByPage } from '@/api/userController'
+import { deleteUser, listUserVoByPage } from '@/api/operations'
 import { useAdminTable } from '@/composables/useAdminTable'
-import { useLoginUserStore } from '@/stores/loginUser'
+import { can } from '@/session'
 import { formatDate } from '@/utils/time'
 import AdminRecords from '@/components/AdminRecords.vue'
 import PageHeading from '@/components/PageHeading.vue'
 
-const loginUserStore = useLoginUserStore()
 const filters = reactive({ userAccount: '', userName: '' })
 const { rows, loading, error, pagination, load, search, changePage } = useAdminTable((page) =>
   listUserVoByPage({ ...filters, ...page }),
@@ -81,16 +80,11 @@ async function removeUser(id?: number) {
               </time>
             </div>
           </div>
-          <a-tag
-            v-else-if="column.key === 'role'"
-            :color="record.userRole === 'admin' ? 'processing' : undefined"
-          >
-            {{ record.userRole === 'admin' ? '管理员' : '用户' }}
-          </a-tag>
+          <a-tag v-else-if="column.key === 'role'">用户</a-tag>
           <span v-else-if="column.key === 'joined'">{{ formatDate(record.createTime) }}</span>
           <template v-else-if="column.key === 'action'">
             <a-popconfirm
-              v-if="record.id !== loginUserStore.loginUser.id"
+              v-if="can('USER_WRITE')"
               title="删除该用户？"
               ok-text="删除"
               cancel-text="取消"

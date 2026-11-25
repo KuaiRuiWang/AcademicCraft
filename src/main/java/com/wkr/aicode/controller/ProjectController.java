@@ -2,11 +2,12 @@ package com.wkr.aicode.controller;
 
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
+import com.wkr.aicode.admin.AdminAccountService;
+import com.wkr.aicode.admin.AdminPermission;
 import com.wkr.aicode.annotation.AuthCheck;
 import com.wkr.aicode.common.BaseResponse;
 import com.wkr.aicode.common.DeleteRequest;
 import com.wkr.aicode.common.ResultUtils;
-import com.wkr.aicode.constant.UserConstant;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
 import com.wkr.aicode.exception.ThrowUtils;
@@ -25,6 +26,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 项目商品 控制层。
@@ -47,11 +49,12 @@ public class ProjectController {
      */
     @Operation(summary = "发布模板（管理员）", description = "管理员发布免费模板，需登记模板来源和许可条件")
     @PostMapping("/add")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @AuthCheck(AdminPermission.TEMPLATE_WRITE)
     public BaseResponse<Long> addProject(@RequestBody ProjectAddRequest addRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(addRequest == null, ErrorCode.PARAMS_ERROR);
-        User loginUser = userService.getLoginUser(request);
-        Long projectId = projectService.createProject(addRequest, loginUser);
+        var admin = (AdminAccountService.Identity) request.getAttribute(AdminAccountService.Identity.class.getName());
+        ThrowUtils.throwIf(admin == null, ErrorCode.NOT_LOGIN_ERROR);
+        Long projectId = projectService.createProject(addRequest, admin.id());
         return ResultUtils.success(projectId);
     }
 
@@ -69,10 +72,7 @@ public class ProjectController {
         return ResultUtils.success(result);
     }
 
-    /**
-     * 删除/下架项目（本人或管理员）
-     */
-    @Operation(summary = "删除项目", description = "项目作者或管理员删除项目（逻辑删除），仅本人或管理员可操作")
+    @Operation(summary = "删除自己的项目", description = "项目作者删除项目（逻辑删除）")
     @PostMapping("/delete")
     public BaseResponse<Boolean> deleteProject(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
@@ -82,7 +82,7 @@ public class ProjectController {
         long id = deleteRequest.getId();
         Project oldProject = projectService.getById(id);
         ThrowUtils.throwIf(oldProject == null, ErrorCode.NOT_FOUND_ERROR);
-        if (!oldProject.getAuthorId().equals(loginUser.getId()) && !UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole())) {
+        if (!Objects.equals(oldProject.getAuthorId(), loginUser.getId())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
         boolean result = projectService.removeById(id);
@@ -103,15 +103,14 @@ public class ProjectController {
         return ResultUtils.success(template);
     }
 
-    @Operation(summary = "获取可编辑的项目详情", description = "作者或管理员查看待编辑项目及其源码地址")
+    @Operation(summary = "获取可编辑的项目详情", description = "项目作者查看待编辑项目及其源码地址")
     @GetMapping("/edit/get/vo")
     public BaseResponse<ProjectVO> getEditableProjectVO(@RequestParam long id, HttpServletRequest request) {
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
         Project project = projectService.getById(id);
         ThrowUtils.throwIf(project == null, ErrorCode.NOT_FOUND_ERROR, "项目不存在");
-        ThrowUtils.throwIf(!project.getAuthorId().equals(loginUser.getId())
-                        && !UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole()),
+        ThrowUtils.throwIf(!Objects.equals(project.getAuthorId(), loginUser.getId()),
                 ErrorCode.NO_AUTH_ERROR, "无权限查看待编辑项目");
         return ResultUtils.success(projectService.getProjectVO(project));
     }
@@ -160,7 +159,7 @@ public class ProjectController {
      */
     @Operation(summary = "管理员查看所有项目", description = "管理员分页查看全部项目（含所有状态），不受发布状态限制")
     @PostMapping("/admin/list/page/vo")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @AuthCheck(AdminPermission.TEMPLATE_READ)
     public BaseResponse<Page<ProjectVO>> listProjectVOByPageByAdmin(@RequestBody ProjectQueryRequest queryRequest) {
         ThrowUtils.throwIf(queryRequest == null, ErrorCode.PARAMS_ERROR);
         long pageNum = queryRequest.getPageNum();
@@ -178,13 +177,19 @@ public class ProjectController {
      */
     @Operation(summary = "管理员更新项目", description = "管理员编辑任意项目信息，可用于审核、上下架等操作")
     @PostMapping("/admin/update")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    public BaseResponse<Boolean> updateProjectByAdmin(@RequestBody ProjectUpdateRequest updateRequest, HttpServletRequest request) {
+    @AuthCheck(AdminPermission.TEMPLATE_WRITE)
+    public BaseResponse<Boolean> updateProjectByAdmin(@RequestBody ProjectUpdateRequest updateRequest) {
         if (updateRequest == null || updateRequest.getId() == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        User loginUser = userService.getLoginUser(request);
-        return ResultUtils.success(projectService.updateProject(updateRequest, loginUser));
+        return ResultUtils.success(projectService.updateProjectByAdmin(updateRequest));
+    }
+
+    @PostMapping("/admin/delete")
+    @AuthCheck(AdminPermission.TEMPLATE_WRITE)
+    public BaseResponse<Boolean> deleteProjectByAdmin(@RequestBody DeleteRequest input) {
+        ThrowUtils.throwIf(input == null || input.getId() <= 0, ErrorCode.PARAMS_ERROR);
+        return ResultUtils.success(projectService.removeById(input.getId()));
     }
 
     /**
@@ -192,7 +197,7 @@ public class ProjectController {
      */
     @Operation(summary = "管理员查看项目详情", description = "管理员根据ID查看任意项目的完整信息")
     @GetMapping("/admin/get/vo")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @AuthCheck(AdminPermission.TEMPLATE_READ)
     public BaseResponse<ProjectVO> getProjectVOByIdByAdmin(@RequestParam long id) {
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
         Project project = projectService.getById(id);

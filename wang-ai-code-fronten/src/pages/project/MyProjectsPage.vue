@@ -4,15 +4,12 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { listMyProjectVoByPage, deleteProject } from '@/api/projectController'
-import { useLoginUserStore } from '@/stores/loginUser'
 import { formatDate } from '@/utils/time'
 import PageHeading from '@/components/PageHeading.vue'
 import PersonalNav from '@/components/PersonalNav.vue'
 import TemplateArtwork from '@/components/TemplateArtwork.vue'
 
 const router = useRouter()
-const loginUserStore = useLoginUserStore()
-const canPublishProject = computed(() => loginUserStore.loginUser.userRole === 'admin')
 const loading = ref(true)
 const loadError = ref(false)
 const projects = ref<API.ProjectVO[]>([])
@@ -65,9 +62,6 @@ onMounted(loadProjects)
 <template>
   <div class="page-shell">
     <PageHeading title="我的项目" description="管理已发布的模板和还在准备的草稿。">
-      <a-button v-if="canPublishProject" type="primary" @click="router.push('/project/create')">
-        <PlusOutlined aria-hidden="true" /> 发布模板
-      </a-button>
     </PageHeading>
     <PersonalNav />
     <a-skeleton v-if="loading" active :title="false" :paragraph="{ rows: 3 }" />

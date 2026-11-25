@@ -12,7 +12,6 @@ import com.wkr.aicode.ai.AiCodeGenTypeRoutingService;
 import com.wkr.aicode.ai.AiCodeGenTypeRoutingServiceFactory;
 import com.wkr.aicode.ai.guardrail.AcademicUsePolicy;
 import com.wkr.aicode.constant.AppConstant;
-import com.wkr.aicode.constant.UserConstant;
 import com.wkr.aicode.core.AiCodeGeneratorFacade;
 import com.wkr.aicode.core.builder.VueProjectBuilder;
 import com.wkr.aicode.core.handler.StreamHandlerExecutor;
@@ -361,8 +360,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         App app = this.getById(appId);
         ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
         boolean isOwner = app.getUserId().equals(loginUser.getId());
-        boolean isAdmin = UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole());
-        ThrowUtils.throwIf(!isOwner && !isAdmin, ErrorCode.NO_AUTH_ERROR, "无权限操作该应用容器");
+        ThrowUtils.throwIf(!isOwner, ErrorCode.NO_AUTH_ERROR, "无权限操作该应用容器");
         ThrowUtils.throwIf(CodeGenTypeEnum.getEnumByValue(app.getCodeGenType()) != CodeGenTypeEnum.FULLSTACK_VUE_NODEJS,
                 ErrorCode.OPERATION_ERROR, "仅全栈应用支持容器管理");
         return app;
