@@ -16,4 +16,11 @@ public class ThesisVO {
     private String errorMessage;
     private LocalDateTime updateTime;
     private List<AppThesisChapter> chapters;
+    private String literatureStatus;
+    private List<ReferenceCandidate> referenceCandidates = List.of();
+    private List<Reference> references = List.of();
+
+    public record ReferenceCandidate(String id, String title, int year, String url) { }
+
+    public record Reference(String id, int number, String text, String url) { }
 }

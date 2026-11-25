@@ -161,18 +161,23 @@ class DeploymentTest(unittest.TestCase):
         self.assertIn('ADD COLUMN `renderData`', alterations[0])
 
     def test_thesis_tables_are_reported_and_created_only_when_missing(self):
-        existing = {f'{table}.{column}' for table, column in deploy.COLUMNS}
+        existing = {f'{table}.{column}' for table, column in deploy.COLUMNS if table not in deploy.TABLES}
         query = Mock(return_value='\n'.join(existing))
         context = Mock()
         context.__enter__ = Mock(return_value=query)
         context.__exit__ = Mock(return_value=False)
         with patch.object(deploy, 'mysql_session', return_value=context):
-            self.assertEqual(deploy.schema_check({'mysql.database': 'ai_code'}), list(deploy.TABLES))
+            self.assertEqual(deploy.schema_check({'mysql.database': 'ai_code'}),
+                             ['app_thesis.referenceSnapshot', *deploy.TABLES])
             self.assertEqual(query.call_count, 1)
             self.assertEqual(deploy.schema_check({'mysql.database': 'ai_code'}, True), [])
         creations = [call.args[0] for call in query.call_args_list if call.args[0].startswith('CREATE')]
         self.assertEqual(len(creations), 2)
         self.assertTrue(all('IF NOT EXISTS' in sql for sql in creations))
+        statements = [call.args[0] for call in query.call_args_list]
+        add_snapshot = next(sql for sql in statements if sql.startswith('ALTER TABLE'))
+        self.assertIn('ADD COLUMN `referenceSnapshot`', add_snapshot)
+        self.assertLess(statements.index(creations[0]), statements.index(add_snapshot))
 
 
 if __name__ == '__main__':

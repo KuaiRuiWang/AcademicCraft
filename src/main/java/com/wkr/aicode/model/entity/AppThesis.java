@@ -22,6 +22,8 @@ public class AppThesis {
     private String sourceVersion;
     @Column("sourceContext")
     private String sourceContext;
+    @Column("referenceSnapshot")
+    private String referenceSnapshot;
     @Column("errorMessage")
     private String errorMessage;
     @Column("createTime")

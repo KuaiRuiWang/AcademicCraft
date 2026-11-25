@@ -38,6 +38,7 @@ COLUMNS = {
     ('chat_history', 'renderData'): "MEDIUMTEXT NULL COMMENT 'AG-UI 展示快照'",
     ('app', 'generateThesis'): "TINYINT NOT NULL DEFAULT 0 COMMENT '自动生成论文初稿'",
     ('app', 'thesisTitle'): "VARCHAR(200) NULL COMMENT '论文题目'",
+    ('app_thesis', 'referenceSnapshot'): "MEDIUMTEXT NULL COMMENT '按源码版本冻结的可核验文献'",
 }
 
 TABLES = {

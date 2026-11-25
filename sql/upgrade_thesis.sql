@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS app_thesis (
     revision varchar(36) NOT NULL,
     sourceVersion varchar(64) NULL,
     sourceContext mediumtext NULL,
+    referenceSnapshot mediumtext NULL COMMENT '按源码版本冻结的可核验文献',
     errorMessage varchar(1000) NULL,
     createTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updateTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

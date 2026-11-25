@@ -23,8 +23,16 @@ const titles = [
   '第五章 系统实现',
   '第六章 系统测试',
   '第七章 总结与展望',
-  '参考文献与待补材料',
+  '待补材料',
 ]
+const citedSource = {
+  id: 'ref-mapreduce',
+  title: 'MapReduce',
+  year: 2008,
+  url: 'https://doi.org/10.1145/1327452.1327492',
+  number: 1,
+  text: 'DEAN J, GHEMAWAT S. MapReduce[J]. Communications of the ACM, 2008, 51(1): 107-113.',
+}
 let thesis = {
   appId: '1',
   title: '图书管理系统的设计与实现',
@@ -32,6 +40,9 @@ let thesis = {
   sourceVersion: 'v1',
   status: 'ready',
   stage: '初稿已生成，可编辑章节或导出 Word',
+  literatureStatus: 'ready',
+  referenceCandidates: [citedSource],
+  references: [citedSource],
   chapters: titles.map((title, index) => ({
     chapterNo: index + 1,
     title,
@@ -42,6 +53,7 @@ let thesis = {
     sourceVersion: 'v1',
   })),
 }
+thesis.chapters[2].content = '文献支持的论点[@ref-mapreduce]。再次引用[@ref-mapreduce]。代码示例 `[@ref-mapreduce]`。'
 const repeatedSentence = '本系统提供图书列表和录入功能，采用 Vue 页面与接口连接。'
 const legacyCaption = '图4.2 系统总体架构图'
 const legacyDiagram = `\n\n\`\`\`mermaid\nflowchart LR\n    A["Vue 页面"] --> B["Express 路由"]\n\n${legacyCaption}\n\`\`\`\n\n> 配图自动排版未通过校验，已保留原始结构图；Word 导出仍会绘制该图。`
@@ -174,6 +186,22 @@ try {
   await page.goto('http://127.0.0.1:5179/app/chat/1?view=1', { waitUntil: 'networkidle0' })
   await clickText('论文初稿')
   await page.waitForSelector('.thesis-content .markdown-content')
+  await clickText('第一章 绪论')
+  await page.waitForSelector('.thesis-content sup')
+  assert.deepEqual(await page.$$eval('.thesis-content sup', nodes => nodes.map(node => node.textContent)), ['[1]', '[1]'])
+  assert.equal(await page.$eval('.thesis-content code', node => node.textContent), '[@ref-mapreduce]')
+  await clickText('参考文献')
+  assert.equal(await page.$eval('.thesis-references a', element => element.href), citedSource.url)
+  await clickText('第二章 相关技术')
+  await clickText('编辑本章')
+  await page.$eval('#thesis-chapter-content', editor => editor.setSelectionRange(editor.value.length, editor.value.length))
+  await page.select('.thesis-reference-picker select', citedSource.id)
+  await clickText('插入引用')
+  await page.waitForFunction(() => document.querySelector('#thesis-chapter-content').value.endsWith('[@ref-mapreduce]'))
+  await clickText('保存本章')
+  await page.waitForSelector('.thesis-content sup')
+  assert.ok(saved.content.endsWith('[@ref-mapreduce]'))
+  saved = undefined
   await (await page.$$('.thesis-chapters button'))[5].click()
   await page.waitForFunction(() => document.querySelector('.thesis-diagram img')?.naturalWidth > 0)
   assert.equal(await page.$eval('.thesis-diagram figcaption', element => element.textContent), diagram.caption)

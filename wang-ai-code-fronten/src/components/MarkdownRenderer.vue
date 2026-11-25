@@ -15,6 +15,7 @@ interface Props {
   content: string
   diagrams?: boolean
   mermaidPreview?: string
+  citationNumbers?: Readonly<Record<string, number>>
 }
 
 const props = defineProps<Props>()
@@ -40,6 +41,20 @@ const md: MarkdownIt = new MarkdownIt({
     return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>'
   },
 })
+
+md.inline.ruler.after('link', 'thesis_citation', (state, silent) => {
+  // markdown-it 的链接解析状态已提供 linkLevel，类型声明尚未包含该字段。
+  const { linkLevel } = state as typeof state & { linkLevel: number }
+  if (!state.env.citationNumbers || linkLevel || !state.src.startsWith('[@', state.pos)) return false
+  const match = /^\[@([A-Za-z0-9][A-Za-z0-9_.:-]{0,63})\]/.exec(state.src.slice(state.pos, state.posMax))
+  if (!match) return false
+  const number = state.env.citationNumbers[match[1]!]
+  if (!Number.isInteger(number) || number <= 0) return false
+  if (!silent) state.push('thesis_citation', 'sup', 0).content = String(number)
+  state.pos += match[0].length
+  return true
+})
+md.renderer.rules.thesis_citation = (tokens, index) => '<sup>[' + tokens[index]!.content + ']</sup>'
 
 const originalFence = md.renderer.rules.fence!
 md.renderer.rules.fence = (tokens, index, options, env, renderer) => {
@@ -79,7 +94,11 @@ const renderedMarkdown = computed(() => {
   const content = props.mermaidPreview
     ? props.content.replace(/^> 配图自动排版未通过校验，已保留原始结构图；Word 导出仍会绘制该图。[ \t]*\r?$/gm, '')
     : props.content
-  return md.render(content, { lines: content.split(/\r?\n/), mermaidFigureNo: 0 })
+  return md.render(content, {
+    lines: content.split(/\r?\n/),
+    mermaidFigureNo: 0,
+    citationNumbers: props.citationNumbers,
+  })
 })
 </script>
 

@@ -13,6 +13,30 @@ from docx import Document
 
 
 class ExportTest(unittest.TestCase):
+    def test_exports_native_superscript_and_reference_hyperlink(self):
+        markdown = """# 示例论文
+
+## 第一章 绪论
+
+正文引用<sup data-thesis-citation>[1]</sup>，再次引用<sup data-thesis-citation>[1]</sup>。
+
+## 参考文献
+
+[1] DEAN J. MapReduce[J]. 2008. https://doi.org/10.1145/1327452.1327492
+"""
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "thesis.md"
+            target = Path(folder) / "thesis.docx"
+            source.write_text(markdown, encoding="utf-8")
+            export(source, target)
+            document = Document(target)
+            body = next(p for p in document.paragraphs if p.text.startswith("正文引用"))
+            self.assertEqual(body.text, "正文引用[1]，再次引用[1]。")
+            self.assertEqual([r.text for r in body.runs if r.font.superscript], ["[1]", "[1]"])
+            reference = next(p for p in document.paragraphs if p.text.startswith("[1] DEAN"))
+            self.assertLess(reference.paragraph_format.first_line_indent.pt, 0)
+            self.assertEqual(reference.hyperlinks[0].url, "https://doi.org/10.1145/1327452.1327492")
+
     def test_exports_new_svg_figures_alongside_legacy_mermaid(self):
         payload = {
             'version': 1,

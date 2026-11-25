@@ -8,6 +8,8 @@
 `export_thesis.py` 是 AcademicCraft 的接入层，负责 Mermaid 图表、A4 页面、Word 标题样式、目录域和页码。
 上游 Skill 未安装为后台运行时，写作由本项目 Java 服务调用既有模型完成。
 
+参考文献使用 [Citation Style Language 项目](https://citationstyles.org/) 的 GB/T 7714—2025 顺序编码样式及语言文件，由 citeproc-java 排版。样式与语言文件采用 [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) 许可。
+
 ## Diagram Design
 
 `vendor/diagram-design/` 中的规范、模板、Mermaid 语义提取器与校验脚本来自

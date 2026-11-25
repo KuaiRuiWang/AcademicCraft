@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, useId, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { DownloadOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons-vue'
@@ -7,6 +7,7 @@ import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import ThesisRewriteDialog from '@/components/ThesisRewriteDialog.vue'
 import { createChapterDraft, restoreChapterDraft } from '@/utils/thesisDiagram'
 import {
+  readChapterCaret,
   readChapterSelection,
   REWRITE_CONTEXT_LENGTH,
   REWRITE_SELECTION_LIMIT,
@@ -31,7 +32,7 @@ const loading = ref(true)
 const starting = ref(false)
 const downloading = ref(false)
 const saving = ref(false)
-const chapterNo = ref(1)
+const chapterNo = ref<number | 'references'>(1)
 const editing = ref(false)
 const draft = ref('')
 const original = ref<string | null>(null)
@@ -40,6 +41,8 @@ const draftFigures = ref<{ marker: string; block: string }[]>([])
 const editRevision = ref<string>()
 const selection = ref<ChapterSelection | null>(null)
 const selectionError = ref('')
+const referenceId = ref('')
+const referenceSelectId = useId()
 const rewriteTarget = shallowRef<{
   appId: string
   chapterNo: number
@@ -52,6 +55,13 @@ let disposed = false
 let loadId = 0
 const chapter = computed(() =>
   thesis.value?.chapters.find((item) => item.chapterNo === chapterNo.value),
+)
+const showingReferences = computed(() => chapterNo.value === 'references')
+const citationNumbers = computed(() =>
+  Object.fromEntries((thesis.value?.references ?? []).map((reference) => [reference.id, reference.number])),
+)
+const referenceCandidate = computed(() =>
+  thesis.value?.referenceCandidates?.find((reference) => reference.id === referenceId.value),
 )
 const generating = computed(() => thesis.value?.status === 'generating')
 const canDownload = computed(() => thesis.value?.status === 'ready' && !editing.value && !props.appGenerating)
@@ -115,7 +125,29 @@ function edit() {
   editRevision.value = thesis.value?.revision
   selection.value = null
   selectionError.value = ''
+  referenceId.value = ''
   editing.value = true
+}
+
+async function insertCitation() {
+  const editor = document.getElementById('thesis-chapter-content')
+  if (!referenceCandidate.value || !(editor instanceof HTMLTextAreaElement) || saving.value) return
+  const caret = readChapterCaret(draft.value, editor)
+  if (caret === null || selectionIncludesProtectedContent(draft.value, { start: caret, end: caret })) {
+    selectionError.value = '请将光标放在要引用的正文句末'
+    return
+  }
+  const marker = '[@' + referenceCandidate.value.id + ']'
+  const updated = draft.value.slice(0, caret) + marker + draft.value.slice(caret)
+  if (restoreChapterDraft(updated, draftFigures.value).length > 100000) {
+    selectionError.value = '插入引用后正文超过 10 万字'
+    return
+  }
+  draft.value = updated
+  await nextTick()
+  const end = updated.slice(0, caret + marker.length).replace(/\r\n?/g, '\n').length
+  editor.focus()
+  editor.setSelectionRange(end, end)
 }
 
 function captureSelection(event: Event) {
@@ -134,7 +166,7 @@ function openRewrite() {
     return
   }
   if (selectionIncludesProtectedContent(draft.value, range)) {
-    selectionError.value = '请选择正文，避开配图占位行和代码块'
+    selectionError.value = '请完整选中文献引用，并避开配图占位行和代码块'
     return
   }
   rewriteTarget.value = {
@@ -314,10 +346,19 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
             {{ item.userEdited ? '已编辑' : statusLabels[item.status] }}
           </small>
         </button>
+        <button
+          v-if="thesis.literatureStatus"
+          type="button"
+          :aria-current="showingReferences ? 'true' : undefined"
+          :disabled="editing"
+          @click="chapterNo = 'references'"
+        >
+          <span>参考文献</span>
+        </button>
       </nav>
-      <article class="thesis-content" :aria-label="chapter?.title">
+      <article class="thesis-content" :aria-label="showingReferences ? '参考文献' : chapter?.title">
         <div class="chapter-toolbar">
-          <h4>{{ chapter?.title }}</h4>
+          <h4>{{ showingReferences ? '参考文献' : chapter?.title }}</h4>
           <a-button
             v-if="!editing && chapter?.content"
             size="small"
@@ -327,7 +368,24 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
             <template #icon><EditOutlined /></template>编辑本章
           </a-button>
         </div>
-        <form v-if="editing" @submit.prevent="save" class="chapter-editor">
+        <template v-if="showingReferences">
+          <p v-if="thesis.literatureStatus === 'unavailable'" class="chapter-pending">
+            文献库暂时不可用，可以重新生成未编辑章节来重试检索。
+          </p>
+          <ol v-if="thesis.references?.length" class="thesis-references" role="list">
+            <li v-for="reference in thesis.references" :key="reference.id">
+              <span>[{{ reference.number }}] </span>
+              <a :href="reference.url" target="_blank" rel="noopener noreferrer">{{ reference.text }}</a>
+            </li>
+          </ol>
+          <p v-else-if="thesis.literatureStatus === 'empty'" class="chapter-pending">
+            暂未检索到可核验的参考文献。
+          </p>
+          <p v-else-if="thesis.literatureStatus === 'ready'" class="chapter-pending">
+            正文尚未引用文献。编辑章节时可以插入已核验的文献。
+          </p>
+        </template>
+        <form v-else-if="editing" @submit.prevent="save" class="chapter-editor">
           <div class="editor-selection-toolbar">
             <label for="thesis-chapter-content">章节正文（Markdown）</label>
             <a-button
@@ -348,6 +406,22 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
             @keyup="captureSelection"
             @pointerup="captureSelection"
           />
+          <div v-if="thesis.referenceCandidates?.length" class="thesis-reference-picker">
+            <label :for="referenceSelectId">文献</label>
+            <select :id="referenceSelectId" v-model="referenceId" name="reference" :disabled="saving">
+              <option value="" disabled>选择文献</option>
+              <option v-for="reference in thesis.referenceCandidates" :key="reference.id" :value="reference.id">
+                {{ reference.title }}（{{ reference.year }}）
+              </option>
+            </select>
+            <a v-if="referenceCandidate" :href="referenceCandidate.url" target="_blank" rel="noopener noreferrer">查看来源</a>
+            <a-button
+              size="small"
+              html-type="button"
+              :disabled="!referenceCandidate || saving || generating || appGenerating"
+              @click="insertCitation"
+            >插入引用</a-button>
+          </div>
           <p v-if="selectionError" class="selection-error" role="alert">{{ selectionError }}</p>
           <div class="editor-actions">
             <a-button
@@ -364,6 +438,7 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
           v-else-if="chapter?.content"
           :content="chapter.content"
           :mermaid-preview="thesisMermaidPreview(appId, chapter.chapterNo)"
+          :citation-numbers="citationNumbers"
           diagrams
         />
         <p v-else class="chapter-pending">
@@ -520,6 +595,38 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('本章还有未保存�
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.thesis-reference-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.thesis-reference-picker label {
+  flex-basis: 100%;
+}
+
+.thesis-reference-picker select {
+  flex: 1 1 16rem;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.thesis-references {
+  list-style: none;
+  padding-inline-start: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.7rem;
+  line-height: 1.7;
 }
 
 .selection-error {

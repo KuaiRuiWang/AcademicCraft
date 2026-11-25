@@ -11,6 +11,20 @@ export type ThesisChapter = {
   errorMessage?: string
 }
 
+export type ThesisReferenceCandidate = {
+  id: string
+  title: string
+  year: number
+  url: string
+}
+
+export type ThesisReference = {
+  id: string
+  number: number
+  text: string
+  url: string
+}
+
 export type Thesis = {
   appId: string | number
   title: string
@@ -20,6 +34,9 @@ export type Thesis = {
   sourceVersion?: string
   errorMessage?: string
   chapters: ThesisChapter[]
+  literatureStatus?: 'ready' | 'empty' | 'unavailable' | null
+  referenceCandidates?: ThesisReferenceCandidate[]
+  references?: ThesisReference[]
 }
 
 export type ThesisRewriteInput = {

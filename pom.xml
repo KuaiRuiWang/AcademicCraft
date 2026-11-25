@@ -148,6 +148,28 @@
             <artifactId>caffeine</artifactId>
         </dependency>
 
+        <!-- 论文参考文献格式与 Markdown 引用解析 -->
+        <dependency>
+            <groupId>de.undercouch</groupId>
+            <artifactId>citeproc-java</artifactId>
+            <version>3.5.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.citationstyles</groupId>
+            <artifactId>styles</artifactId>
+            <version>26.11</version>
+        </dependency>
+        <dependency>
+            <groupId>org.citationstyles</groupId>
+            <artifactId>locales</artifactId>
+            <version>26.11</version>
+        </dependency>
+        <dependency>
+            <groupId>org.commonmark</groupId>
+            <artifactId>commonmark</artifactId>
+            <version>0.33.0</version>
+        </dependency>
+
         <!-- Selenium 网页截图依赖 -->
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>

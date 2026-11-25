@@ -1,7 +1,9 @@
 package com.wkr.aicode.core.thesis;
 
+import com.wkr.aicode.core.model.ModelStep;
 import com.wkr.aicode.core.model.PlatformModelRouter;
 import com.wkr.aicode.exception.BusinessException;
+import com.wkr.aicode.model.entity.PlatformModel;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.StreamingChatModel;
@@ -18,6 +20,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -101,6 +104,27 @@ class ThesisWriterTest {
         var error = assertThrows(java.util.concurrent.CompletionException.class,
                 () -> writer.writeChapter("任务管理", "摘要", "App.vue", ""));
         assertInstanceOf(IllegalStateException.class, error.getCause());
+    }
+
+    @Test void usesTheConfiguredThesisModelToPlanLiteratureQueries() {
+        StreamingChatModel defaultModel = mock(StreamingChatModel.class);
+        StreamingChatModel literatureModel = mock(StreamingChatModel.class);
+        ThesisWriter writer = writerUsing(defaultModel);
+        PlatformModelRouter router = (PlatformModelRouter) ReflectionTestUtils.getField(writer, "models");
+        PlatformModel configured = new PlatformModel();
+        configured.setBaseUrl("https://models.example.test/v1");
+        when(router.configuredModel(ModelStep.THESIS_CHAPTER)).thenReturn(configured);
+        when(router.stream(configured, defaultModel)).thenReturn(literatureModel);
+        doAnswer(invocation -> {
+            invocation.<StreamingChatResponseHandler>getArgument(1).onCompleteResponse(ChatResponse.builder()
+                    .aiMessage(AiMessage.from("图书检索 数据库\nlibrary information retrieval\nhttps://example.test/"))
+                    .finishReason(FinishReason.STOP).build());
+            return null;
+        }).when(literatureModel).chat(any(ChatRequest.class), any(StreamingChatResponseHandler.class));
+
+        assertEquals(List.of("图书检索 数据库", "library information retrieval"),
+                writer.planLiteratureSearch("图书管理系统", "App.vue"));
+        verifyNoInteractions(defaultModel);
     }
 
     private ThesisWriter writerUsing(StreamingChatModel defaultModel) {

@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /** 文档排版复用固定版本的 lunwen-skill，Java 只负责材料与进程边界。 */
 @Service
@@ -43,9 +45,23 @@ public class ThesisExportService {
     }
 
     String markdown(ThesisVO thesis) {
+        Map<String, Integer> numbers = thesis.getReferences().stream().collect(Collectors.toMap(
+                ThesisVO.Reference::id, ThesisVO.Reference::number));
         StringBuilder result = new StringBuilder("# ").append(thesis.getTitle().replace('\n', ' ')).append("\n\n");
         for (var chapter : thesis.getChapters()) {
-            result.append("## ").append(chapter.getTitle()).append("\n\n").append(chapter.getContent()).append("\n\n");
+            String text = ThesisCitations.replace(chapter.getContent(), id -> {
+                Integer number = numbers.get(id);
+                return number == null ? "[@" + id + "]" : "<sup data-thesis-citation>[" + number + "]</sup>";
+            });
+            result.append("## ").append(chapter.getTitle()).append("\n\n").append(text).append("\n\n");
+        }
+        if (thesis.getLiteratureStatus() != null) {
+            result.append("## 参考文献\n\n");
+            if (thesis.getReferences().isEmpty()) result.append("正文暂无核验文献引用。\n");
+            for (ThesisVO.Reference reference : thesis.getReferences()) {
+                result.append('[').append(reference.number()).append("] ").append(reference.text())
+                        .append(' ').append(reference.url()).append("\n\n");
+            }
         }
         return result.toString();
     }

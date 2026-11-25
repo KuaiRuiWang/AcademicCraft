@@ -4,6 +4,10 @@ import com.mybatisflex.core.mybatis.FlexConfiguration;
 import com.mybatisflex.spring.FlexSqlSessionFactoryBean;
 import com.wkr.aicode.core.thesis.ProjectSnapshotService;
 import com.wkr.aicode.core.thesis.ThesisWriter;
+import com.wkr.aicode.core.thesis.ThesisLiteratureSearch;
+import com.wkr.aicode.core.thesis.ThesisReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import de.undercouch.citeproc.csl.CSLType;
 import com.wkr.aicode.core.thesis.ThesisDiagramService;
 import com.wkr.aicode.exception.BusinessException;
 import com.wkr.aicode.exception.ErrorCode;
@@ -24,6 +28,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
@@ -42,6 +47,7 @@ class ThesisServiceTest {
     ProjectSnapshotService snapshots;
     ThesisWriter writer;
     ThesisDiagramService diagrams;
+    ThesisLiteratureSearch literatureSearch;
     final User owner = User.builder().id(2L).build();
     final App app = App.builder().id(1L).userId(2L).appName("图书管理").initPrompt("管理图书").codeGenType("vue_project").generateThesis(1).build();
 
@@ -71,15 +77,20 @@ class ThesisServiceTest {
         snapshots = mock(ProjectSnapshotService.class);
         writer = mock(ThesisWriter.class);
         diagrams = mock(ThesisDiagramService.class);
+        literatureSearch = mock(ThesisLiteratureSearch.class);
         when(diagrams.renderChapter(anyLong(), anyString(), anyInt(), anyString())).thenAnswer(call -> call.getArgument(3));
         when(snapshots.capture(any())).thenReturn(new ProjectSnapshotService.Snapshot("version-1", "真实源码版本一"));
-        when(writer.writeChapter(anyString(), anyString(), anyString(), anyString())).thenAnswer(call -> call.getArgument(1) + "的正文");
+        when(writer.writeChapter(anyString(), anyString(), anyString(), anyString(), anyList()))
+                .thenAnswer(call -> call.getArgument(1) + "的正文");
+        when(literatureSearch.search(anyList())).thenReturn(new ThesisLiteratureSearch.Result("empty", List.of()));
         ReflectionTestUtils.setField(service, "appMapper", apps);
         ReflectionTestUtils.setField(service, "thesisMapper", session.getMapper(AppThesisMapper.class));
         ReflectionTestUtils.setField(service, "chapterMapper", session.getMapper(AppThesisChapterMapper.class));
         ReflectionTestUtils.setField(service, "snapshotService", snapshots);
         ReflectionTestUtils.setField(service, "thesisWriter", writer);
         ReflectionTestUtils.setField(service, "diagramService", diagrams);
+        ReflectionTestUtils.setField(service, "literatureSearch", literatureSearch);
+        ReflectionTestUtils.setField(service, "objectMapper", new ObjectMapper());
         ReflectionTestUtils.setField(service, "transactionTemplate", new TransactionTemplate(new DataSourceTransactionManager(dataSource)));
     }
 
@@ -120,7 +131,7 @@ class ThesisServiceTest {
 
     @Test void retryKeepsCompletedChaptersAndContinuesAfterModelFailure() throws Exception {
         AtomicBoolean failed = new AtomicBoolean();
-        when(writer.writeChapter(anyString(), anyString(), anyString(), anyString())).thenAnswer(call -> {
+        when(writer.writeChapter(anyString(), anyString(), anyString(), anyString(), anyList())).thenAnswer(call -> {
             if ("第三章 需求分析".equals(call.getArgument(1)) && !failed.getAndSet(true)) throw new IllegalStateException("temporary model failure");
             return call.getArgument(1) + "的正文";
         });
@@ -131,14 +142,14 @@ class ThesisServiceTest {
         assertEquals("failed", first.getChapters().get(4).getStatus());
         service.generate(1L, owner);
         await("ready");
-        verify(writer, times(1)).writeChapter(anyString(), eq("摘要"), anyString(), anyString());
-        verify(writer, times(2)).writeChapter(anyString(), eq("第三章 需求分析"), anyString(), anyString());
+        verify(writer, times(1)).writeChapter(anyString(), eq("摘要"), anyString(), anyString(), anyList());
+        verify(writer, times(2)).writeChapter(anyString(), eq("第三章 需求分析"), anyString(), anyString(), anyList());
     }
 
     @Test void aLateOldModelResponseCannotOverwriteTheNewSourceVersion() throws Exception {
         CountDownLatch entered = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
-        when(writer.writeChapter(anyString(), anyString(), eq("真实源码版本一"), anyString())).thenAnswer(call -> {
+        when(writer.writeChapter(anyString(), anyString(), eq("真实源码版本一"), anyString(), anyList())).thenAnswer(call -> {
             entered.countDown();
             assertTrue(release.await(5, TimeUnit.SECONDS));
             return "旧模型响应";
@@ -189,22 +200,22 @@ class ThesisServiceTest {
         assertEquals("ready", result.getStatus());
         assertEquals(thesis.getRevision(), result.getRevision());
         assertEquals(thesis.getChapters(), result.getChapters());
-        verify(writer, times(10)).writeChapter(anyString(), anyString(), anyString(), anyString());
+        verify(writer, times(10)).writeChapter(anyString(), anyString(), anyString(), anyString(), anyList());
     }
 
     @Test void explicitRegenerationRewritesAiChaptersWhileAutomaticDuplicateDoesNot() throws Exception {
         service.generate(1L, owner);
         await("ready");
         service.generationSucceeded(1L);
-        verify(writer, times(1)).writeChapter(anyString(), eq("摘要"), anyString(), anyString());
+        verify(writer, times(1)).writeChapter(anyString(), eq("摘要"), anyString(), anyString(), anyList());
         service.generate(1L, owner);
         await("ready");
-        verify(writer, times(2)).writeChapter(anyString(), eq("摘要"), anyString(), anyString());
+        verify(writer, times(2)).writeChapter(anyString(), eq("摘要"), anyString(), anyString(), anyList());
     }
 
     @Test void resumesPersistedInterruptedJobsWithoutRewritingFinishedChapters() throws Exception {
         AtomicBoolean interrupted = new AtomicBoolean();
-        when(writer.writeChapter(anyString(), anyString(), anyString(), anyString())).thenAnswer(call -> {
+        when(writer.writeChapter(anyString(), anyString(), anyString(), anyString(), anyList())).thenAnswer(call -> {
             if ("第三章 需求分析".equals(call.getArgument(1)) && !interrupted.getAndSet(true)) throw new IllegalStateException("interrupted");
             return call.getArgument(1) + "的正文";
         });
@@ -216,7 +227,7 @@ class ThesisServiceTest {
         mapper.update(persisted);
         service.resumeInterruptedJobs();
         await("ready");
-        verify(writer, times(1)).writeChapter(anyString(), eq("摘要"), anyString(), anyString());
+        verify(writer, times(1)).writeChapter(anyString(), eq("摘要"), anyString(), anyString(), anyList());
         assertEquals("version-1", service.getThesis(1L, owner).getSourceVersion());
     }
 
@@ -229,7 +240,7 @@ class ThesisServiceTest {
         service.sourceChanging(app);
         service.generationSucceeded(1L);
         assertEquals("stale", service.getThesis(1L, owner).getStatus());
-        verify(writer, times(1)).writeChapter(anyString(), eq("摘要"), anyString(), anyString());
+        verify(writer, times(1)).writeChapter(anyString(), eq("摘要"), anyString(), anyString(), anyList());
     }
 
     @Test void diagramFailureKeepsFinishedChaptersAndRetryContinuesAtTheFailedChapter() throws Exception {
@@ -246,8 +257,8 @@ class ThesisServiceTest {
         assertEquals("failed", failedThesis.getChapters().get(5).getStatus());
         service.generate(1L, owner);
         await("ready");
-        verify(writer, times(1)).writeChapter(anyString(), eq("摘要"), anyString(), anyString());
-        verify(writer, times(2)).writeChapter(anyString(), eq("第四章 系统设计"), anyString(), anyString());
+        verify(writer, times(1)).writeChapter(anyString(), eq("摘要"), anyString(), anyString(), anyList());
+        verify(writer, times(2)).writeChapter(anyString(), eq("第四章 系统设计"), anyString(), anyString(), anyList());
     }
 
     @Test void invalidEditedFigureDoesNotReplaceTheSavedChapter() throws Exception {
@@ -261,6 +272,45 @@ class ThesisServiceTest {
         doThrow(new BusinessException(ErrorCode.PARAMS_ERROR, "invalid SVG")).when(diagrams).validateChapter(1L, input.getContent());
         assertThrows(BusinessException.class, () -> service.saveChapter(1L, 1, input, owner));
         assertEquals(input.getOriginalContent(), service.getThesis(1L, owner).getChapters().get(0).getContent());
+    }
+
+    @Test void verifiedReferencesAreReusedAndNumberedAfterEditing() throws Exception {
+        ThesisReference first = new ThesisReference("ref-a", "MapReduce",
+                List.of(new ThesisReference.Author("Jeffrey", "Dean", "")), 2008, CSLType.ARTICLE_JOURNAL,
+                "Communications of the ACM", "", "51", "1", "107-113", "en",
+                "10.1145/1327452.1327492", "https://doi.org/10.1145/1327452.1327492", "");
+        ThesisReference second = new ThesisReference("ref-b", "图书管理研究",
+                List.of(new ThesisReference.Author("三", "张", "")), 2024, CSLType.ARTICLE_JOURNAL,
+                "图书馆研究", "", "12", "2", "50-55", "zh", "", "https://openalex.org/W123", "");
+        List<String> queries = List.of("图书管理系统", "library information systems");
+        when(writer.planLiteratureSearch(anyString(), anyString())).thenReturn(queries);
+        when(literatureSearch.search(queries)).thenReturn(new ThesisLiteratureSearch.Result("ready", List.of(first, second)));
+        when(writer.writeChapter(anyString(), eq("第一章 绪论"), anyString(), anyString(), eq(List.of(first, second))))
+                .thenReturn("研究背景[@ref-a]。重复引用[@ref-a]。未知标记[@invented]。");
+
+        service.generate(1L, owner);
+        await("ready");
+        var generated = service.getThesis(1L, owner);
+        assertEquals(2, generated.getReferenceCandidates().size());
+        assertEquals(1, generated.getReferences().size());
+        assertEquals(first.url(), generated.getReferences().getFirst().url());
+        assertFalse(generated.getChapters().get(2).getContent().contains("@invented"));
+
+        var input = new ThesisChapterUpdateRequest();
+        input.setRevision(generated.getRevision());
+        input.setOriginalContent(generated.getChapters().getFirst().getContent());
+        input.setContent("错误引用[@invented]");
+        assertThrows(BusinessException.class, () -> service.saveChapter(1L, 1, input, owner));
+        input.setContent("用户补充的引用[@ref-b]。");
+        service.saveChapter(1L, 1, input, owner);
+        service.generate(1L, owner);
+        await("ready");
+        verify(literatureSearch, times(1)).search(queries);
+        var references = service.getThesis(1L, owner).getReferences();
+        assertEquals(second.id(), references.getFirst().id());
+        assertEquals(1, references.getFirst().number());
+        assertEquals(first.id(), references.get(1).id());
+        assertEquals(2, references.get(1).number());
     }
 
     private void await(String status) throws Exception {

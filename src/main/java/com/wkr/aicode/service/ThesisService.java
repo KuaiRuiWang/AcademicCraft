@@ -2,8 +2,13 @@ package com.wkr.aicode.service;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.wkr.aicode.core.thesis.ProjectSnapshotService;
+import com.wkr.aicode.core.thesis.ThesisCitations;
+import com.wkr.aicode.core.thesis.ThesisLiteratureSearch;
+import com.wkr.aicode.core.thesis.ThesisReference;
 import com.wkr.aicode.core.thesis.ThesisWriter;
 import com.wkr.aicode.core.thesis.ThesisDiagramService;
 import com.wkr.aicode.exception.BusinessException;
@@ -28,8 +33,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -47,6 +56,8 @@ public class ThesisService {
     @Resource private ProjectSnapshotService snapshotService;
     @Resource private ThesisWriter thesisWriter;
     @Resource private ThesisDiagramService diagramService;
+    @Resource private ThesisLiteratureSearch literatureSearch;
+    @Resource private ObjectMapper objectMapper;
     @Resource private TransactionTemplate transactionTemplate;
 
     private final ExecutorService executor = Executors.newFixedThreadPool(2, Thread.ofVirtual().name("thesis-", 0).factory());
@@ -67,7 +78,16 @@ public class ThesisService {
             result.setChapters(List.of());
         } else {
             BeanUtil.copyProperties(thesis, result);
-            result.setChapters(chapters(appId));
+            List<AppThesisChapter> chapters = chapters(appId);
+            result.setChapters(chapters);
+            ThesisCitations.Snapshot snapshot = readLiterature(thesis);
+            if (snapshot != null) {
+                result.setLiteratureStatus(snapshot.status());
+                result.setReferenceCandidates(snapshot.references().stream().map(reference ->
+                        new ThesisVO.ReferenceCandidate(reference.id(), reference.title(), reference.year(), reference.url())).toList());
+                result.setReferences(ThesisCitations.bibliography(
+                        chapters.stream().map(AppThesisChapter::getContent).toList(), snapshot.references()));
+            }
         }
         return result;
     }
@@ -130,7 +150,7 @@ public class ThesisService {
             thesis.setSourceVersion(snapshot.version());
             thesis.setSourceContext(snapshot.context());
             thesis.setStatus("generating");
-            thesis.setStage("项目资料已冻结，准备分章写作");
+            thesis.setStage("项目资料已冻结，准备检索文献");
             thesis.setErrorMessage("");
             thesisMapper.update(thesis);
             if (chapters(app.getId()).isEmpty()) {
@@ -158,27 +178,38 @@ public class ThesisService {
 
     void writeChapters(Long appId, String revision) {
         try {
+            AppThesis thesis = thesisMapper.selectOneById(appId);
+            if (!isCurrent(thesis, revision)) return;
+            List<AppThesisChapter> chapters = chapters(appId);
+            // 1. 写作前准备本次源码版本的候选文献，版本失效时停止使用检索结果。
+            ThesisCitations.Snapshot literature = prepareLiterature(thesis, chapters, revision);
+            if (literature == null) return;
             StringBuilder previous = new StringBuilder();
-            for (AppThesisChapter chapter : chapters(appId)) {
-                AppThesis thesis = thesisMapper.selectOneById(appId);
-                if (!isCurrent(thesis, revision)) return;
+            for (AppThesisChapter chapter : chapters) {
                 // 2. 重试保留已完成章节；更新源码时只重写未被用户编辑的章节。
                 if (Integer.valueOf(1).equals(chapter.getUserEdited()) || ("ready".equals(chapter.getStatus())
                         && Objects.equals(chapter.getSourceVersion(), thesis.getSourceVersion()))) {
                     appendSummary(previous, chapter);
                     continue;
                 }
+                String chapterTitle = "参考文献与待补材料".equals(chapter.getTitle())
+                        ? ThesisWriter.MATERIALS_CHAPTER : chapter.getTitle();
                 if (!withCurrent(appId, revision, current -> {
-                    current.setStage("正在生成：" + chapter.getTitle());
+                    current.setStage("正在生成：" + chapterTitle);
                     chapter.setStatus("generating");
                     chapter.setErrorMessage("");
                     chapterMapper.update(chapter);
                 })) return;
                 try {
-                    String content = thesisWriter.writeChapter(thesis.getTitle(), chapter.getTitle(),
-                            thesis.getSourceContext(), previous.toString());
-                    String illustrated = diagramService.renderChapter(appId, revision, chapter.getChapterNo(), content);
+                    List<ThesisReference> references = chapterTitle.startsWith("第一章 ") || chapterTitle.startsWith("第二章 ")
+                            ? literature.references() : List.of();
+                    String content = thesisWriter.writeChapter(thesis.getTitle(), chapterTitle,
+                            thesis.getSourceContext(), previous.toString(), references);
+                    Set<String> allowed = referenceIds(references);
+                    String verified = ThesisCitations.replace(content, id -> allowed.contains(id) ? "[@" + id + "]" : "");
+                    String illustrated = diagramService.renderChapter(appId, revision, chapter.getChapterNo(), verified);
                     if (!withCurrent(appId, revision, current -> {
+                        chapter.setTitle(chapterTitle);
                         chapter.setContent(illustrated);
                         chapter.setSourceVersion(current.getSourceVersion());
                         chapter.setStatus("ready");
@@ -194,10 +225,10 @@ public class ThesisService {
                     throw error;
                 }
             }
-            withCurrent(appId, revision, thesis -> {
-                thesis.setStatus("ready");
-                thesis.setStage("初稿已生成，可编辑章节或导出 Word");
-                thesis.setErrorMessage("");
+            withCurrent(appId, revision, current -> {
+                current.setStatus("ready");
+                current.setStage("初稿已生成，可编辑章节或导出 Word");
+                current.setErrorMessage("");
             });
         } catch (Exception error) {
             log.error("论文生成失败，appId={}，revision={}", appId, revision, error);
@@ -207,6 +238,57 @@ public class ThesisService {
                 thesis.setErrorMessage("论文生成中断，请重试未完成章节");
             });
         }
+    }
+
+    private ThesisCitations.Snapshot prepareLiterature(AppThesis thesis, List<AppThesisChapter> chapters, String revision)
+            throws JsonProcessingException {
+        ThesisCitations.Snapshot previous = readLiterature(thesis);
+        if (previous != null && "ready".equals(previous.status())
+                && Objects.equals(previous.sourceVersion(), thesis.getSourceVersion())) {
+            return previous;
+        }
+        Long appId = thesis.getAppId();
+        if (!withCurrent(appId, revision, current -> current.setStage("正在检索并核验文献"))) return null;
+
+        List<String> queries;
+        try {
+            queries = thesisWriter.planLiteratureSearch(thesis.getTitle(), thesis.getSourceContext());
+        } catch (RuntimeException error) {
+            log.info("论文检索词生成未成功，将使用论文题目检索，appId={}", appId);
+            queries = List.of();
+        }
+        if (queries.isEmpty()) queries = List.of(thesis.getTitle());
+        ThesisLiteratureSearch.Result search = literatureSearch.search(queries);
+        Map<String, ThesisReference> references = new LinkedHashMap<>();
+        for (ThesisReference reference : search.references()) references.put(reference.id(), reference);
+
+        // 人工编辑及已完成章节可能仍引用上次检索的来源。
+        if (previous != null) {
+            Set<String> cited = new HashSet<>();
+            for (AppThesisChapter chapter : chapters) cited.addAll(ThesisCitations.ids(chapter.getContent()));
+            for (ThesisReference reference : previous.references()) {
+                if (cited.contains(reference.id())) references.putIfAbsent(reference.id(), reference);
+            }
+        }
+        ThesisCitations.Snapshot snapshot = new ThesisCitations.Snapshot(
+                thesis.getSourceVersion(), search.status(), List.copyOf(references.values()));
+        String serialized = objectMapper.writeValueAsString(snapshot);
+        return withCurrent(appId, revision, current -> current.setReferenceSnapshot(serialized)) ? snapshot : null;
+    }
+
+    private ThesisCitations.Snapshot readLiterature(AppThesis thesis) {
+        if (StrUtil.isBlank(thesis.getReferenceSnapshot())) return null;
+        try {
+            return objectMapper.readValue(thesis.getReferenceSnapshot(), ThesisCitations.Snapshot.class);
+        } catch (JsonProcessingException error) {
+            throw new IllegalStateException("读取论文文献快照失败", error);
+        }
+    }
+
+    private Set<String> referenceIds(List<ThesisReference> references) {
+        Set<String> ids = new HashSet<>();
+        for (ThesisReference reference : references) ids.add(reference.id());
+        return ids;
     }
 
     private void appendSummary(StringBuilder previous, AppThesisChapter chapter) {
@@ -242,6 +324,12 @@ public class ThesisService {
             ThrowUtils.throwIf(chapter == null, ErrorCode.NOT_FOUND_ERROR, "章节不存在");
             ThrowUtils.throwIf(!Objects.equals(chapter.getContent(), request.getOriginalContent()),
                     ErrorCode.OPERATION_ERROR, "本章已在其他窗口修改，请刷新后核对，当前输入尚未保存");
+            List<String> citations = ThesisCitations.ids(request.getContent());
+            if (!citations.isEmpty()) {
+                ThesisCitations.Snapshot literature = readLiterature(thesis);
+                ThrowUtils.throwIf(literature == null || !referenceIds(literature.references()).containsAll(citations),
+                        ErrorCode.PARAMS_ERROR, "正文含有未核验的文献，请从参考文献中重新选择");
+            }
             chapter.setContent(request.getContent());
             chapter.setSourceVersion(thesis.getSourceVersion());
             chapter.setUserEdited(1);
@@ -280,6 +368,8 @@ public class ThesisService {
                 request.getSelectedText(), request.getInstruction().strip(), beforeText, afterText);
         ThrowUtils.throwIf(StrUtil.isBlank(suggestion) || suggestion.length() > 8000 || NON_PROSE_BLOCK.matcher(suggestion).find(),
                 ErrorCode.OPERATION_ERROR, "AI 返回的修改建议无法使用，请调整要求后重试");
+        ThrowUtils.throwIf(!ThesisCitations.ids(request.getSelectedText()).equals(ThesisCitations.ids(suggestion)),
+                ErrorCode.OPERATION_ERROR, "AI 修改建议改变了文献引用，请调整选区后重试");
         return suggestion;
     }
 

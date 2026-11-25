@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 import json
 from pathlib import Path
 import re
@@ -9,6 +10,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent / "vendor" / "lunwen"))
 from generate_thesis_docx import build_doc, default_style_profile
+from docx.opc.constants import RELATIONSHIP_TYPE
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, RGBColor
@@ -16,6 +18,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from diagram_design import render_mermaid, render_svg, split_mermaid_caption, validate_figure
 
 LEGACY_FALLBACK_NOTE = "> 配图自动排版未通过校验，已保留原始结构图；Word 导出仍会绘制该图。"
+CITATION = re.compile(r"<sup data-thesis-citation>(\[[1-9]\d*\])</sup>")
+REFERENCE_LINK = re.compile(r" (https://(?:doi\.org|openalex\.org)/\S+)$")
 
 
 def render_diagrams(markdown: str, output: Path) -> tuple[str, dict[str, Path]]:
@@ -53,6 +57,42 @@ def field(paragraph, instruction: str) -> None:
     paragraph._p.append(code)
 
 
+def apply_citation_superscripts(paragraph) -> None:
+    for run in paragraph.runs:
+        parts = CITATION.split(run.text)
+        if len(parts) == 1:
+            continue
+        run.text = parts[0]
+        previous = run._r
+        for index, text in enumerate(parts[1:], start=1):
+            if not text:
+                continue
+            replacement = paragraph.add_run(text)
+            if run._r.rPr is not None:
+                replacement._r.insert(0, deepcopy(run._r.rPr))
+            if index % 2:
+                replacement.font.superscript = True
+            previous.addnext(replacement._r)
+            previous = replacement._r
+
+
+def link_reference(paragraph) -> None:
+    if not re.match(r"^\[\d+\]", paragraph.text):
+        return
+    run = paragraph.runs[-1]
+    match = REFERENCE_LINK.search(run.text)
+    if match is None:
+        return
+    run.text = run.text[:match.start()] + " "
+    link = OxmlElement("w:hyperlink")
+    link.set(qn("r:id"), paragraph.part.relate_to(match.group(1), RELATIONSHIP_TYPE.HYPERLINK, is_external=True))
+    label = paragraph.add_run("来源")
+    label.font.color.rgb = RGBColor(0, 79, 144)
+    label.font.underline = True
+    link.append(label._r)
+    paragraph._p.append(link)
+
+
 def export(source: Path, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     markdown, images = render_diagrams(source.read_text(encoding="utf-8"), target.parent)
@@ -74,13 +114,21 @@ def export(source: Path, target: Path) -> None:
         for row in table.rows:
             for cell in row.cells:
                 cell.width = column_width
+                for paragraph in cell.paragraphs:
+                    apply_citation_superscripts(paragraph)
     headings = {line[3:].strip(): "Heading 1" for line in markdown.splitlines() if line.startswith("## ")}
     headings.update({line[4:].strip(): "Heading 2" for line in markdown.splitlines() if line.startswith("### ")})
     headings.update({line[5:].strip(): "Heading 3" for line in markdown.splitlines() if line.startswith("#### ")})
+    in_references = False
     for paragraph in document.paragraphs:
         if paragraph.text in headings:
             paragraph.style = headings[paragraph.text]
             paragraph.paragraph_format.keep_with_next = True
+            if paragraph.style.name == "Heading 1":
+                in_references = paragraph.text == "参考文献"
+        apply_citation_superscripts(paragraph)
+        if in_references:
+            link_reference(paragraph)
     if document.paragraphs:
         document.paragraphs[0].style = "Title"
     for style_name in ["Title", "Heading 1", "Heading 2", "Heading 3"]:
