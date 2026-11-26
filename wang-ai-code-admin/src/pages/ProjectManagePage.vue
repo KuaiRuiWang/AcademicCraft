@@ -66,34 +66,30 @@ async function removeProject(id?: number) {
         ><PlusOutlined aria-hidden="true" /> 发布模板</a-button
       >
     </PageHeading>
-    <a-form
-      class="admin-filters"
-      layout="inline"
-      :model="filters"
-      name="admin-templates"
-      @finish="search"
-    >
-      <a-form-item label="模板名称" name="name">
-        <a-input v-model:value="filters.name" placeholder="搜索模板" allow-clear />
-      </a-form-item>
-      <a-form-item label="上架状态" name="status">
-        <a-select
-          v-model:value="filters.status"
-          placeholder="全部"
-          :options="statuses"
-          allow-clear
-        />
-      </a-form-item>
-      <a-form-item label="作者 ID" name="authorId"
-        ><a-input v-model:value="filters.authorId" allow-clear
-      /></a-form-item>
-      <a-form-item
-        ><a-button type="primary" html-type="submit"
-          ><SearchOutlined aria-hidden="true" /> 搜索</a-button
-        ></a-form-item
-      >
-    </a-form>
     <AdminRecords label="模板记录" :error="error" @retry="load">
+      <template #filters>
+        <a-form
+          class="admin-filters"
+          layout="vertical"
+          size="large"
+          :model="filters"
+          name="admin-templates"
+          @finish="search"
+        >
+          <a-form-item label="模板名称" name="name">
+            <a-input v-model:value="filters.name" placeholder="搜索模板" allow-clear />
+          </a-form-item>
+          <a-form-item label="上架状态" name="status">
+            <a-select v-model:value="filters.status" placeholder="全部" :options="statuses" allow-clear />
+          </a-form-item>
+          <a-form-item label="作者 ID" name="authorId">
+            <a-input v-model:value="filters.authorId" allow-clear />
+          </a-form-item>
+          <a-button type="primary" size="large" html-type="submit" :loading="loading">
+            <SearchOutlined aria-hidden="true" /> 搜索
+          </a-button>
+        </a-form>
+      </template>
       <a-table
         :columns="columns"
         :data-source="rows"
@@ -159,9 +155,9 @@ async function removeProject(id?: number) {
           </div>
         </template>
       </a-table>
+      <template v-if="pagination.total" #pagination>
+        <a-pagination v-bind="pagination" @change="changePage" />
+      </template>
     </AdminRecords>
-    <div v-if="pagination.total && !error" class="pagination-wrapper">
-      <a-pagination v-bind="pagination" @change="changePage" />
-    </div>
   </div>
 </template>

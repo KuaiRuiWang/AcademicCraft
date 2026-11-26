@@ -135,16 +135,17 @@ onMounted(load)
         ><PlusOutlined aria-hidden="true" /> 新增分类</a-button
       >
     </PageHeading>
-    <div class="admin-filters">
-      <a-input
-        v-model:value="search"
-        aria-label="搜索分类"
-        placeholder="搜索分类"
-        allow-clear
-        class="category-search"
-      />
-    </div>
     <AdminRecords label="分类记录" :error="loadError" @retry="load">
+      <template #filters>
+        <a-input
+          v-model:value="search"
+          aria-label="搜索分类"
+          placeholder="搜索分类"
+          size="large"
+          allow-clear
+          class="category-search"
+        />
+      </template>
       <a-table
         :columns="columns"
         :data-source="visibleRows"
