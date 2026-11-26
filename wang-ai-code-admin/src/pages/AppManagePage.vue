@@ -51,34 +51,35 @@ async function removeApp(id?: number) {
 <template>
   <div>
     <PageHeading title="应用管理" description="编辑应用资料，选择在首页展示的精选案例。" />
-    <a-form
-      class="admin-filters"
-      layout="inline"
-      :model="filters"
-      name="admin-apps"
-      @finish="search"
-    >
-      <a-form-item label="应用名称" name="appName">
-        <a-input v-model:value="filters.appName" placeholder="搜索应用" allow-clear />
-      </a-form-item>
-      <a-form-item label="创建者" name="userId">
-        <a-input v-model:value="filters.userId" placeholder="用户 ID" allow-clear />
-      </a-form-item>
-      <a-form-item label="构建方式" name="codeGenType">
-        <a-select
-          v-model:value="filters.codeGenType"
-          placeholder="全部"
-          allow-clear
-          :options="CODE_GEN_TYPE_OPTIONS"
-        />
-      </a-form-item>
-      <a-form-item
-        ><a-button type="primary" html-type="submit"
-          ><SearchOutlined aria-hidden="true" /> 搜索</a-button
-        ></a-form-item
-      >
-    </a-form>
     <AdminRecords label="应用记录" :error="error" @retry="load">
+      <template #filters>
+        <a-form
+          class="admin-filters"
+          layout="vertical"
+          size="large"
+          :model="filters"
+          name="admin-apps"
+          @finish="search"
+        >
+          <a-form-item label="应用名称" name="appName">
+            <a-input v-model:value="filters.appName" placeholder="搜索应用" allow-clear />
+          </a-form-item>
+          <a-form-item label="创建者" name="userId">
+            <a-input v-model:value="filters.userId" placeholder="用户 ID" allow-clear />
+          </a-form-item>
+          <a-form-item label="构建方式" name="codeGenType">
+            <a-select
+              v-model:value="filters.codeGenType"
+              placeholder="全部"
+              allow-clear
+              :options="CODE_GEN_TYPE_OPTIONS"
+            />
+          </a-form-item>
+          <a-button type="primary" size="large" html-type="submit" :loading="loading">
+            <SearchOutlined aria-hidden="true" /> 搜索
+          </a-button>
+        </a-form>
+      </template>
       <a-table
         :columns="columns"
         :data-source="rows"
@@ -141,9 +142,9 @@ async function removeApp(id?: number) {
           </div>
         </template>
       </a-table>
+      <template v-if="pagination.total" #pagination>
+        <a-pagination v-bind="pagination" @change="changePage" />
+      </template>
     </AdminRecords>
-    <div v-if="pagination.total && !error" class="pagination-wrapper">
-      <a-pagination v-bind="pagination" @change="changePage" />
-    </div>
   </div>
 </template>

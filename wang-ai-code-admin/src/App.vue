@@ -14,7 +14,23 @@ const groups = computed(() => {
     name, items: menu.filter((item) => item.group === name),
   }))
 })
-const theme = { token: { colorPrimary: '#2443ae', borderRadius: 6, fontFamily: 'inherit' } }
+const theme = {
+  token: {
+    colorPrimary: '#2443ae',
+    colorError: '#a0302e',
+    colorText: '#202019',
+    colorTextSecondary: '#625f53',
+    colorTextPlaceholder: '#6b6658',
+    colorBgContainer: '#fdfbf6',
+    colorBgElevated: '#fdfbf6',
+    colorFillAlter: '#f8f5ed',
+    colorBorder: '#cdc7b9',
+    colorBorderSecondary: '#e4dfd3',
+    borderRadius: 4,
+    fontFamily: 'var(--font-body)',
+  },
+  components: { Button: { primaryShadow: 'none', defaultShadow: 'none' } },
+}
 async function signOut() {
   try { await logout() } finally { await router.replace('/login') }
 }
@@ -39,7 +55,10 @@ async function signOut() {
       <div class="console-body">
         <header class="console-header">
           <div class="admin-profile">
-            <div><strong>{{ identity.displayName }}</strong><small>{{ identity.role }}</small></div>
+            <div>
+              <strong>{{ identity.displayName }}</strong>
+              <small v-if="identity.role !== identity.displayName">{{ identity.role }}</small>
+            </div>
             <a-button @click="signOut"><LogoutOutlined aria-hidden="true" />退出</a-button>
           </div>
         </header>
