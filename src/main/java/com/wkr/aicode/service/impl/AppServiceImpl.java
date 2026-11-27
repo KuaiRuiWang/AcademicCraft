@@ -35,6 +35,7 @@ import com.wkr.aicode.service.ChatHistoryService;
 import com.wkr.aicode.service.ContainerDeployService;
 import com.wkr.aicode.service.ScreenshotService;
 import com.wkr.aicode.service.ThesisService;
+import com.wkr.aicode.service.GraduationDocumentService;
 import com.wkr.aicode.service.UserService;
 import com.wkr.aicode.utils.NodeCodeSecurityScanner;
 import jakarta.annotation.Resource;
@@ -68,6 +69,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
     @Resource
     private ThesisService thesisService;
+    @Resource
+    private GraduationDocumentService graduationDocuments;
 
     @Resource
     private AiCodeGenTypeRoutingServiceFactory aiCodeGenTypeRoutingServiceFactory;
@@ -393,7 +396,10 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         }
         // 删除应用
         boolean removed = super.removeById(id);
-        if (removed) thesisService.deleteForApp(appId);
+        if (removed) {
+            thesisService.deleteForApp(appId);
+            graduationDocuments.deleteForApp(appId);
+        }
         return removed;
     }
 

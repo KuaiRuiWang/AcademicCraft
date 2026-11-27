@@ -13,6 +13,8 @@ import { CodeGenTypeEnum } from '@/utils/codeGenTypes'
 
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import ThesisPanel from '@/components/ThesisPanel.vue'
+import GraduationDocumentPanel from '@/components/GraduationDocumentPanel.vue'
+import { documentKinds } from '@/api/graduationDocuments'
 import AgentRunView from '@/components/agent/AgentRunView.vue'
 import { createAgentRun, restoreAgentRun, type AgentRun } from '@/utils/agentRun'
 import { newRunId, useAgentRun } from '@/composables/useAgentRun'
@@ -67,7 +69,10 @@ const historyLoaded = ref(false)
 
 // 预览相关
 const previewUrl = ref('')
-const previewTab = ref<'app' | 'thesis'>(route.query.tab === 'thesis' ? 'thesis' : 'app')
+function outputTab(value: unknown) {
+  return value === 'thesis' || value === 'assignment' || value === 'proposal' ? value : 'app'
+}
+const previewTab = ref(outputTab(route.query.tab))
 const previewReady = ref(false)
 
 type WorkspaceView = 'chat' | 'split' | 'output'
@@ -78,7 +83,7 @@ const desktopViews = [
 ] as const
 const desktopView = ref<WorkspaceView>('split')
 const compactView = ref<'chat' | 'output'>(
-  route.query.tab === 'thesis' || route.query.view === '1' ? 'output' : 'chat',
+  previewTab.value !== 'app' || route.query.view === '1' ? 'output' : 'chat',
 )
 const compactMedia = window.matchMedia('(width < 960px)')
 const compactLayout = ref(compactMedia.matches)
@@ -103,15 +108,15 @@ function setWorkspaceView(view: WorkspaceView) {
 }
 
 function selectOutputTab(tab: string | number) {
-  previewTab.value = tab === 'thesis' ? 'thesis' : 'app'
+  previewTab.value = outputTab(tab)
   compactView.value = 'output'
 }
 
 watch(
   () => route.query.tab,
   (tab) => {
-    previewTab.value = tab === 'thesis' ? 'thesis' : 'app'
-    if (tab === 'thesis') {
+    previewTab.value = outputTab(tab)
+    if (previewTab.value !== 'app') {
       compactView.value = 'output'
       if (desktopView.value === 'chat') desktopView.value = 'output'
     }
@@ -715,6 +720,12 @@ const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeM
           >
             论文初稿
           </button>
+          <template v-if="isOwner">
+            <button v-for="item in documentKinds" :key="item.key" type="button" aria-controls="project-output"
+              :aria-pressed="outputVisible && activeOutputTab === item.key" @click="selectOutputTab(item.key)">
+              {{ item.label }}
+            </button>
+          </template>
         </div>
         <div v-else class="view-options" role="group" aria-label="工作区视图">
           <button
@@ -919,6 +930,14 @@ const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeM
                 <ThesisPanel :app-id="appId" :app-generating="isGenerating" />
               </div>
             </a-tab-pane>
+            <template v-if="isOwner">
+              <a-tab-pane v-for="item in documentKinds" :key="item.key" :tab="item.label">
+                <div class="thesis-scroll" role="region" :aria-label="item.label" tabindex="0">
+                  <GraduationDocumentPanel v-if="activeOutputTab === item.key && appId" :key="appId"
+                    :app-id="appId" :kind="item.key" :label="item.label" />
+                </div>
+              </a-tab-pane>
+            </template>
           </a-tabs>
         </section>
       </div>
@@ -1338,6 +1357,7 @@ const handlePreviewMessage = (event: MessageEvent) => visualEditor.handleIframeM
 .is-compact .view-options {
   grid-column: 1 / -1;
   justify-self: stretch;
+  grid-auto-columns: auto;
 }
 
 .is-compact .view-options button {

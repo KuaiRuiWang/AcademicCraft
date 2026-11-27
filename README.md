@@ -118,6 +118,7 @@ agent/                 功能接入文档与设计记录
 | [upgrade_ag_ui.sql](sql/upgrade_ag_ui.sql) | 增加 AG-UI 展示快照字段 |
 | [upgrade_app_workshop.sql](sql/upgrade_app_workshop.sql) | 增加模板来源及许可字段。待核对的上架项目转为草稿，可由管理员核对后重新上架。 |
 | [upgrade_thesis.sql](sql/upgrade_thesis.sql) | 增加论文生成选项、任务和章节表 |
+| [upgrade_graduation_documents.sql](sql/upgrade_graduation_documents.sql) | 保存项目的任务书、开题报告及各自的学校模板 |
 | [upgrade_platform_admin.sql](sql/upgrade_platform_admin.sql) | 增加管理员、角色、模型和步骤绑定，支持管理员发布平台模板 |
 
 ## 参与贡献

@@ -25,7 +25,7 @@ public class ThesisTools {
     @Value("${thesis.mermaid-cli:tools/thesis/node_modules/@mermaid-js/mermaid-cli/src/cli.js}") private String mermaidCli;
     private Path prepared;
 
-    public static final List<String> RESOURCES = List.of("export_thesis.py", "diagram_design.py", "render_svg.mjs",
+    public static final List<String> RESOURCES = List.of("export_thesis.py", "graduation_form.py", "diagram_design.py", "render_svg.mjs",
             "vendor/lunwen/generate_thesis_docx.py", "vendor/lunwen/markdown_utils.py", "vendor/lunwen/LICENSE",
             "vendor/diagram-design/LICENSE", "vendor/diagram-design/scripts/mermaid_extract.py",
             "vendor/diagram-design/scripts/self_check.py", "vendor/diagram-design/scripts/verify_geometry.py");

@@ -42,6 +42,13 @@ COLUMNS = {
 }
 
 TABLES = {
+    'app_graduation_document': """CREATE TABLE IF NOT EXISTS app_graduation_document (
+        appId BIGINT NOT NULL, kind VARCHAR(16) NOT NULL, templateId VARCHAR(36),
+        templateName VARCHAR(255), templateFields TEXT, templateFile MEDIUMBLOB,
+        status VARCHAR(16) NOT NULL DEFAULT 'waiting', revision VARCHAR(36), errorMessage VARCHAR(255),
+        resultTemplateName VARCHAR(255), sections MEDIUMTEXT, documentFile MEDIUMBLOB,
+        PRIMARY KEY (appId, kind)
+    ) COLLATE = utf8mb4_unicode_ci""",
     'app_thesis': """CREATE TABLE IF NOT EXISTS app_thesis (
         appId BIGINT NOT NULL PRIMARY KEY, title VARCHAR(200) NOT NULL,
         status VARCHAR(24) NOT NULL, stage VARCHAR(100) NOT NULL,
@@ -227,7 +234,7 @@ def schema_check(properties, migrate=False):
         raise ValueError('数据库名称无效')
     with mysql_session(properties) as query:
         rows = query("SELECT CONCAT(TABLE_NAME,'.',COLUMN_NAME) FROM information_schema.COLUMNS "
-                     f"WHERE TABLE_SCHEMA='{database}' AND TABLE_NAME IN ('app','chat_history','app_thesis','app_thesis_chapter')")
+                     f"WHERE TABLE_SCHEMA='{database}' AND TABLE_NAME IN ('app','chat_history','app_thesis','app_thesis_chapter','app_graduation_document')")
         existing = set(rows.splitlines())
         missing = [(table, column) for table, column in COLUMNS if f'{table}.{column}' not in existing]
         existing_tables = {item.split('.', 1)[0] for item in existing}

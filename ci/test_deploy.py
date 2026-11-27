@@ -172,12 +172,13 @@ class DeploymentTest(unittest.TestCase):
             self.assertEqual(query.call_count, 1)
             self.assertEqual(deploy.schema_check({'mysql.database': 'ai_code'}, True), [])
         creations = [call.args[0] for call in query.call_args_list if call.args[0].startswith('CREATE')]
-        self.assertEqual(len(creations), 2)
+        self.assertEqual(len(creations), len(deploy.TABLES))
         self.assertTrue(all('IF NOT EXISTS' in sql for sql in creations))
         statements = [call.args[0] for call in query.call_args_list]
         add_snapshot = next(sql for sql in statements if sql.startswith('ALTER TABLE'))
         self.assertIn('ADD COLUMN `referenceSnapshot`', add_snapshot)
-        self.assertLess(statements.index(creations[0]), statements.index(add_snapshot))
+        thesis_table = next(sql for sql in creations if 'app_thesis (' in sql)
+        self.assertLess(statements.index(thesis_table), statements.index(add_snapshot))
 
 
 if __name__ == '__main__':

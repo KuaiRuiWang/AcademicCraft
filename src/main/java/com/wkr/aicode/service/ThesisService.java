@@ -393,7 +393,7 @@ public class ThesisService {
         return chapterMapper.selectListByQuery(QueryWrapper.create().eq("appId", appId).orderBy("chapterNo", true));
     }
 
-    private String defaultTitle(App app) {
+    static String defaultTitle(App app) {
         if (StrUtil.isNotBlank(app.getThesisTitle())) return app.getThesisTitle().strip();
         String name = Objects.toString(app.getAppName(), "Web 应用").replaceFirst("^(帮我|请)?(创建|设计|构建|制作|做)(一个|一套)?", "");
         return name + "的设计与实现";

@@ -33,7 +33,9 @@ public enum ModelStep {
     LOGO_IMAGE("工作流辅助", "Logo 图片生成", "dashscope.image-model", ModelProtocol.DASHSCOPE_IMAGE),
     THESIS_CHAPTER("论文", "章节正文", Defaults.STREAMING),
     THESIS_DIAGRAM("论文", "配图绘制", Defaults.STREAMING),
-    THESIS_REWRITE("论文", "AI 局部修改", Defaults.STREAMING);
+    THESIS_REWRITE("论文", "AI 局部修改", Defaults.STREAMING),
+    ASSIGNMENT_WRITE("毕设材料", "任务书撰写", Defaults.STREAMING),
+    PROPOSAL_WRITE("毕设材料", "开题报告撰写", Defaults.STREAMING);
 
     private final String group;
     private final String label;

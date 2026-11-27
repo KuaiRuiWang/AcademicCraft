@@ -231,3 +231,19 @@ CREATE TABLE IF NOT EXISTS platform_model_binding (
     updateTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_platform_binding_model FOREIGN KEY (modelConfigId) REFERENCES platform_model (id)
 ) COMMENT 'AI 步骤与模型绑定' COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS app_graduation_document (
+    appId BIGINT NOT NULL,
+    kind VARCHAR(16) NOT NULL,
+    templateId VARCHAR(36),
+    templateName VARCHAR(255),
+    templateFields TEXT,
+    templateFile MEDIUMBLOB,
+    status VARCHAR(16) NOT NULL DEFAULT 'waiting',
+    revision VARCHAR(36),
+    errorMessage VARCHAR(255),
+    resultTemplateName VARCHAR(255),
+    sections MEDIUMTEXT,
+    documentFile MEDIUMBLOB,
+    PRIMARY KEY (appId, kind)
+) COLLATE = utf8mb4_unicode_ci;

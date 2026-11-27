@@ -229,6 +229,7 @@
                 <targetPath>thesis</targetPath>
                 <includes>
                     <include>export_thesis.py</include>
+                    <include>graduation_form.py</include>
                     <include>diagram_design.py</include>
                     <include>render_svg.mjs</include>
                     <include>vendor/lunwen/*.py</include>
